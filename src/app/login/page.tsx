@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";;
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { accountApi } from "@/lib/api";
+import { useAuth } from "@/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +13,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 
 const Login = () => {
   const navigate = useRouter();
-  const location = usePathname() as { state?: { from?: string } };
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -23,30 +22,15 @@ const Login = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (error) {
-        toast.error("Sign-in failed", { description: error.message });
-        return;
-      }
-      // Route staff to the admin area, clients to their portfolio.
-      let destination = location.state?.from ?? "/app";
-      if (!location.state?.from) {
-        try {
-          const profile = await accountApi.profile();
-          if (["trader", "compliance", "admin"].includes(profile.role)) {
-            destination = "/admin";
-          }
-        } catch {
-          // keep /app default
-        }
-      }
+      const profile = await signIn(email.trim(), password);
       toast.success("Welcome back");
+      const destination = ["trader", "compliance", "admin"].includes(profile?.role ?? "")
+        ? "/admin"
+        : "/app";
       navigate.replace(destination);
-    } catch {
-      toast.error("Unexpected error during sign-in");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unexpected error during sign-in";
+      toast.error("Sign-in failed", { description: message });
     } finally {
       setSubmitting(false);
     }

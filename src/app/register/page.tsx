@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";;
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, ShieldCheck } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { authApi } from "@/lib/api";
+import { useAuth } from "@/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 
 const Register = () => {
   const navigate = useRouter();
+  const { signIn } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,23 +25,19 @@ const Register = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-      const { data, error } = await supabase.auth.signUp({
+      await authApi.register({
         email: email.trim(),
         password,
-        options: {
-          data: { full_name: fullName },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        accountType: "INDIVIDUAL",
       });
-      if (error) {
-        toast.error("Sign-up failed", { description: error.message });
-        return;
-      }
+      await signIn(email.trim(), password);
       toast.success("Account created — let's complete your onboarding");
       navigate.replace("/register/onboarding");
-    } catch {
-      toast.error("Unexpected error during sign-up");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unexpected error during sign-up";
+      toast.error("Sign-up failed", { description: message });
     } finally {
       setSubmitting(false);
     }

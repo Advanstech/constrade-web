@@ -8,16 +8,17 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { accountApi } from "@/lib/api";
+import { accountApi, authApi } from "@/lib/api";
 import type { Profile, Role } from "@/lib/api.types";
-import type { Session, User } from "@supabase/supabase-js";
+
+type AuthUser = { id: string; email?: string };
 
 interface AuthContextValue {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
+  session: string | null;
   profile: Profile | null;
   loading: boolean;
+  signIn: (email: string, password: string) => Promise<Profile | null>;
   refreshProfile: () => Promise<void>;
   updateProfile: (patch: Partial<Profile>) => Promise<Profile>;
   signOut: () => Promise<void>;
@@ -25,10 +26,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-/**
- * Profile is read through a backend function (not the Postgres REST API)
- * so the client never talks to the database directly.
- */
 async function fetchProfile(userId: string): Promise<Profile | null> {
   try {
     const profile = await accountApi.profile();
@@ -39,49 +36,27 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const signIn = useCallback(async (email: string, password: string) => {
+    const res = await authApi.login(email, password);
+    setSession(res.accessToken);
+    setUser({ id: res.userId, email: res.email });
+    const p = await fetchProfile(res.userId);
+    setProfile(p);
+    return p;
+  }, []);
+
   const refreshProfile = useCallback(async () => {
-    const { data: s } = await supabase.auth.getSession();
-    const uid = s.session?.user.id;
-    if (!uid) {
+    if (!user?.id) {
       setProfile(null);
       return;
     }
-    setProfile(await fetchProfile(uid));
-  }, []);
-
-  useEffect(() => {
-    // Register the listener BEFORE checking the existing session so we never
-    // race the initial restore.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
-      if (nextSession?.user) {
-        // Defer the supabase call out of the callback.
-        setTimeout(() => {
-          void fetchProfile(nextSession.user.id).then(setProfile);
-        }, 0);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    void supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      if (data.session?.user) {
-        void fetchProfile(data.session.user.id).then(setProfile);
-      }
-      setLoading(false);
-    });
-
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    setProfile(await fetchProfile(user.id));
+  }, [user]);
 
   const updateProfile = useCallback(
     async (patch: Partial<Profile>): Promise<Profile> => {
@@ -96,10 +71,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    await authApi.logout();
     setUser(null);
     setSession(null);
     setProfile(null);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const restore = async () => {
+      const res = await authApi.refresh().catch(() => null);
+      if (!mounted) return;
+      if (res) {
+        setSession(res.accessToken);
+        setUser({ id: res.userId, email: res.email });
+        setProfile(await fetchProfile(res.userId));
+      } else {
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+      }
+      setLoading(false);
+    };
+    void restore();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const value: AuthContextValue = {
@@ -107,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     profile,
     loading,
+    signIn,
     refreshProfile,
     updateProfile,
     signOut,
