@@ -1,0 +1,50 @@
+-- Demo bootstrap: promote admin, finalize client KYC/CSD, seed balances, orders and transactions
+
+update cc.profiles set
+  role = 'admin',
+  kyc_status = 'approved',
+  csd_account = 'CSD-1000000001',
+  onboarded = true,
+  updated_at = now()
+where user_id = '566951d7-8f46-4fcd-ae4d-9ff115b435cb';
+
+update cc.profiles set
+  kyc_status = 'approved',
+  csd_account = 'CSD-1000000002',
+  onboarded = true,
+  updated_at = now()
+where user_id = '5c770619-21c6-4dd3-9abd-ed307c764270';
+
+update cc.profiles set
+  kyc_status = 'approved',
+  csd_account = 'CSD-1000000003',
+  onboarded = true,
+  updated_at = now()
+where user_id = 'd3cf9959-7b2b-4637-9f8b-304f278ef3db';
+
+-- cash balances after demo trades
+update cc.balances set cash = 204400.00, updated_at = now() where user_id = '5c770619-21c6-4dd3-9abd-ed307c764270';
+update cc.balances set cash = 213520.00, updated_at = now() where user_id = 'd3cf9959-7b2b-4637-9f8b-304f278ef3db';
+
+-- filled orders (kwame)
+insert into cc.orders (user_id, instrument, name, asset_class, side, order_type, quantity, price, status, filled_price, created_at, updated_at) values
+('5c770619-21c6-4dd3-9abd-ed307c764270','MTNGH','MTN Ghana','equity','buy','market',5000,2.38,'filled',2.38, now() - interval '30 days', now()),
+('5c770619-21c6-4dd3-9abd-ed307c764270','EGH','Ecobank Ghana','equity','buy','limit',2000,6.85,'filled',6.85, now() - interval '21 days', now()),
+('5c770619-21c6-4dd3-9abd-ed307c764270','TB91','91-Day Treasury Bill','fixed_income','buy','market',20000,100,'filled',100, now() - interval '12 days', now());
+
+-- pending order (kwame) for the approval queue
+insert into cc.orders (user_id, instrument, name, asset_class, side, order_type, quantity, price, status, created_at, updated_at) values
+('5c770619-21c6-4dd3-9abd-ed307c764270','SCB','Standard Chartered Bank GH','equity','buy','limit',100,27,'pending_approval', now() - interval '2 hours', now());
+
+-- filled orders (ama)
+insert into cc.orders (user_id, instrument, name, asset_class, side, order_type, quantity, price, status, filled_price, created_at, updated_at) values
+('d3cf9959-7b2b-4637-9f8b-304f278ef3db','GGBL','Guinness Ghana Breweries','equity','buy','market',1500,4.32,'filled',4.32, now() - interval '18 days', now()),
+('d3cf9959-7b2b-4637-9f8b-304f278ef3db','TB364','364-Day Treasury Bill','fixed_income','buy','market',30000,100,'filled',100, now() - interval '9 days', now());
+
+-- transactions
+insert into cc.transactions (user_id, type, amount, reference, detail, created_at) values
+('5c770619-21c6-4dd3-9abd-ed307c764270','trade_buy',-11900,'ORD-MTNGH','MTN Ghana x5000', now() - interval '30 days'),
+('5c770619-21c6-4dd3-9abd-ed307c764270','trade_buy',-13700,'ORD-EGH','Ecobank Ghana x2000', now() - interval '21 days'),
+('5c770619-21c6-4dd3-9abd-ed307c764270','trade_buy',-20000,'ORD-TB91','91-Day Treasury Bill x20000', now() - interval '12 days'),
+('d3cf9959-7b2b-4637-9f8b-304f278ef3db','trade_buy',-6480,'ORD-GGBL','Guinness Ghana Breweries x1500', now() - interval '18 days'),
+('d3cf9959-7b2b-4637-9f8b-304f278ef3db','trade_buy',-30000,'ORD-TB364','364-Day Treasury Bill x30000', now() - interval '9 days');

@@ -1,0 +1,1 @@
+delete from auth.users where email in ('kyc-test@constantcap.gh', 'blocked-user@constantcap.gh');

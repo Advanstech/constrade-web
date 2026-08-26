@@ -1,0 +1,13 @@
+"use client";
+
+import { RequireAuth } from "@/auth/RequireAuth";
+import { AppShell } from "@/components/layout/AppShell";
+import type { ReactNode } from "react";
+
+export default function ClientPortalLayout({ children }: { children: ReactNode }) {
+  return (
+    <RequireAuth>
+      <AppShell>{children}</AppShell>
+    </RequireAuth>
+  );
+}

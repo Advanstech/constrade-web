@@ -1,0 +1,276 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Constant Capital brand palette */
+    --brand-navy: 222 59% 11%;
+    --brand-navy-soft: 224 45% 19%;
+    --brand-bronze: 22 75% 51%;
+    --brand-bronze-dark: 24 68% 39%;
+    --brand-bronze-soft: 26 90% 94%;
+
+    --background: 210 24% 98%;
+    --foreground: 222 59% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 59% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 59% 11%;
+
+    --primary: 222 59% 11%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 25% 95%;
+    --secondary-foreground: 222 45% 16%;
+
+    --muted: 210 22% 94%;
+    --muted-foreground: 215 18% 42%;
+
+    --accent: 22 75% 51%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 72% 36%;
+    --success-foreground: 0 0% 100%;
+    --danger: 0 72% 51%;
+    --danger-foreground: 0 0% 100%;
+
+    --border: 216 24% 88%;
+    --input: 216 24% 86%;
+    --ring: 22 75% 51%;
+
+    --radius: 0.75rem;
+
+    --chart-1: 222 59% 11%;
+    --chart-2: 22 75% 51%;
+    --chart-3: 142 72% 36%;
+    --chart-4: 262 60% 52%;
+    --chart-5: 44 90% 55%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 45% 20%;
+    --sidebar-primary: 22 75% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 26 90% 94%;
+    --sidebar-accent-foreground: 222 59% 11%;
+    --sidebar-border: 216 24% 90%;
+    --sidebar-ring: 22 75% 51%;
+
+    --gradient-brand: linear-gradient(135deg, hsl(22 75% 51%), hsl(24 68% 39%));
+    --gradient-navy: linear-gradient(135deg, hsl(222 59% 11%), hsl(224 45% 19%));
+    --gradient-subtle: linear-gradient(180deg, hsl(210 24% 98%), hsl(26 90% 96%));
+    --shadow-glow: 0 10px 40px -10px hsl(22 75% 51% / 0.45);
+    --shadow-card: 0 2px 12px -2px hsl(222 59% 11% / 0.08);
+  }
+
+  .dark {
+    --brand-navy: 222 55% 8%;
+    --brand-navy-soft: 224 42% 13%;
+    --brand-bronze: 22 82% 55%;
+    --brand-bronze-dark: 24 75% 46%;
+    --brand-bronze-soft: 24 40% 18%;
+
+    --background: 222 55% 7%;
+    --foreground: 210 25% 96%;
+
+    --card: 222 48% 10%;
+    --card-foreground: 210 25% 96%;
+
+    --popover: 222 48% 9%;
+    --popover-foreground: 210 25% 96%;
+
+    --primary: 22 82% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 42% 15%;
+    --secondary-foreground: 210 25% 92%;
+
+    --muted: 222 38% 14%;
+    --muted-foreground: 216 15% 64%;
+
+    --accent: 22 82% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 68% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 68% 44%;
+    --success-foreground: 0 0% 100%;
+    --danger: 0 72% 55%;
+    --danger-foreground: 0 0% 100%;
+
+    --border: 222 38% 18%;
+    --input: 222 38% 20%;
+    --ring: 22 82% 55%;
+
+    --chart-1: 22 82% 55%;
+    --chart-2: 222 70% 62%;
+    --chart-3: 142 68% 44%;
+    --chart-4: 262 70% 62%;
+    --chart-5: 44 90% 58%;
+
+    --sidebar-background: 222 55% 6%;
+    --sidebar-foreground: 210 25% 88%;
+    --sidebar-primary: 22 82% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 42% 13%;
+    --sidebar-accent-foreground: 210 25% 96%;
+    --sidebar-border: 222 38% 15%;
+    --sidebar-ring: 22 82% 55%;
+
+    --gradient-brand: linear-gradient(135deg, hsl(22 82% 55%), hsl(24 75% 46%));
+    --gradient-navy: linear-gradient(135deg, hsl(222 55% 8%), hsl(224 42% 13%));
+    --gradient-subtle: linear-gradient(180deg, hsl(222 55% 7%), hsl(222 48% 10%));
+    --shadow-glow: 0 10px 40px -10px hsl(22 82% 55% / 0.35);
+    --shadow-card: 0 2px 14px -2px hsl(0 0% 0% / 0.45);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Montserrat", "Inter", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer components {
+  .text-gradient-brand {
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-gradient-navy {
+    background: var(--gradient-navy);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .bg-gradient-brand {
+    background-image: var(--gradient-brand);
+  }
+
+  .bg-gradient-navy {
+    background-image: var(--gradient-navy);
+  }
+
+  .bg-gradient-subtle {
+    background-image: var(--gradient-subtle);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .glass {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 hsl(22 75% 51% / 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px hsl(22 75% 51% / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(22 75% 51% / 0);
+  }
+}
+
+@layer utilities {
+  .animate-ticker {
+    animation: ticker 45s linear infinite;
+  }
+  .animate-ticker:hover {
+    animation-play-state: paused;
+  }
+  .animate-fade-up {
+    animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-pulse-ring {
+    animation: pulse-ring 2.2s ease-out infinite;
+  }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}

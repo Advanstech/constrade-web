@@ -1,0 +1,126 @@
+-- ============================================================
+-- Constant Capital dedicated schema: fully isolated from demo tables
+-- ============================================================
+create schema if not exists cc;
+
+-- Profiles: role-based access + CSD/KYC fields
+create table if not exists cc.profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null default '',
+  email text not null,
+  phone text default '',
+  role text not null default 'client' check (role in ('client','trader','compliance','admin')),
+  kyc_status text not null default 'pending' check (kyc_status in ('pending','submitted','approved','rejected')),
+  csd_account text default '',
+  onboarded boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Demo cash balances (backend team replaces with real API later)
+create table if not exists cc.balances (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  cash numeric(18,2) not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+-- Orders: client + admin workflow
+create table if not exists cc.orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  instrument text not null,
+  name text not null default '',
+  asset_class text not null default 'equity' check (asset_class in ('equity','fixed_income')),
+  side text not null check (side in ('buy','sell')),
+  order_type text not null check (order_type in ('market','limit')),
+  quantity numeric(18,4) not null,
+  price numeric(18,2) not null,
+  status text not null default 'pending_approval' check (status in ('pending_approval','approved','rejected','filled','cancelled')),
+  filled_price numeric(18,2),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_cc_orders_user on cc.orders(user_id);
+create index if not exists idx_cc_orders_status on cc.orders(status);
+
+-- Transactions / funding history
+create table if not exists cc.transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  type text not null check (type in ('deposit','withdraw','trade_buy','trade_sell','dividend','fee')),
+  amount numeric(18,2) not null,
+  reference text default '',
+  detail text default '',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_cc_tx_user on cc.transactions(user_id);
+
+-- Auto-create profile + demo balance on signup
+create or replace function cc.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = cc
+as $$
+begin
+  insert into cc.profiles (user_id, full_name, email)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''), coalesce(new.email, ''));
+  insert into cc.balances (user_id, cash) values (new.id, 250000.00)
+    on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_cc on auth.users;
+create trigger on_auth_user_created_cc
+  after insert on auth.users
+  for each row execute procedure cc.handle_new_user();
+
+-- ============ RLS ============
+alter table cc.profiles enable row level security;
+alter table cc.balances enable row level security;
+alter table cc.orders enable row level security;
+alter table cc.transactions enable row level security;
+
+-- profiles
+create policy "Users read own profile" on cc.profiles
+  for select using (auth.uid() = user_id);
+create policy "Users update own profile" on cc.profiles
+  for update using (auth.uid() = user_id);
+create policy "Staff read all profiles" on cc.profiles
+  for select using (
+    exists (select 1 from cc.profiles p where p.user_id = auth.uid() and p.role in ('admin','compliance','trader'))
+  );
+create policy "Staff update all profiles" on cc.profiles
+  for update using (
+    exists (select 1 from cc.profiles p where p.user_id = auth.uid() and p.role in ('admin','compliance'))
+  );
+
+-- balances
+create policy "Users read own balance" on cc.balances
+  for select using (auth.uid() = user_id);
+create policy "Staff read all balances" on cc.balances
+  for select using (
+    exists (select 1 from cc.profiles p where p.user_id = auth.uid() and p.role in ('admin','compliance','trader'))
+  );
+
+-- orders (writes happen via backend functions only)
+create policy "Users read own orders" on cc.orders
+  for select using (auth.uid() = user_id);
+create policy "Staff read all orders" on cc.orders
+  for select using (
+    exists (select 1 from cc.profiles p where p.user_id = auth.uid() and p.role in ('admin','compliance','trader'))
+  );
+create policy "Staff update orders" on cc.orders
+  for update using (
+    exists (select 1 from cc.profiles p where p.user_id = auth.uid() and p.role in ('admin','compliance'))
+  );
+
+-- transactions
+create policy "Users read own transactions" on cc.transactions
+  for select using (auth.uid() = user_id);
+create policy "Staff read all transactions" on cc.transactions
+  for select using (
+    exists (select 1 from cc.profiles p where p.user_id = auth.uid() and p.role in ('admin','compliance','trader'))
+  );

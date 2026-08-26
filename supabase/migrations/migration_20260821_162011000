@@ -1,0 +1,3 @@
+alter role authenticator set pgrst.db_schemas = 'public, storage, graphql_public, cc';
+alter role authenticator set pgrst.db_extra_search_path = 'public, cc';
+notify pgrst, 'reload config';

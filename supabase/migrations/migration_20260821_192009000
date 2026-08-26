@@ -1,0 +1,1 @@
+update cc.profiles set role = 'trader', kyc_status = 'approved', csd_account = 'CSD-1000000009', onboarded = true, updated_at = now() where user_id = 'c27be731-7689-4374-b32e-7c247fe95c03';

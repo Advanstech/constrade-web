@@ -1,0 +1,70 @@
+import i18n from "i18next";
+import HttpBackend from "i18next-http-backend";
+import LanguageDetector from "i18next-browser-languagedetector";
+import { initReactI18next } from "react-i18next";
+
+import {
+  fallbackLng,
+  getLanguageDirection,
+  normalizeLanguage,
+  supportedLngs,
+} from "./util";
+
+export * from "./util";
+
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  ? (process.env.NEXT_PUBLIC_BASE_URL.endsWith("/")
+      ? process.env.NEXT_PUBLIC_BASE_URL
+      : `${process.env.NEXT_PUBLIC_BASE_URL}/`)
+  : "/";
+
+const bundledResources = {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  en: { translation: require("../../public/locales/en.json") },
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  "zh-CN": { translation: require("../../public/locales/zh-CN.json") }
+};
+
+void i18n
+  .use(HttpBackend)
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    fallbackLng,
+    supportedLngs,
+    resources: bundledResources,
+    // Treat the bundled resources as partial so bundled languages resolve
+    // synchronously (no backend refetch, no re-render) while a language with no
+    // bundled file still falls back to HttpBackend instead of silently showing keys.
+    partialBundledLanguages: true,
+    backend: { loadPath: `${baseUrl}locales/{{lng}}.json` },
+    detection: {
+      order: ["cookie", "navigator", "htmlTag"],
+      lookupCookie: "i18next",
+      caches: ["cookie"],
+      // Normalize an unsupported language to fallbackLng so no invalid language
+      // string ever gets persisted in the cookie — the detector caches
+      // i18n.language, not resolvedLanguage.
+      convertDetectedLanguage: (l) => normalizeLanguage(l) ?? fallbackLng,
+    },
+    // This template uses flat dotted keys in a single namespace. Both separators
+    // are off so the whole string stays a literal key instead of being split
+    // into ns/key/subkey.
+    keySeparator: false,
+    nsSeparator: false,
+    interpolation: { escapeValue: false },
+    react: { useSuspense: false },
+  });
+
+const syncDocumentLanguage = (lng: string) => {
+  const code = normalizeLanguage(lng) ?? fallbackLng;
+  document.documentElement.lang = code;
+  document.documentElement.dir = getLanguageDirection(code);
+};
+
+i18n.on("initialized", () =>
+  syncDocumentLanguage(i18n.resolvedLanguage ?? i18n.language),
+);
+i18n.on("languageChanged", syncDocumentLanguage);
+
+export default i18n;

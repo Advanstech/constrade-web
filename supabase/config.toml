@@ -1,0 +1,5 @@
+project_id = "spb-t4n17pcgk0r63x34"
+
+# Public market data — no session required so the marketing site can show live feeds.
+[functions.markets]
+verify_jwt = false
