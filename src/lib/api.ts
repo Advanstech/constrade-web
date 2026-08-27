@@ -232,7 +232,15 @@ function toKycProgress(raw: any): KycProgress {
     completedSteps: Math.min(step * 2, 8),
     totalSteps: 8,
     status: raw.kycStatus === "APPROVED" ? "approved" : "in_progress",
-    data: {},
+    data: {
+      individualProfile: raw.individualProfile ?? null,
+      corporateProfile: raw.corporateProfile ?? null,
+      employmentDetails: raw.employmentDetails ?? null,
+      taxDetails: raw.taxDetails ?? null,
+      financialInfo: raw.financialInfo ?? null,
+      bankDetails: raw.bankDetails ?? null,
+      csdAccount: raw.csdAccount ?? null,
+    },
   };
 }
 
@@ -289,6 +297,15 @@ async function saveOnboardingStep(step: number, data: Record<string, unknown>): 
         netWorth: d.initialInvestment ?? "",
         investmentObjectives: d.investmentObjectives ?? "",
       });
+      // Also persist bank details if provided
+      if (d.bankName || d.accountNumber) {
+        await request("PATCH", "/onboarding/bank", {
+          bankName: d.bankName ?? "",
+          branch: d.branch ?? "",
+          accountName: d.accountName ?? "",
+          accountNumber: d.accountNumber ?? "",
+        }).catch(() => {});
+      }
       break;
     }
     case 7: {
@@ -542,12 +559,17 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
       return { progress: toKycProgress(s) };
     }
     case "submit": {
+      // Call the finalize endpoint which handles emails, status transitions, and CSD
+      const finalizeResult = await request<any>("POST", "/onboarding/finalize", {
+        accuracyDeclaration: true,
+        termsAccepted: true,
+        sourceOfFundsDeclaration: true,
+      }).catch(() => null);
+
       const status = await request<any>("GET", "/onboarding/status");
-      const csdNumber = "CSD-" + Math.floor(1_000_000_000 + Math.random() * 9_000_000_000);
-      const csd = await request<any>("PATCH", "/onboarding/csd", { csdNumber }).catch(() => null);
-      const csdAccount = csd?.csdNumber ?? csdNumber;
+      const csdAccount = status.csdAccount?.csdNumber ?? "Pending";
       const result: OnboardingResult = {
-        message: "Application submitted",
+        message: finalizeResult?.message ?? "Application submitted",
         application: {
           id: status.id ?? "",
           status: mapKycStatus(status.kycStatus ?? "PENDING"),
