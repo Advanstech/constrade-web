@@ -19,6 +19,8 @@ import {
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
 
   const load = useCallback(() => {
     void tradingApi.myOrders().then(setOrders);
@@ -27,6 +29,9 @@ const OrdersPage = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  const totalPages = Math.ceil((orders?.length ?? 0) / itemsPerPage);
+  const visible = orders?.slice((page - 1) * itemsPerPage, page * itemsPerPage) ?? [];
 
   const cancel = async (id: string) => {
     try {
@@ -79,12 +84,15 @@ const OrdersPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
+                {visible.map((o) => (
                   <tr key={o.id} className="border-b border-border/60 hover:bg-muted/40">
                     <td className="px-6 py-3.5 font-mono text-xs text-muted-foreground">
                       #{shortId(o.id)}
                     </td>
-                    <td className="px-4 py-3.5 font-semibold">{o.instrument}</td>
+                    <td className="px-4 py-3.5">
+                      <p className="font-semibold">{o.name}</p>
+                      <p className="text-xs text-muted-foreground">{o.instrument}</p>
+                    </td>
                     <td className="px-4 py-3.5 text-right">
                       <span
                         className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
@@ -117,6 +125,31 @@ const OrdersPage = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border p-4 text-sm">
+            <span className="text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </Card>

@@ -129,9 +129,26 @@ export async function request<T = unknown>(
   }
 
   const errJson = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
-  const errMsg = errJson?.error ?? errJson?.message;
-  const message = (errMsg ? String(errMsg) : res.statusText) || `Request failed (${res.status})`;
-  throw new ApiError(String(message));
+  let message: string | undefined;
+
+  if (errJson) {
+    if (typeof errJson.error === "string") {
+      message = errJson.error;
+    } else if (typeof errJson.error === "object" && errJson.error !== null) {
+      const inner = errJson.error as Record<string, unknown>;
+      message = typeof inner.message === "string" ? inner.message : (typeof inner.error === "string" ? inner.error : undefined);
+    }
+    if (!message) {
+      if (typeof errJson.message === "string") {
+        message = errJson.message;
+      } else if (Array.isArray(errJson.message)) {
+        message = errJson.message.join(", ");
+      }
+    }
+  }
+
+  const finalMessage = message || res.statusText || `Request failed (${res.status})`;
+  throw new ApiError(finalMessage);
 }
 
 export async function refreshTokens(): Promise<{

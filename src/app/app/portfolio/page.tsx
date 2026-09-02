@@ -15,6 +15,8 @@ import { changeBgClass, formatGHS } from "@/lib/format";
 
 const PortfolioPage = () => {
   const [data, setData] = useState<Portfolio | null>(null);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     void accountApi.portfolio().then(setData);
@@ -140,11 +142,10 @@ const PortfolioPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.holdings.map((h) => (
+                    {(data.holdings.slice((page - 1) * itemsPerPage, page * itemsPerPage)).map((h) => (
                       <tr key={h.instrument} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="px-6 py-3.5">
                           <p className="font-semibold">{h.instrument}</p>
-                          <p className="text-xs text-muted-foreground">{h.name}</p>
                         </td>
                         <td className="px-4 py-3.5 text-right">{h.quantity}</td>
                         <td className="px-4 py-3.5 text-right">{formatGHS(h.avgPrice)}</td>
@@ -157,6 +158,31 @@ const PortfolioPage = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {data.holdings.length > itemsPerPage && (
+              <div className="flex items-center justify-between border-t border-border p-4 text-sm">
+                <span className="text-muted-foreground">
+                  Page {page} of {Math.ceil(data.holdings.length / itemsPerPage)}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === Math.ceil(data.holdings.length / itemsPerPage)}
+                    onClick={() => setPage((p) => Math.min(Math.ceil(data.holdings.length / itemsPerPage), p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

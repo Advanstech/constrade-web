@@ -25,8 +25,8 @@ const Login = () => {
       const profile = await signIn(email.trim(), password);
       toast.success("Welcome back");
       const destination = ["trader", "compliance", "admin"].includes(profile?.role ?? "")
-        ? "/admin"
-        : "/app";
+        ? "/admin/dashboard"
+        : "/app/dashboard";
       navigate.replace(destination);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unexpected error during sign-in";

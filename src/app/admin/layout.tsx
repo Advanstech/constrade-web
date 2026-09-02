@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 export default function AdminPortalLayout({ children }: { children: ReactNode }) {
   return (
     <RequireAuth>
-      <RequireRole staff redirectTo="/app">
+      <RequireRole staff redirectTo="/app/dashboard">
         <AppShell>{children}</AppShell>
       </RequireRole>
     </RequireAuth>

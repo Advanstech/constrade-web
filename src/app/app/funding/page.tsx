@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { accountApi } from "@/lib/api";
 import type { Portfolio, Transaction } from "@/lib/api.types";
 import { formatDateTime, formatGHS } from "@/lib/format";

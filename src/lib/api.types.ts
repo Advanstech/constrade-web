@@ -11,6 +11,7 @@ export type OrderType = "market" | "limit";
 export type OrderStatus =
   | "pending_approval"
   | "approved"
+  | "processing"       // payment confirmed, dispatched to trading desk
   | "rejected"
   | "filled"
   | "cancelled";
@@ -193,4 +194,12 @@ export interface AdminDashboardData {
 
 export interface AdminOrder extends Order {
   client: string;
+  // Result fields — populated after execution
+  filledPrice?: number | null;
+  filledQty?: number | null;
+  filledFaceValue?: number | null;
+  settlementDate?: string | null;
+  executionNote?: string | null;
+  traderNotes?: string | null;
+  paymentConfirmedAt?: string | null;
 }

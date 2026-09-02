@@ -150,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
-      <PriceTicker dark />
+      <PriceTicker />
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop sidebar */}
         <aside
@@ -161,7 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <div className="flex h-16 shrink-0 items-center justify-center border-b border-sidebar-border">
             <Link href="/" aria-label="Constant Capital" className={cn(collapsed && "px-2")}>
-              {collapsed ? <CCMark /> : <Logo compact tone="white" className="scale-90" />}
+              {collapsed ? <CCMark /> : <Logo compact className="scale-90" />}
             </Link>
           </div>
 
@@ -351,8 +351,12 @@ function SidebarLink({
   compact: boolean;
 }) {
   const pathname = usePathname();
-  const isExact = href === "/app" || href === "/admin";
-  const isActive = isExact ? pathname === href : pathname?.startsWith(href);
+  const isExact = href === "/app" || href === "/admin" || href === "/app/dashboard" || href === "/admin/dashboard";
+  const isActive = isExact
+    ? href.startsWith("/admin")
+      ? pathname === "/admin" || pathname === "/admin/dashboard"
+      : pathname === "/app" || pathname === "/app/dashboard"
+    : pathname?.startsWith(href);
   
   const link = (
     <Link

@@ -1,9 +1,33 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, FileSearch, Lock, Mail } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileSearch, Loader2, Lock, Mail } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { subscriptionsApi } from "@/lib/api";
 
 export function Research() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setLoading(true);
+    try {
+      await subscriptionsApi.subscribeResearch(email);
+      setSubscribed(true);
+      toast.success("Successfully subscribed to Constant Capital Research!");
+    } catch {
+      toast.error("Could not subscribe. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section id="research" className="bg-gradient-navy py-20 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -46,26 +70,34 @@ export function Research() {
               Get premium research reports delivered directly to your inbox — market insights,
               company notes and investment recommendations.
             </p>
-            <form
-              className="mt-6 flex flex-col gap-2 sm:flex-row"
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <div className="relative flex-1">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
-                <Input
-                  type="email"
-                  required
-                  placeholder="Enter your email"
-                  className="border-white/20 bg-white/10 pl-9 text-white placeholder:text-white/50 focus-visible:ring-brand-bronze"
-                />
+
+            {subscribed ? (
+              <div className="mt-6 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <p className="text-sm font-semibold">You're subscribed! Check your inbox for market updates.</p>
               </div>
-              <Button type="submit" variant="premium">
-                Subscribe Now
-              </Button>
-            </form>
+            ) : (
+              <form className="mt-6 flex flex-col gap-2 sm:flex-row" onSubmit={handleSubmit}>
+                <div className="relative flex-1">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+                  <Input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="border-white/20 bg-white/10 pl-9 text-white placeholder:text-white/50 focus-visible:ring-brand-bronze"
+                  />
+                </div>
+                <Button type="submit" variant="premium" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Subscribe Now"}
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </div>
     </section>
   );
 }
+

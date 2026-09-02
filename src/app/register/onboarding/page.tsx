@@ -88,7 +88,7 @@ function validateStep(step: number, form: KycFormData): boolean {
 const Onboarding = () => {
   useAreaTheme("light");
   const { profile, signOut, refreshProfile } = useAuth();
-  const navigate = useRouter();
+
 
   const [loading, setLoading] = useState(true);
   const [approved, setApproved] = useState(false);

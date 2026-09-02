@@ -154,8 +154,14 @@ const AppMarkets = () => {
                     )}
                   >
                     <div>
-                      <p className="text-sm font-semibold text-card-foreground">{q.ticker}</p>
-                      <p className="text-xs text-muted-foreground">{q.name}</p>
+                      <p className="text-sm font-semibold text-card-foreground">
+                        {q.assetClass === "fixed_income" ? q.name : q.ticker}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {q.assetClass === "fixed_income"
+                          ? q.ticker?.startsWith("GH") ? `ISIN: ${q.ticker}` : q.ticker
+                          : q.name}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-card-foreground">
@@ -187,12 +193,18 @@ const AppMarkets = () => {
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-display text-lg font-bold">{selected.ticker}</h2>
+                    <h2 className="font-display text-lg font-bold">
+                      {selected.assetClass === "fixed_income" ? selected.name : selected.ticker}
+                    </h2>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {selected.assetClass === "equity" ? "Equity" : "Fixed income"}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{selected.name}</p>
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {selected.assetClass === "fixed_income"
+                      ? selected.ticker?.startsWith("GH") ? `ISIN: ${selected.ticker}` : selected.ticker
+                      : selected.name}
+                  </p>
                 </div>
               </div>
               <div className="text-right">
@@ -230,7 +242,7 @@ const AppMarkets = () => {
                     <KeyStat label="Maturity" value={selected.maturity ?? "—"} />
                     <KeyStat
                       label="Min. investment"
-                      value={formatGHS(selected.minInvestment ?? 0, { cents: false })}
+                      value={formatGHS(selected.minInvestment ?? 1, { cents: false })}
                     />
                   </>
                 )}
@@ -239,7 +251,7 @@ const AppMarkets = () => {
               <Button asChild size="lg" variant="premium" className="mt-6 w-full">
                 <Link href={`/app/trade?ticker=${selected.ticker}`}>
                   <ArrowLeftRight className="h-4 w-4" />
-                  Trade {selected.ticker}
+                  Trade {selected.assetClass === "fixed_income" ? selected.name : selected.ticker}
                 </Link>
               </Button>
             </div>

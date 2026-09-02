@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { accountApi, marketsApi, tradingApi } from "@/lib/api";
 import { useAuth } from "@/auth/AuthProvider";
 import type { Order, Portfolio } from "@/lib/api.types";
-import { changeBgClass, formatDate, formatGHS, shortId, statusClass, statusLabel } from "@/lib/format";
+import { changeBgClass, formatDate, formatGHS, statusClass, statusLabel } from "@/lib/format";
 
 const ClientDashboard = () => {
   const { profile } = useAuth();
@@ -92,7 +92,7 @@ const ClientDashboard = () => {
         </div>
       )}
       <PageHeader
-        title="Good day, Investor"
+        title={`Good day, ${profile?.full_name?.split(" ")[0] || "Investor"}`}
         subtitle="Here's how your portfolio is performing today."
         actions={
           <>

@@ -3,7 +3,6 @@ import {
   Briefcase,
   CandlestickChart,
   FileSearch,
-  Landmark,
   LineChart,
   Users,
 } from "lucide-react";
@@ -60,7 +59,7 @@ export function Services() {
         </div>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICES.map((s, i) => (
+          {SERVICES.map((s) => (
             <div
               key={s.title}
               className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-glow"
