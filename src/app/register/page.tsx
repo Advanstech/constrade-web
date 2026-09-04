@@ -30,7 +30,7 @@ const Register = () => {
         password,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        accountType: "INDIVIDUAL",
+        accountType: "individual",
       });
       await signIn(email.trim(), password);
       toast.success("Account created — let's complete your onboarding");
@@ -96,9 +96,9 @@ const Register = () => {
             id="password"
             type="password"
             required
-            minLength={6}
+            minLength={8}
             autoComplete="new-password"
-            placeholder="At least 6 characters"
+            placeholder="At least 8 characters"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
