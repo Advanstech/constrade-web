@@ -3,7 +3,9 @@ const REFRESH_TOKEN_KEY = "cc_refresh_token";
 
 export const API_BASE_URL =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
-  "http://localhost:3001/api";
+  (typeof process !== "undefined" && process.env?.NODE_ENV === "production"
+    ? "https://constrade-api-production.up.railway.app/api"
+    : "http://localhost:3001/api");
 
 export class ApiError extends Error {}
 
