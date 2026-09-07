@@ -7,7 +7,13 @@ export const API_BASE_URL =
     ? "https://constrade-api-production.up.railway.app/api"
     : "http://localhost:3001/api");
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 let memoryAccessToken: string | null = null;
 let memoryRefreshToken: string | null = null;
@@ -78,7 +84,7 @@ export function decodeJwt<T = Record<string, unknown>>(token: string): T | null 
   }
 }
 
-export async function request<T = unknown>(
+async function rawRequest<T = unknown>(
   method: string,
   path: string,
   body?: unknown,
@@ -150,7 +156,52 @@ export async function request<T = unknown>(
   }
 
   const finalMessage = message || res.statusText || `Request failed (${res.status})`;
-  throw new ApiError(finalMessage);
+  throw new ApiError(finalMessage, res.status);
+}
+
+const NO_RETRY_PATHS = ["/auth/refresh", "/auth/login", "/auth/register", "/auth/logout"];
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+function performRefresh(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const token = getRefreshToken();
+      if (!token) return false;
+      try {
+        const res = await rawRequest<{
+          accessToken: string;
+          refreshToken: string;
+        }>("POST", "/auth/refresh", { refreshToken: token });
+        if (!res.accessToken || !res.refreshToken) return false;
+        setTokens(res.accessToken, res.refreshToken);
+        return true;
+      } catch {
+        clearTokens();
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+export async function request<T = unknown>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  try {
+    return await rawRequest<T>(method, path, body);
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : undefined;
+    const isAuthPath = NO_RETRY_PATHS.some((p) => path.includes(p));
+    if (status !== 401 || isAuthPath || !getRefreshToken()) throw err;
+    const refreshed = await performRefresh();
+    if (!refreshed) throw err;
+    return rawRequest<T>(method, path, body);
+  }
 }
 
 export async function refreshTokens(): Promise<{
@@ -159,29 +210,18 @@ export async function refreshTokens(): Promise<{
   userId: string;
   email: string;
 } | null> {
-  const token = getRefreshToken();
-  if (!token) return null;
-  try {
-    const res = await request<{
-      success: boolean;
-      accessToken: string;
-      refreshToken: string;
-      userId?: string;
-      email?: string;
-    }>("POST", "/auth/refresh", { refreshToken: token });
-    if (!res.accessToken || !res.refreshToken) throw new ApiError("No token pair returned");
-    setTokens(res.accessToken, res.refreshToken);
-    const payload = decodeJwt<{ sub?: string; email?: string }>(res.accessToken);
-    return {
-      accessToken: res.accessToken,
-      refreshToken: res.refreshToken,
-      userId: res.userId ?? payload?.sub ?? "",
-      email: res.email ?? payload?.email ?? "",
-    };
-  } catch {
-    clearTokens();
-    return null;
-  }
+  const ok = await performRefresh();
+  if (!ok) return null;
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+  if (!accessToken || !refreshToken) return null;
+  const payload = decodeJwt<{ sub?: string; email?: string }>(accessToken);
+  return {
+    accessToken,
+    refreshToken,
+    userId: payload?.sub ?? "",
+    email: payload?.email ?? "",
+  };
 }
 
 export async function logoutRemote(): Promise<void> {
