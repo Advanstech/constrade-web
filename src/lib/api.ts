@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   ApiError,
+  API_BASE_URL,
+  getAccessToken,
   logoutRemote,
   refreshTokens,
   request,
@@ -249,10 +251,21 @@ function toOnboardingStatus(raw: any): OnboardingStatus {
 }
 
 function toKycProgress(raw: any): KycProgress {
-  const step = Number(raw.onboardingStep ?? 0);
+  // Map backend data presence to the 4-step UI progress
+  const hasProfile = !!(raw.individualProfile || raw.corporateProfile);
+  const hasEmployment = !!raw.employmentDetails;
+  const hasFinancial = !!raw.financialInfo;
+  const isFinalized = Number(raw.onboardingStep ?? 0) >= 4;
+
+  let completedSteps = 0;
+  if (hasProfile) completedSteps = 1;
+  if (hasEmployment) completedSteps = 2;
+  if (hasFinancial) completedSteps = 3;
+  if (isFinalized) completedSteps = 4;
+
   return {
-    completedSteps: Math.min(step * 2, 8),
-    totalSteps: 8,
+    completedSteps,
+    totalSteps: 4,
     status: raw.kycStatus === "APPROVED" ? "approved" : "in_progress",
     data: {
       individualProfile: raw.individualProfile ?? null,
@@ -269,74 +282,89 @@ function toKycProgress(raw: any): KycProgress {
 async function saveOnboardingStep(step: number, data: Record<string, unknown>): Promise<void> {
   switch (step) {
     case 1: {
+      // Investor type
       const d = data as any;
-      const type = String(d.category ?? "Individual").toLowerCase() === "individual" ? "INDIVIDUAL" : "CORPORATE";
-      await request("PATCH", "/onboarding/type", { type });
+      await request("PATCH", "/onboarding/type", { type: d.type });
       break;
     }
     case 2: {
+      // Individual profile
       const d = data as any;
       await request("PATCH", "/onboarding/individual-profile", {
         dateOfBirth: d.dateOfBirth,
-        nationality: d.countryOfOrigin ?? "Ghana",
+        nationality: d.nationality ?? "Ghana",
         occupation: d.occupation ?? "",
-        sourceOfFunds: d.profession ?? "",
-        address: `${d.residentialStatus ?? ""} ${d.countryOfResidence ?? ""}`.trim() || "Ghana",
+        sourceOfFunds: d.sourceOfFunds ?? "",
+        address: d.address ?? "",
+        idDocumentType: d.idDocumentType,
+        ghanaCardNumber: d.ghanaCardNumber,
+        passportNumber: d.passportNumber,
       });
       break;
     }
     case 3: {
+      // Employment details
       const d = data as any;
-      if (d.mobile1 || d.email) {
-        await request("PATCH", "/auth/me", { phone: d.mobile1 ?? d.email });
-      }
-      break;
-    }
-    case 4: {
-      // document file references not persisted without actual file uploads
-      break;
-    }
-    case 5: {
-      const d = data as any;
-      const e = (d.employer ?? {}) as any;
       await request("PATCH", "/onboarding/employment", {
         employmentStatus: d.employmentStatus ?? "",
         jobTitle: d.jobTitle ?? "",
-        employerName: e.name ?? "",
-        industry: e.natureOfBusiness ?? "",
-        duration: d.yearsEmployed ?? "",
+        employerName: d.employerName ?? "",
+        industry: d.industry ?? "",
+        duration: d.duration ?? "",
       });
+      break;
+    }
+    case 4: {
+      // Tax details
+      const d = data as any;
       await request("PATCH", "/onboarding/tax", {
-        tinNumber: d.tin ?? "",
-        taxResidency: d.countryOfResidence ?? "Ghana",
+        tinNumber: d.tinNumber ?? "",
+        taxResidency: d.taxResidency ?? "Ghana",
+      });
+      break;
+    }
+    case 5: {
+      // Financial information
+      const d = data as any;
+      await request("PATCH", "/onboarding/financial", {
+        annualIncome: d.annualIncome ?? "",
+        netWorth: d.netWorth ?? "",
+        investmentObjectives: d.investmentObjectives ?? "",
       });
       break;
     }
     case 6: {
+      // Bank details
       const d = data as any;
-      await request("PATCH", "/onboarding/financial", {
-        annualIncome: d.monthlyIncomeRange ?? "",
-        netWorth: d.initialInvestment ?? "",
-        investmentObjectives: d.investmentObjectives ?? "",
+      await request("PATCH", "/onboarding/bank", {
+        bankName: d.bankName ?? "",
+        branch: d.branch ?? "",
+        accountName: d.accountName ?? "",
+        accountNumber: d.accountNumber ?? "",
       });
-      // Also persist bank details if provided
-      if (d.bankName || d.accountNumber) {
-        await request("PATCH", "/onboarding/bank", {
-          bankName: d.bankName ?? "",
-          branch: d.branch ?? "",
-          accountName: d.accountName ?? "",
-          accountNumber: d.accountNumber ?? "",
-        }).catch(() => {});
-      }
       break;
     }
     case 7: {
-      // declarations not mapped
+      // KYC document reference (after upload)
+      const d = data as any;
+      await request("POST", "/onboarding/documents", {
+        type: d.type,
+        fileUrl: d.fileUrl,
+      });
       break;
     }
     default:
       throw new ApiError("Invalid onboarding step " + step);
   }
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function generateSparkline(ticker: string, points = 30): number[] {
@@ -736,12 +764,25 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
       const s = await request<any>("GET", "/onboarding/status");
       return { progress: toKycProgress(s) };
     }
+    case "uploadDocument": {
+      const file = body.file as File;
+      const type = String(body.type ?? "");
+      const base64 = await fileToBase64(file);
+      const result = await request<any>("POST", "/onboarding/upload", {
+        type,
+        fileBase64: base64,
+        fileName: file.name,
+        mimeType: file.type,
+      });
+      return { document: result };
+    }
     case "submit": {
       // Call the finalize endpoint which handles emails, status transitions, and CSD
+      const decl = (body.declarations ?? {}) as Record<string, boolean>;
       const finalizeResult = await request<any>("POST", "/onboarding/finalize", {
-        accuracyDeclaration: true,
-        termsAccepted: true,
-        sourceOfFundsDeclaration: true,
+        accuracyDeclaration: decl.accuracyDeclaration ?? true,
+        termsAccepted: decl.termsAccepted ?? true,
+        sourceOfFundsDeclaration: decl.sourceOfFundsDeclaration ?? true,
       }).catch(() => null);
 
       const status = await request<any>("GET", "/onboarding/status");
@@ -952,8 +993,31 @@ export const onboardingApi = {
       step,
       data,
     }).then((d) => d.progress),
-  submit: () =>
-    call<OnboardingResult>("onboarding", { action: "submit" }),
+  uploadDocument: (file: File, type: string) =>
+    call<{ document: { id: string; type: string; fileUrl: string } }>("onboarding", {
+      action: "uploadDocument",
+      file,
+      type,
+    }).then((d) => d.document),
+  submit: (declarations?: { accuracyDeclaration?: boolean; termsAccepted?: boolean; sourceOfFundsDeclaration?: boolean }) =>
+    call<OnboardingResult>("onboarding", { action: "submit", declarations }),
+  downloadCsdForm: async () => {
+    const base = API_BASE_URL.replace(/\/$/, "");
+    const token = getAccessToken();
+    const res = await fetch(`${base}/onboarding/export/csd-form`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError("Failed to download CSD form", res.status);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `csd-form-${new Date().toISOString().split("T")[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 // ---------- auth ----------

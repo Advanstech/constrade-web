@@ -7,6 +7,7 @@ import {
   ArrowRight,
   CheckCircle2,
   CreditCard,
+  Download,
   Loader2,
   LogOut,
   Save,
@@ -106,11 +107,42 @@ const ProfilePage = () => {
           </div>
           {!kycApproved && (
             <Button asChild variant="premium" size="sm" className="shrink-0">
-              <a href="/register/onboarding">
+              <a href="/app?kyc=true">
                 Continue application <ArrowRight className="h-4 w-4" />
               </a>
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      {/* CSD Form download */}
+      <Card className="mb-6">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-brand-bronze" />
+            <div>
+              <p className="font-display text-sm font-bold text-card-foreground">
+                CSD Account Opening Form
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Download a filled-out PDF of your CSD Form 1 for your records or to submit to the depository.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => {
+              void onboardingApi.downloadCsdForm().then(() => {
+                toast.success("CSD form downloaded");
+              }).catch(() => {
+                toast.error("Could not download CSD form");
+              });
+            }}
+          >
+            <Download className="h-4 w-4" /> Download CSD Form
+          </Button>
         </CardContent>
       </Card>
 

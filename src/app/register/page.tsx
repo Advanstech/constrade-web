@@ -34,7 +34,7 @@ const Register = () => {
       });
       await signIn(email.trim(), password);
       toast.success("Account created — let's complete your onboarding");
-      navigate.replace("/register/onboarding");
+      navigate.replace("/app?kyc=true");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unexpected error during sign-up";
       toast.error("Sign-up failed", { description: message });

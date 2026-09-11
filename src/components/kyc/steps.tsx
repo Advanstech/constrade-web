@@ -18,6 +18,7 @@ export interface IdentityDoc {
   issueDate: string;
   expiryDate: string;
   fileName: string;
+  file?: File;
 }
 
 export interface EmployerInfo {
@@ -33,11 +34,6 @@ export interface EmployerInfo {
 }
 
 export interface Step1Data {
-  investmentTypes: string[];
-  category: string;
-}
-
-export interface Step2Data {
   title: string;
   gender: string;
   surname: string;
@@ -55,11 +51,9 @@ export interface Step2Data {
   permitNumber: string;
   permitIssueDate: string;
   permitExpiryDate: string;
-  occupation: string;
-  profession: string;
 }
 
-export interface Step3Data {
+export interface Step2Data {
   residentialAddress: string;
   nearestLandmark: string;
   cityTown: string;
@@ -69,23 +63,23 @@ export interface Step3Data {
   mobile1: string;
   mobile2: string;
   emergencyContacts: EmergencyContact[];
-}
-
-export interface Step4Data {
-  passportPhoto: string;
-  identityDocs: IdentityDoc[];
-}
-
-export interface Step5Data {
   employmentStatus: string;
   yearsEmployed: string;
   yearsCurrent: string;
   yearsPrevious: string;
   monthlyIncomeRange: string;
   employer: EmployerInfo;
+  occupation: string;
+  profession: string;
+  bankName: string;
+  branch: string;
+  accountName: string;
+  accountNumber: string;
 }
 
-export interface Step6Data {
+export interface Step3Data {
+  investmentTypes: string[];
+  category: string;
   investmentObjectives: string;
   riskTolerance: string;
   investmentHorizon: string;
@@ -94,7 +88,17 @@ export interface Step6Data {
   initialInvestment: string;
 }
 
-export interface Step7Data {
+export interface Step4Data {
+  passportPhoto: string;
+  passportFile?: File | null;
+  identityDocs: IdentityDoc[];
+}
+
+export interface Step5Data {
+  signature: string;
+}
+
+export interface Step6Data {
   accuracy: boolean;
   sourceOfFundsDeclaration: boolean;
   terms: boolean;
@@ -107,57 +111,56 @@ export interface KycFormData {
   "4"?: Step4Data;
   "5"?: Step5Data;
   "6"?: Step6Data;
-  "7"?: Step7Data;
 }
 
 export const EMPTY_FORM: KycFormData = {
-  "1": { investmentTypes: [], category: "" },
-  "2": {
+  "1": {
     title: "", gender: "", surname: "", firstName: "", otherNames: "",
     maidenName: "", maritalStatus: "", dateOfBirth: "", placeOfBirth: "",
     mothersMaidenName: "", tin: "", residentialStatus: "", countryOfOrigin: "",
     countryOfResidence: "", permitNumber: "", permitIssueDate: "",
-    permitExpiryDate: "", occupation: "", profession: "",
+    permitExpiryDate: "",
   },
-  "3": {
+  "2": {
     residentialAddress: "", nearestLandmark: "", cityTown: "",
     digitalAddress: "", postalAddress: "", email: "", mobile1: "", mobile2: "",
     emergencyContacts: [
       { name: "", relationship: "", number: "" },
       { name: "", relationship: "", number: "" },
     ],
-  },
-  "4": {
-    passportPhoto: "",
-    identityDocs: [
-      { type: "", number: "", placeOfIssue: "", issueDate: "", expiryDate: "", fileName: "" },
-      { type: "", number: "", placeOfIssue: "", issueDate: "", expiryDate: "", fileName: "" },
-    ],
-  },
-  "5": {
     employmentStatus: "", yearsEmployed: "", yearsCurrent: "", yearsPrevious: "",
     monthlyIncomeRange: "",
     employer: {
       name: "", address: "", landmark: "", digitalAddress: "", cityTown: "",
       natureOfBusiness: "", contact1: "", contact2: "", officeEmail: "",
     },
+    occupation: "", profession: "",
+    bankName: "", branch: "", accountName: "", accountNumber: "",
   },
-  "6": {
+  "3": {
+    investmentTypes: [], category: "",
     investmentObjectives: "", riskTolerance: "", investmentHorizon: "",
     investmentKnowledge: "", sourceOfFunds: "", initialInvestment: "",
   },
-  "7": { accuracy: false, sourceOfFundsDeclaration: false, terms: false },
+  "4": {
+    passportPhoto: "",
+    passportFile: null,
+    identityDocs: [
+      { type: "", number: "", placeOfIssue: "", issueDate: "", expiryDate: "", fileName: "", file: undefined },
+      { type: "", number: "", placeOfIssue: "", issueDate: "", expiryDate: "", fileName: "", file: undefined },
+    ],
+  },
+  "5": { signature: "" },
+  "6": { accuracy: false, sourceOfFundsDeclaration: false, terms: false },
 };
 
 export const STEP_LABELS = [
-  "Investment Type",
   "Personal Information",
-  "Contact Details",
-  "Proof of Identity",
-  "Employment Details",
-  "Investment Profile",
-  "Declarations",
-  "Review & Submit",
+  "Contact & Professional",
+  "Account Preferences",
+  "Document Uploads",
+  "Digital Signature",
+  "Review & Submit"
 ];
 
 // ---------- shared field components ----------
@@ -249,10 +252,12 @@ export function FileUpload({
   label,
   fileName,
   onChange,
+  onFile,
 }: {
   label: string;
   fileName: string;
   onChange: (name: string) => void;
+  onFile?: (file: File | null) => void;
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3.5 transition-colors hover:border-brand-bronze/50 hover:bg-brand-bronze-soft/30">
@@ -269,7 +274,11 @@ export function FileUpload({
         type="file"
         accept="image/*,.pdf"
         className="hidden"
-        onChange={(e) => onChange(e.target.files?.[0]?.name ?? "")}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          onChange(file?.name ?? "");
+          if (onFile) onFile(file ?? null);
+        }}
       />
     </label>
   );
