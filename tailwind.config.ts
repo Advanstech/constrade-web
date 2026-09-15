@@ -66,6 +66,7 @@ export default {
 					foreground: "hsl(var(--danger-foreground))",
 				},
 				brand: {
+					orange: "hsl(var(--brand-bronze))",
 					bronze: "hsl(var(--brand-bronze))",
 					"bronze-dark": "hsl(var(--brand-bronze-dark))",
 					"bronze-soft": "hsl(var(--brand-bronze-soft))",

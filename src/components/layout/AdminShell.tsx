@@ -4,30 +4,23 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  ArrowLeftRight,
   BarChart3,
-  Bell,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
   ClipboardCheck,
   FileText,
-  LayoutDashboard,
-  LineChart,
   LogOut,
   Menu,
-  PieChart,
-  ShieldAlert,
   ShieldCheck,
-  User as UserIcon,
   Users,
-  Wallet,
   X,
+  LayoutDashboard,
   Settings,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { PriceTicker } from "@/components/market/PriceTicker";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -45,22 +38,19 @@ import {
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAreaTheme } from "@/hooks/use-area-theme";
-import { canAdminister, isStaff, ROLE_LABEL } from "@/lib/permissions";
+import { ROLE_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
-const CLIENT_NAV = [
-  { label: "Dashboard", href: "/app", icon: LayoutDashboard },
-  { label: "Markets", href: "/app/markets", icon: LineChart },
-  { label: "Trade", href: "/app/trade", icon: ArrowLeftRight },
-  { label: "Portfolio", href: "/app/portfolio", icon: PieChart },
-  { label: "Orders", href: "/app/orders", icon: FileText },
-  { label: "Funding", href: "/app/funding", icon: Wallet },
-  { label: "Profile", href: "/app/profile", icon: UserIcon },
-  { label: "Settings", href: "/app/settings", icon: Settings },
+const ADMIN_NAV = [
+  { label: "Analytics", href: "/admin", icon: BarChart3 },
+  { label: "Clients", href: "/admin/users", icon: Users },
+  { label: "Order Approvals", href: "/admin/orders", icon: ClipboardCheck },
+  { label: "Reports", href: "/admin/reports", icon: FileText },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-const COLLAPSE_KEY = "cc-sidebar-collapsed";
+const COLLAPSE_KEY = "cc-admin-sidebar-collapsed";
 
 function initials(name: string): string {
   return name
@@ -71,7 +61,6 @@ function initials(name: string): string {
     .join("");
 }
 
-/** Compact "CC" mark used when the sidebar is collapsed. */
 function CCMark() {
   return (
     <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-brand font-display text-sm font-extrabold text-white shadow-glow">
@@ -80,7 +69,7 @@ function CCMark() {
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AdminShell({ children }: { children: ReactNode }) {
   const { profile, signOut } = useAuth();
   const navigate = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -92,13 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   });
 
-  // Trading terminal defaults to dark (unless the user picked a theme).
   useAreaTheme("dark");
-
-  const role = profile?.role;
-  const staff = isStaff(role);
-  const admin = canAdminister(role);
-  const kycApproved = profile?.kyc_status === "approved";
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -114,9 +97,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const nav = (compact: boolean) => (
     <nav className={cn("flex flex-col gap-1 py-3", compact && "items-center")}>
-      {!kycApproved && <SidebarKycLink compact={compact} />}
-      {staff && <SectionLabel compact={compact} label="Client" />}
-      {CLIENT_NAV.map((item) => (
+      <SectionLabel compact={compact} label="Admin Hub" />
+      {ADMIN_NAV.map((item) => (
         <SidebarLink
           key={item.href}
           href={item.href}
@@ -125,17 +107,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           compact={compact}
         />
       ))}
-      {staff && (
-        <div className="mt-8">
-          <SectionLabel compact={compact} label="Staff" />
-          <SidebarLink
-            href="/admin"
-            icon={ShieldCheck}
-            label="Admin Hub"
-            compact={compact}
-          />
-        </div>
-      )}
+      <div className="mt-8">
+        <SectionLabel compact={compact} label="Switch View" />
+        <SidebarLink
+          href="/app/dashboard"
+          icon={LayoutDashboard}
+          label="Client Dashboard"
+          compact={compact}
+          isExternal
+        />
+      </div>
     </nav>
   );
 
@@ -146,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
-      <PriceTicker />
+      {/* We can omit the PriceTicker for the admin hub to save vertical space, or keep it. I'll omit it for a cleaner admin feel. */}
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop sidebar */}
         <aside
@@ -155,19 +136,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             collapsed ? "w-[4.5rem]" : "w-60",
           )}
         >
-          <div className="flex h-16 shrink-0 items-center justify-center border-b border-sidebar-border">
-            <Link href="/" aria-label="Constant Capital" className={cn(collapsed && "px-2")}>
+          <div className="flex h-16 shrink-0 items-center justify-center border-b border-sidebar-border bg-brand-navy/5">
+            <Link href="/admin" aria-label="Admin Hub" className={cn(collapsed && "px-2")}>
               {collapsed ? <CCMark /> : <Logo compact className="scale-90" />}
             </Link>
           </div>
 
-          {/* Scrollable nav — always reachable, even on short screens */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {nav(collapsed)}
             <div className="h-4" />
           </div>
 
-          {/* Collapse toggle */}
           <div className="shrink-0 border-t border-sidebar-border p-3">
             <button
               onClick={toggleCollapsed}
@@ -203,18 +182,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <div className="hidden items-center gap-2 text-sm text-muted-foreground md:flex">
-                <ShieldCheck className="h-4 w-4 text-brand-bronze" />
-                SEC-Regulated · Ghana Stock Exchange
+              <div className="flex items-center gap-2">
+                <span className="hidden items-center gap-2 rounded-full bg-brand-orange/10 px-3 py-1 text-xs font-semibold text-brand-orange md:flex">
+                  <ShieldCheck className="h-4 w-4" />
+                  Admin Hub
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-                <Bell className="h-5 w-5" />
-                {admin && (
-                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-bronze animate-pulse-ring" />
-                )}
-              </Button>
+              <NotificationCenter />
               <ThemeToggle />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -232,19 +208,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <span className="text-sm font-semibold">
                       {profile?.full_name || profile?.email}
                     </span>
-                    <span className="text-xs font-normal text-brand-bronze">
+                    <span className="text-xs font-normal text-brand-orange">
                       {profile ? ROLE_LABEL[profile.role] : ""}
                     </span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate.push("/app/profile")}>
-                    <UserIcon className="h-4 w-4" /> My profile
+                  <DropdownMenuItem onClick={() => navigate.push("/app/dashboard")}>
+                    <LayoutDashboard className="h-4 w-4" /> Client Dashboard
                   </DropdownMenuItem>
-                  {staff && (
-                    <DropdownMenuItem onClick={() => navigate.push("/admin")}>
-                      <ShieldCheck className="h-4 w-4" /> Admin Hub
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="h-4 w-4" /> Sign out
@@ -254,11 +225,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="flex-1 overflow-y-auto bg-muted/20">{children}</main>
         </div>
       </div>
 
-      {/* Mobile drawer (always expanded) */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
@@ -285,51 +255,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function SidebarKycLink({ compact }: { compact: boolean }) {
-  const pathname = usePathname();
-  const isActive = pathname === "/register/onboarding";
-  
-  const content = (
-    <Link
-      href="/register/onboarding"
-      className={cn(
-        "flex items-center rounded-md py-2.5 text-sm font-semibold transition-colors",
-        compact ? "justify-center px-0" : "gap-3 px-3",
-        isActive
-          ? "bg-brand-bronze/25 text-brand-bronze"
-          : "bg-brand-bronze/10 text-brand-bronze hover:bg-brand-bronze/15",
-      )}
-    >
-      <ShieldAlert className="h-5 w-5 shrink-0" />
-      {!compact && (
-        <>
-          <span className="flex-1 text-left">Complete KYC</span>
-          <span className="rounded-full bg-brand-bronze/20 px-1.5 py-0.5 text-[9px] font-bold">
-            !
-          </span>
-        </>
-      )}
-    </Link>
-  );
-
+function SectionLabel({ label, compact }: { label: string; compact: boolean }) {
   if (compact) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{content}</TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>
-          Complete KYC
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-  return content;
-}
-
-function SectionLabel({ label, compact }: { label: string; compact: boolean }) {  if (compact) {
     return <div className="mx-auto my-1 h-px w-8 bg-sidebar-border" />;
   }
   return (
-    <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-widest text-brand-bronze">
+    <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-widest text-brand-orange">
       {label}
     </p>
   );
@@ -340,19 +271,17 @@ function SidebarLink({
   icon: Icon,
   label,
   compact,
+  isExternal,
 }: {
   href: string;
-  icon: typeof LayoutDashboard;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   compact: boolean;
+  isExternal?: boolean;
 }) {
   const pathname = usePathname();
-  const isExact = href === "/app" || href === "/admin" || href === "/app/dashboard" || href === "/admin/dashboard";
-  const isActive = isExact
-    ? href.startsWith("/admin")
-      ? pathname === "/admin" || pathname === "/admin/dashboard"
-      : pathname === "/app" || pathname === "/app/dashboard"
-    : pathname?.startsWith(href);
+  const isExact = href === "/admin";
+  const isActive = !isExternal && (isExact ? pathname === "/admin" || pathname === "/admin/dashboard" : pathname?.startsWith(href));
   
   const link = (
     <Link
@@ -361,11 +290,11 @@ function SidebarLink({
         "flex items-center rounded-md py-2.5 text-sm font-medium transition-colors",
         compact ? "justify-center px-0" : "gap-3 px-3",
         isActive
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          ? "bg-brand-orange/10 text-brand-orange"
           : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
       )}
     >
-      <Icon className="h-5 w-5 shrink-0 text-brand-bronze" />
+      <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-brand-orange" : "text-sidebar-foreground/50")} />
       {!compact && label}
     </Link>
   );

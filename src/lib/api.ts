@@ -12,6 +12,11 @@ import type {
   AdminDashboardData,
   AdminOrder,
   AdminUser,
+  AdminUserDetail,
+  AdminStats,
+  AdminBid,
+  AdminKycDocument,
+  ProvisionUserInput,
   FeedItem,
   KycProgress,
   MarketSummary,
@@ -29,6 +34,8 @@ import type {
   Side,
   OrderType,
   Transaction,
+  AppNotification,
+  ExecutionResultScan,
 } from "./api.types";
 
 async function call<T>(
@@ -875,19 +882,21 @@ async function handleAdmin(body: Record<string, unknown>): Promise<unknown> {
     }
     case "confirmPayment": {
       const id = String(body.id ?? "");
-      const order =
-        (await request<any>("POST", `/equities/admin/orders/${id}/confirm-payment`).catch(() => null)) ??
-        (await request<any>("POST", `/fixed-income/admin/orders/${id}/confirm-payment`).catch(() => null));
-      if (!order) throw new ApiError("Could not confirm payment");
+      const assetClass = String(body.assetClass ?? "");
+      const path = assetClass === "equity"
+        ? `/equities/admin/orders/${id}/confirm-payment`
+        : `/fixed-income/admin/orders/${id}/confirm-payment`;
+      const order = await request<any>("POST", path);
       return { order: toOrder(order.order ?? order), message: order.message ?? "Payment confirmed" };
     }
     case "uploadResult": {
       const id = String(body.id ?? "");
+      const assetClass = String(body.assetClass ?? "");
       const resultDto = body.result as Record<string, unknown>;
-      const order =
-        (await request<any>("POST", `/equities/admin/orders/${id}/upload-result`, resultDto).catch(() => null)) ??
-        (await request<any>("POST", `/fixed-income/admin/orders/${id}/upload-result`, resultDto).catch(() => null));
-      if (!order) throw new ApiError("Could not upload result");
+      const path = assetClass === "equity"
+        ? `/equities/admin/orders/${id}/upload-result`
+        : `/fixed-income/admin/orders/${id}/upload-result`;
+      const order = await request<any>("POST", path, resultDto);
       return { order: toOrder(order.order ?? order), message: order.message ?? "Result uploaded" };
     }
     case "approveOrder": {
@@ -901,11 +910,12 @@ async function handleAdmin(body: Record<string, unknown>): Promise<unknown> {
     }
     case "rejectOrder": {
       const id = String(body.id ?? "");
-      const order =
-        (await request<any>("POST", `/equities/admin/orders/${id}/reject`).catch(() => null)) ??
-        (await request<any>("POST", `/fixed-income/admin/orders/${id}/reject`).catch(() => null));
-      if (!order) throw new ApiError("Could not reject order");
-      return { order: toOrder(order), message: "Order rejected" };
+      const assetClass = String(body.assetClass ?? "");
+      const path = assetClass === "equity"
+        ? `/equities/admin/orders/${id}/reject`
+        : `/fixed-income/admin/orders/${id}/reject`;
+      const order = await request<any>("POST", path);
+      return { order: toOrder(order.order ?? order), message: order.message ?? "Order rejected" };
     }
     default:
       throw new ApiError("Unknown admin action: " + action);
@@ -1050,18 +1060,80 @@ export const authApi = {
 };
 
 // ---------- admin ----------
+async function downloadAdminFile(path: string, filename: string) {
+  const base = API_BASE_URL.replace(/\/$/, "");
+  const token = getAccessToken();
+  const response = await fetch(`${base}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) throw new ApiError("Download failed", response.status);
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export const adminApi = {
   dashboard: () =>
     call<AdminDashboardData>("admin", { action: "metrics" }),
   users: () =>
     call<{ users: AdminUser[] }>("admin", { action: "users" }).then((d) => d.users),
-  updateUserRole: (userId: string, role: Role) =>
-    call<{ user: AdminUser }>("admin", { action: "updateUserRole", userId, role }),
+  me: () =>
+    request<{ id: string; email: string; role: string; firstName?: string; lastName?: string }>("GET", "/auth/me"),
+  stats: () => request<AdminStats>("GET", "/admin/stats"),
+  listUsers: (filters?: { search?: string; status?: string; role?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.search) params.set("search", filters.search);
+    if (filters?.status && filters.status !== "ALL") params.set("status", filters.status);
+    if (filters?.role && filters.role !== "ALL") params.set("role", filters.role);
+    const qs = params.toString();
+    return request<AdminUserDetail[]>("GET", `/admin/users${qs ? `?${qs}` : ""}`);
+  },
+  userDetail: (userId: string) => request<AdminUserDetail>("GET", `/admin/users/${userId}`),
+  bids: (search?: string) =>
+    request<AdminBid[]>("GET", `/admin/bids${search ? `?search=${encodeURIComponent(search)}` : ""}`).catch(() => []),
+  updateUserProfile: (userId: string, payload: Record<string, unknown>) =>
+    request<AdminUserDetail>("PATCH", `/admin/users/${userId}/profile`, payload),
+  updateUserKyc: (userId: string, status: "PENDING" | "APPROVED" | "REJECTED") =>
+    request<AdminUserDetail>("PATCH", `/admin/users/${userId}/kyc`, { status }),
+  updateUserRole: (userId: string, role: "INVESTOR" | "ADMIN" | "SUPER_ADMIN") =>
+    request<AdminUserDetail>("PATCH", `/admin/users/${userId}/profile`, { role }),
+  documentUrl: (documentId: string) =>
+    request<{ signedUrl: string }>("GET", `/admin/documents/${documentId}/signed-url`),
+  updateDocumentStatus: (
+    documentId: string,
+    status: "APPROVED" | "REJECTED",
+    reviewNote?: string,
+  ) =>
+    request<AdminKycDocument>("PATCH", `/admin/documents/${documentId}/status`, {
+      status,
+      ...(reviewNote ? { reviewNote } : {}),
+    }),
+  dispatchNotice: (userId: string) =>
+    request<{ success: boolean; message: string }>("POST", `/admin/users/${userId}/dispatch-notice`),
+  deleteUser: (userId: string) =>
+    request<{ success: boolean; message: string }>("DELETE", `/admin/users/${userId}`),
+  hardDeleteUser: (userId: string) =>
+    request<{ success: boolean; message: string }>("DELETE", `/admin/users/${userId}/hard`),
+  provisionUser: (data: ProvisionUserInput) => request<AdminUserDetail>("POST", "/admin/users", data),
+  exportUsers: () => downloadAdminFile("/admin/users/export/csv", `investor-registry-${new Date().toISOString().slice(0, 10)}.csv`),
+  exportUserKyc: (userId: string) => downloadAdminFile(`/admin/users/${userId}/kyc-pdf`, `kyc-${userId.slice(0, 8)}.pdf`),
+  exportUserCsdForm: (userId: string) => downloadAdminFile(`/admin/users/${userId}/csd-form`, `csd-form-${userId.slice(0, 8)}.pdf`),
   orders: () =>
     call<{ orders: AdminOrder[] }>("admin", { action: "orders" }).then((d) => d.orders),
-  confirmOrderPayment: (id: string) =>
-    call<{ order: Order; message: string }>("admin", { action: "confirmPayment", id }),
-  uploadOrderResult: (id: string, result: {
+  scanOrderResult: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<ExecutionResultScan>("POST", "/tender-results/scan-execution-result", form);
+  },
+  confirmOrderPayment: (id: string, assetClass: "equity" | "fixed_income") =>
+    call<{ order: Order; message: string }>("admin", { action: "confirmPayment", id, assetClass }),
+  uploadOrderResult: (id: string, assetClass: "equity" | "fixed_income", result: {
     filledPrice: number;
     filledQty?: number;
     filledFaceValue?: number;
@@ -1069,11 +1141,37 @@ export const adminApi = {
     executionNote?: string;
     traderNotes?: string;
   }) =>
-    call<{ order: Order; message: string }>("admin", { action: "uploadResult", id, result }),
+    call<{ order: Order; message: string }>("admin", { action: "uploadResult", id, assetClass, result }),
   approveOrder: (id: string) =>
     call<{ order: Order; message: string }>("admin", { action: "approveOrder", id }),
-  rejectOrder: (id: string) =>
-    call<{ order: Order; message: string }>("admin", { action: "rejectOrder", id }),
+  rejectOrder: (id: string, assetClass: "equity" | "fixed_income") =>
+    call<{ order: Order; message: string }>("admin", { action: "rejectOrder", id, assetClass }),
+};
+
+// ---------- notifications ----------
+// Talks directly to the NestJS /notifications endpoints (same JWT auth).
+function toNotification(raw: any): AppNotification {
+  return {
+    id: raw.id ?? "",
+    type: (String(raw.type ?? "GENERAL").toUpperCase() as AppNotification["type"]),
+    title: raw.title ?? "",
+    message: raw.message ?? "",
+    link: raw.link ?? null,
+    metadata: raw.metadata ?? null,
+    read: Boolean(raw.read),
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+  };
+}
+
+export const notificationsApi = {
+  list: async (limit = 50): Promise<AppNotification[]> => {
+    const raw = await request<any[]>("GET", `/notifications?limit=${limit}`).catch(() => []);
+    return (Array.isArray(raw) ? raw : []).map(toNotification);
+  },
+  markRead: (id: string) =>
+    request<any>("POST", `/notifications/${id}/read`).then(toNotification),
+  markAllRead: () => request<any>("POST", "/notifications/read-all"),
+  remove: (id: string) => request<any>("DELETE", `/notifications/${id}`),
 };
 
 // ---------- subscriptions ----------

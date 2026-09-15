@@ -169,6 +169,73 @@ export interface AdminUser extends Profile {
   orderCount: number;
 }
 
+export interface AdminKycDocument {
+  id: string;
+  type: string;
+  fileUrl: string;
+  status: string;
+  reviewNote?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminUserDetail {
+  id: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  investorType?: "INDIVIDUAL" | "CORPORATE" | null;
+  onboardingStep: number;
+  kycStep?: string;
+  role: string;
+  kycStatus: string;
+  kycApprovedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isPendingEmailConfirmation?: boolean;
+  individualProfile?: Record<string, unknown> | null;
+  corporateProfile?: Record<string, unknown> | null;
+  employmentDetails?: Record<string, unknown> | null;
+  taxDetails?: Record<string, unknown> | null;
+  financialInfo?: Record<string, unknown> | null;
+  bankDetails?: Record<string, unknown> | null;
+  csdAccount?: Record<string, unknown> | null;
+  subscription?: { tier?: string; status?: string } | null;
+  kycDocuments: AdminKycDocument[];
+}
+
+export interface AdminStats {
+  totalUsers?: number;
+  pendingKyc?: number;
+  approvedKyc?: number;
+  newClients30d?: number;
+  pendingEmailConfirmations?: number;
+  [key: string]: unknown;
+}
+
+export interface AdminBid {
+  id: string;
+  amount: string | number;
+  rate: string | number;
+  status: string;
+  createdAt: string;
+  allottedAmount?: string | number | null;
+  rejectionReason?: string | null;
+  auction?: {
+    instrumentName?: string | null;
+    securityType?: string | null;
+    isin?: string | null;
+  } | null;
+}
+
+export interface ProvisionUserInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: "INVESTOR" | "ADMIN" | "SUPER_ADMIN";
+}
+
 export interface AdminMetrics {
   aum: number;
   cashReserves: number;
@@ -202,4 +269,36 @@ export interface AdminOrder extends Order {
   executionNote?: string | null;
   traderNotes?: string | null;
   paymentConfirmedAt?: string | null;
+}
+
+export interface ExecutionResultScan {
+  fileName: string;
+  filledPrice?: number;
+  filledQty?: number;
+  filledFaceValue?: number;
+  settlementDate?: string;
+  executionNote: string;
+  confidence: number;
+  extractedTextPreview: string;
+  requiresReview: boolean;
+}
+
+export type NotificationType =
+  | "ORDER"
+  | "PAYMENT"
+  | "EXECUTION"
+  | "SYSTEM"
+  | "KYC"
+  | "TRANSACTION"
+  | "GENERAL";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string | null;
+  metadata?: Record<string, unknown> | null;
+  read: boolean;
+  createdAt: string;
 }
