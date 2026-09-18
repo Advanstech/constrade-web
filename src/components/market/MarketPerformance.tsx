@@ -66,9 +66,9 @@ export function MarketPerformance() {
     if (!data) return [];
     const series = data.series[group] ?? [];
     return data.labels.map((label, i) => {
-      const row: Record<string, string | number> = { label };
+      const row: Record<string, string | number | null> = { label };
       for (const s of series) {
-        row[s.label] = s.points[i] ?? 0;
+        row[s.label] = s.points[i] ?? null;
       }
       return row;
     });
@@ -160,7 +160,10 @@ export function MarketPerformance() {
                   <Tooltip
                     contentStyle={tooltipStyle}
                     labelStyle={{ fontWeight: 700, marginBottom: 4 }}
-                    formatter={(value, name) => [formatValue(group, Number(value)), name]}
+                    formatter={(value, name) => [
+                      value == null ? "—" : formatValue(group, Number(value)),
+                      name,
+                    ]}
                   />
                   {activeSeries.map((s) => (
                     <Area
@@ -178,26 +181,38 @@ export function MarketPerformance() {
             </div>
 
             {/* Legend */}
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              {activeSeries.map((s) => {
-                const last = s.points[s.points.length - 1] ?? 0;
-                const first = s.points[0] ?? 0;
-                const change = first !== 0 ? ((last - first) / first) * 100 : 0;
-                return (
-                  <span key={s.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                    {s.label}
-                    <span className="font-semibold text-foreground">
-                      {formatValue(group, last)}
+            {activeSeries.length === 0 ? (
+              <p className="mt-4 text-xs text-muted-foreground">
+                No recorded data available for this asset class yet.
+              </p>
+            ) : (
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                {activeSeries.map((s) => {
+                  const observed = s.points.filter((p): p is number => p != null);
+                  const last = observed[observed.length - 1];
+                  const first = observed[0];
+                  const change =
+                    first != null && last != null && first !== 0
+                      ? ((last - first) / first) * 100
+                      : null;
+                  return (
+                    <span key={s.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                      {s.label}
+                      <span className="font-semibold text-foreground">
+                        {last != null ? formatValue(group, last) : "—"}
+                      </span>
+                      {change != null && (
+                        <span className={change >= 0 ? "text-success" : "text-danger"}>
+                          {change >= 0 ? "+" : ""}
+                          {change.toFixed(1)}%
+                        </span>
+                      )}
                     </span>
-                    <span className={change >= 0 ? "text-success" : "text-danger"}>
-                      {change >= 0 ? "+" : ""}
-                      {change.toFixed(1)}%
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

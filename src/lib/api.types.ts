@@ -36,16 +36,16 @@ export interface Quote {
 }
 
 export interface MarketSummary {
-  gseComposite: number;
-  gseChangePct: number;
-  usdGhs: number;
-  usdGhsChangePct: number;
-  ghsMarketCap: number;
-  dailyTurnover: number;
-  tbill91: number;
-  tbill91ChangePct: number;
-  eurobond2029: number;
-  eurobond2029ChangePct: number;
+  gseComposite: number | null;
+  gseChangePct: number | null;
+  usdGhs: number | null;
+  usdGhsChangePct: number | null;
+  ghsMarketCap: number | null;
+  dailyTurnover: number | null;
+  tbill91: number | null;
+  tbill91ChangePct: number | null;
+  eurobond2029: number | null;
+  eurobond2029ChangePct: number | null;
   activeStocks: number;
   advancers: number;
   decliners: number;
@@ -59,7 +59,8 @@ export interface FeedItem extends Quote {
 export interface PerformanceSeries {
   label: string;
   color: string;
-  points: number[];
+  // null marks a date where no real observation exists — rendered as a gap.
+  points: (number | null)[];
 }
 
 export type PerformanceGroup = "gse" | "equities" | "fixed" | "eurobonds" | "fx";

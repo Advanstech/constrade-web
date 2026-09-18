@@ -374,68 +374,6 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-function generateSparkline(ticker: string, points = 30): number[] {
-  const upper = ticker.toUpperCase();
-  let base = 10.0;
-  if (upper === "MTNGH") base = 2.45;
-  else if (upper === "GCB") base = 5.20;
-  else if (upper === "SCB") base = 21.50;
-  else if (upper === "EGH") base = 7.15;
-  else if (upper === "TOTAL") base = 12.80;
-  else if (upper.includes("91D")) base = 28.88;
-  else if (upper.includes("182D")) base = 30.12;
-  else if (upper.includes("364D")) base = 31.50;
-
-  const result: number[] = [];
-  const seed = upper.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  for (let i = points - 1; i >= 0; i--) {
-    const fraction = (points - 1 - i) / (points - 1);
-    const sinOffset = Math.sin((fraction + seed) * Math.PI * 3) * 0.03;
-    const drift = (fraction - 0.5) * 0.06;
-    result.push(Number((base * (1 + drift + sinOffset)).toFixed(2)));
-  }
-  result[result.length - 1] = base;
-  return result;
-}
-
-function generateDefaultPerformance(points = 30): PerformanceData["series"] {
-  const gsePts: number[] = [];
-  const mtnPts: number[] = [];
-  const gcbPts: number[] = [];
-  const scbPts: number[] = [];
-  const tb91Pts: number[] = [];
-  const tb182Pts: number[] = [];
-  const ebPts: number[] = [];
-  const usdPts: number[] = [];
-
-  for (let i = points - 1; i >= 0; i--) {
-    const progress = (points - 1 - i) / (points - 1);
-    const wave = Math.sin(progress * Math.PI * 2.5);
-    gsePts.push(Number((4620 + progress * 240 + wave * 35).toFixed(2)));
-    mtnPts.push(Number((2.15 + progress * 0.30 + wave * 0.04).toFixed(2)));
-    gcbPts.push(Number((4.80 + progress * 0.40 + wave * 0.06).toFixed(2)));
-    scbPts.push(Number((19.50 + progress * 2.00 + wave * 0.35).toFixed(2)));
-    tb91Pts.push(Number((29.80 - progress * 1.30 - wave * 0.25).toFixed(2)));
-    tb182Pts.push(Number((31.20 - progress * 1.40 - wave * 0.20).toFixed(2)));
-    ebPts.push(Number((68.20 + progress * 7.60 + wave * 1.80).toFixed(2)));
-    usdPts.push(Number((14.90 + progress * 0.52 + wave * 0.08).toFixed(4)));
-  }
-
-  return {
-    gse: [{ label: "GSE Composite Index", color: "#F78218", points: gsePts }],
-    equities: [
-      { label: "MTN Ghana (MTNGH)", color: "#F78218", points: mtnPts },
-      { label: "GCB Bank (GCB)", color: "#10B981", points: gcbPts },
-      { label: "Standard Chartered (SCB)", color: "#3B82F6", points: scbPts },
-    ],
-    fixed: [
-      { label: "91-Day T-Bill", color: "#F78218", points: tb91Pts },
-      { label: "182-Day T-Bill", color: "#3B82F6", points: tb182Pts },
-    ],
-    eurobonds: [{ label: "Ghana 2029 (USD)", color: "#F78218", points: ebPts }],
-    fx: [{ label: "USD / GHS", color: "#10B981", points: usdPts }],
-  };
-}
 
 async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
   const action = String(body.action ?? "summary");
@@ -447,25 +385,25 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
       ]);
       const yc = (intel?.yieldCurve ?? []) as any[];
       const find = (tenor: string) => yc.find((x: any) => x.tenor === tenor);
-      const tb91 = find("91D") ?? { rate: 28.88, change: 0.03 };
-      const eb = find("GOG2029") ?? find("10Y") ?? { rate: 8.45, change: -0.1 };
+      const tb91 = find("91D");
+      const eb = find("GOG2029") ?? find("10Y");
 
       const gseStocks = (gse?.stocks ?? gse?.data ?? []) as any[];
-      const advancers = gseStocks.filter((s: any) => (s.change ?? s.changePct ?? 0) > 0).length || 7;
-      const decliners = gseStocks.filter((s: any) => (s.change ?? s.changePct ?? 0) < 0).length || 9;
-      const activeStocks = gseStocks.length || 16;
+      const advancers = gseStocks.filter((s: any) => (s.change ?? s.changePct ?? 0) > 0).length;
+      const decliners = gseStocks.filter((s: any) => (s.change ?? s.changePct ?? 0) < 0).length;
+      const activeStocks = gseStocks.length;
 
       return {
-        gseComposite: gse?.compositeIndex ?? 4820.50,
-        gseChangePct: gse?.changePct ?? 0.35,
-        usdGhs: 15.42,
-        usdGhsChangePct: -0.05,
-        ghsMarketCap: 94_200_000_000,
-        dailyTurnover: 22_400_000,
-        tbill91: Number(tb91.rate),
-        tbill91ChangePct: Number(tb91.change),
-        eurobond2029: Number(eb.rate),
-        eurobond2029ChangePct: Number(eb.change),
+        gseComposite: gse?.compositeIndex ?? null,
+        gseChangePct: gse?.changePct ?? null,
+        usdGhs: null,
+        usdGhsChangePct: null,
+        ghsMarketCap: null,
+        dailyTurnover: null,
+        tbill91: tb91 != null ? Number(tb91.rate) : null,
+        tbill91ChangePct: tb91 != null ? Number(tb91.change) : null,
+        eurobond2029: eb != null ? Number(eb.rate) : null,
+        eurobond2029ChangePct: eb != null ? Number(eb.change) : null,
         activeStocks,
         advancers,
         decliners,
@@ -494,13 +432,8 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
     case "sparkline": {
       const ticker = String(body.ticker ?? "");
       const points = Number(body.points ?? 30);
-      try {
-        const spark = await request<number[]>("GET", `/market-data/sparkline/${encodeURIComponent(ticker)}?points=${points}`);
-        if (Array.isArray(spark) && spark.length > 0) return { points: spark };
-      } catch {
-        // Fallback
-      }
-      return { points: generateSparkline(ticker, points) };
+      const spark = await request<number[]>("GET", `/market-data/sparkline/${encodeURIComponent(ticker)}?points=${points}`).catch(() => null);
+      return { points: Array.isArray(spark) ? spark : [] };
     }
     case "feed": {
       const all = (await handleMarkets({ action: "instruments" })) as { instruments: Quote[] };
@@ -508,57 +441,46 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
       const feed = all.instruments
         .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
         .slice(0, limit)
-        .map((q) => ({ ...q, spark: generateSparkline(q.ticker, 15) }));
+        .map((q) => ({ ...q, spark: [] as number[] }));
       return { feed };
     }
     case "performance": {
       const points = Number(body.points ?? 30);
-      const labels: string[] = [];
-      const today = new Date();
-      for (let i = points - 1; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        labels.push(d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }));
-      }
+      const perf = await request<any>("GET", `/market-data/performance?points=${points}`).catch(() => null);
 
-      try {
-        const perf = await request<any>("GET", `/market-data/performance?points=${points}`);
-        if (perf?.gse && perf?.equities) {
-          const series: PerformanceData["series"] = {
-            gse: [
-              { label: "GSE Composite Index", color: "#F78218", points: perf.gse.map((p: any) => p.value) },
-            ],
-            equities: [
-              { label: "MTN Ghana (MTNGH)", color: "#F78218", points: perf.equities.map((p: any) => p.value) },
-              { label: "GCB Bank (GCB)", color: "#10B981", points: perf.equities.map((p: any) => Number((p.value * 0.45).toFixed(2))) },
-              { label: "Standard Chartered (SCB)", color: "#3B82F6", points: perf.equities.map((p: any) => Number((p.value * 1.82).toFixed(2))) },
-              { label: "Ecobank (EGH)", color: "#8B5CF6", points: perf.equities.map((p: any) => Number((p.value * 0.62).toFixed(2))) },
-            ],
-            fixed: [
-              { label: "91-Day T-Bill", color: "#F78218", points: perf.fixed.map((p: any) => p.value) },
-              { label: "182-Day T-Bill", color: "#3B82F6", points: perf.fixed.map((p: any) => Number((p.value + 1.25).toFixed(2))) },
-              { label: "364-Day T-Bill", color: "#10B981", points: perf.fixed.map((p: any) => Number((p.value + 2.60).toFixed(2))) },
-            ],
-            eurobonds: [
-              { label: "Ghana 2029 (USD)", color: "#F78218", points: perf.eurobonds.map((p: any) => p.value) },
-              { label: "Ghana 2035 (USD)", color: "#3B82F6", points: perf.eurobonds.map((p: any) => Number((p.value - 4.5).toFixed(2))) },
-            ],
-            fx: [
-              { label: "USD / GHS", color: "#10B981", points: perf.fx.map((p: any) => p.value) },
-              { label: "EUR / GHS", color: "#3B82F6", points: perf.fx.map((p: any) => Number((p.value * 1.08).toFixed(4))) },
-              { label: "GBP / GHS", color: "#F78218", points: perf.fx.map((p: any) => Number((p.value * 1.28).toFixed(4))) },
-            ],
+      const colors = ["#F78218", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B"];
+      const groupKeys = ["gse", "equities", "fixed", "eurobonds", "fx"] as const;
+      type NamedSeries = { symbol: string; name: string; points: Array<{ date: string; value: number }> };
+
+      // Build the union of all real observation dates (sorted) as labels,
+      // then align each series' points by date so lines stay truthful.
+      const allDates = new Set<string>();
+      const named: Record<string, NamedSeries[]> = {};
+      for (const g of groupKeys) {
+        named[g] = (perf?.[g] ?? []) as NamedSeries[];
+        for (const s of named[g]) for (const p of s.points) allDates.add(p.date.slice(0, 10));
+      }
+      const sortedDates = Array.from(allDates).sort();
+      const labels = sortedDates.map((d) =>
+        new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }),
+      );
+
+      const series = {} as PerformanceData["series"];
+      for (const g of groupKeys) {
+        series[g] = named[g].map((s, i) => {
+          const byDate = new Map(s.points.map((p) => [p.date.slice(0, 10), p.value]));
+          return {
+            label: s.name || s.symbol,
+            color: colors[i % colors.length],
+            points: sortedDates.map((d) => byDate.get(d) ?? null),
           };
-          return { updatedAt: new Date().toISOString(), labels, series } as PerformanceData;
-        }
-      } catch {
-        // Fallback to seeded math progression
+        });
       }
 
       return {
-        updatedAt: new Date().toISOString(),
+        updatedAt: perf?.updatedAt ?? new Date().toISOString(),
         labels,
-        series: generateDefaultPerformance(points),
+        series,
       } as PerformanceData;
     }
     default:

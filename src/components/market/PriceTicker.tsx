@@ -40,14 +40,14 @@ export function PriceTicker({ dark }: { dark?: boolean }) {
   }
 
   const items = [
-    { label: "GSE-CI", value: summary.gseComposite.toFixed(2), change: summary.gseChangePct },
-    { label: "USD / GHS", value: summary.usdGhs.toFixed(4), change: summary.usdGhsChangePct },
-    { label: "91-Day T-Bill", value: `${summary.tbill91.toFixed(2)}%`, change: summary.tbill91ChangePct },
-    { label: "Eurobond 2029", value: `${summary.eurobond2029.toFixed(2)}%`, change: summary.eurobond2029ChangePct },
+    { label: "GSE-CI", value: summary.gseComposite?.toFixed(2) ?? "—", change: summary.gseChangePct },
+    { label: "USD / GHS", value: summary.usdGhs?.toFixed(4) ?? "—", change: summary.usdGhsChangePct },
+    { label: "91-Day T-Bill", value: summary.tbill91 != null ? `${summary.tbill91.toFixed(2)}%` : "—", change: summary.tbill91ChangePct },
+    { label: "Eurobond 2029", value: summary.eurobond2029 != null ? `${summary.eurobond2029.toFixed(2)}%` : "—", change: summary.eurobond2029ChangePct },
     ...feed.map((f) => ({
       label: f.ticker,
       value: f.assetClass === "equity" ? `₵${Number(f.price || 0).toFixed(2)}` : (f.yieldToMaturity ? `${f.yieldToMaturity}%` : `₵${Number(f.price || 0).toFixed(2)}`),
-      change: f.changePct,
+      change: f.changePct as number | null,
     })),
   ];
 
@@ -63,14 +63,16 @@ export function PriceTicker({ dark }: { dark?: boolean }) {
           <span key={i} className="flex items-center gap-1.5 text-xs">
             <span className="font-semibold text-foreground/80">{item.label}</span>
             <span className="font-mono text-foreground font-medium">{item.value}</span>
-            <span className={cn("flex items-center gap-0.5 font-medium", changeClass(item.change))}>
-              {item.change >= 0 ? (
-                <ArrowUpRight className="h-3 w-3" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3" />
-              )}
-              {item.change.toFixed(2)}%
-            </span>
+            {item.change != null && (
+              <span className={cn("flex items-center gap-0.5 font-medium", changeClass(item.change))}>
+                {item.change >= 0 ? (
+                  <ArrowUpRight className="h-3 w-3" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3" />
+                )}
+                {item.change.toFixed(2)}%
+              </span>
+            )}
           </span>
         ))}
       </div>

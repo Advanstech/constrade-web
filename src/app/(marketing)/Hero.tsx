@@ -30,10 +30,10 @@ export function Hero() {
 
   const rows = summary
     ? [
-        { label: "GSE Composite Index", value: summary.gseComposite.toFixed(2), change: summary.gseChangePct },
-        { label: "USD/GHS", value: summary.usdGhs.toFixed(4), change: summary.usdGhsChangePct },
-        { label: "91-Day T-Bill", value: `${summary.tbill91.toFixed(2)}%`, change: summary.tbill91ChangePct },
-        { label: "Ghana Eurobond 2029", value: `${summary.eurobond2029.toFixed(2)}%`, change: summary.eurobond2029ChangePct },
+        { label: "GSE Composite Index", value: summary.gseComposite?.toFixed(2) ?? "—", change: summary.gseChangePct },
+        { label: "USD/GHS", value: summary.usdGhs?.toFixed(4) ?? "—", change: summary.usdGhsChangePct },
+        { label: "91-Day T-Bill", value: summary.tbill91 != null ? `${summary.tbill91.toFixed(2)}%` : "—", change: summary.tbill91ChangePct },
+        { label: "Ghana Eurobond 2029", value: summary.eurobond2029 != null ? `${summary.eurobond2029.toFixed(2)}%` : "—", change: summary.eurobond2029ChangePct },
       ]
     : [];
 

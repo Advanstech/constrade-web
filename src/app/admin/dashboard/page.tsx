@@ -167,17 +167,19 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent className="space-y-2.5">
             {[
-              { label: "GSE Composite", value: data.market.gseComposite.toFixed(2), change: data.market.gseChangePct },
-              { label: "USD/GHS", value: data.market.usdGhs.toFixed(4), change: data.market.usdGhsChangePct },
-              { label: "91-Day T-Bill", value: `${data.market.tbill91.toFixed(2)}%`, change: data.market.tbill91ChangePct },
+              { label: "GSE Composite", value: data.market.gseComposite?.toFixed(2) ?? "—", change: data.market.gseChangePct },
+              { label: "USD/GHS", value: data.market.usdGhs?.toFixed(4) ?? "—", change: data.market.usdGhsChangePct },
+              { label: "91-Day T-Bill", value: data.market.tbill91 != null ? `${data.market.tbill91.toFixed(2)}%` : "—", change: data.market.tbill91ChangePct },
             ].map((r) => (
               <div key={r.label} className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3.5 py-2.5">
                 <span className="text-xs text-muted-foreground">{r.label}</span>
                 <span className="flex items-center gap-2">
                   <span className="text-sm font-semibold">{r.value}</span>
-                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${changeBgClass(r.change)}`}>
-                    {r.change > 0 ? "+" : ""}{r.change.toFixed(2)}%
-                  </span>
+                  {r.change != null && (
+                    <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${changeBgClass(r.change)}`}>
+                      {r.change > 0 ? "+" : ""}{r.change.toFixed(2)}%
+                    </span>
+                  )}
                 </span>
               </div>
             ))}
