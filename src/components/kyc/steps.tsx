@@ -51,6 +51,8 @@ export interface Step1Data {
   permitNumber: string;
   permitIssueDate: string;
   permitExpiryDate: string;
+  hasExistingCsd: boolean;
+  csdNumber: string;
 }
 
 export interface Step2Data {
@@ -119,7 +121,7 @@ export const EMPTY_FORM: KycFormData = {
     maidenName: "", maritalStatus: "", dateOfBirth: "", placeOfBirth: "",
     mothersMaidenName: "", tin: "", residentialStatus: "", countryOfOrigin: "",
     countryOfResidence: "", permitNumber: "", permitIssueDate: "",
-    permitExpiryDate: "",
+    permitExpiryDate: "", hasExistingCsd: false, csdNumber: "",
   },
   "2": {
     residentialAddress: "", nearestLandmark: "", cityTown: "",

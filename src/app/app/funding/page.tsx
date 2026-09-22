@@ -1,188 +1,585 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDownToLine, ArrowUpFromLine, Loader2, Wallet } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  BadgeCheck,
+  Banknote,
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  ExternalLink,
+  Loader2,
+  Phone,
+  RefreshCw,
+  TrendingUp,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { StatCard } from "@/components/market/StatCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { accountApi } from "@/lib/api";
 import type { Portfolio, Transaction } from "@/lib/api.types";
 import { formatDateTime, formatGHS } from "@/lib/format";
+import { useAuth } from "@/auth/AuthProvider";
+import { cn } from "@/lib/utils";
 
-const FUNDING_METHODS = ["Mobile Money", "Bank Transfer", "Cheque"];
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  Types                                                                       */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+type PaymentMethod = "MOMO" | "CARD" | "BANK";
+type PaymentState = "idle" | "initiating" | "awaiting" | "verifying" | "success" | "failed";
+
+const QUICK_AMOUNTS = [100, 500, 1000, 2000, 5000, 10000];
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  Payment Method config                                                       */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+const METHODS = [
+  {
+    id: "MOMO" as PaymentMethod,
+    label: "Mobile Money",
+    desc: "MTN, Vodafone, AirtelTigo",
+    icon: Phone,
+    color: "from-yellow-500/20 to-amber-500/10",
+    border: "border-yellow-500/30",
+    badge: "Instant",
+    badgeColor: "bg-green-500/15 text-green-400",
+  },
+  {
+    id: "CARD" as PaymentMethod,
+    label: "Card",
+    desc: "Visa / Mastercard",
+    icon: CreditCard,
+    color: "from-blue-500/20 to-indigo-500/10",
+    border: "border-blue-500/30",
+    badge: "Instant",
+    badgeColor: "bg-green-500/15 text-green-400",
+  },
+  {
+    id: "BANK" as PaymentMethod,
+    label: "Bank Transfer",
+    desc: "Constant Capital trust acct.",
+    icon: Building2,
+    color: "from-slate-500/20 to-slate-400/10",
+    border: "border-slate-500/30",
+    badge: "1–2 days",
+    badgeColor: "bg-amber-500/15 text-amber-400",
+  },
+];
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  Main component                                                               */
+/* ─────────────────────────────────────────────────────────────────────────── */
 
 const Funding = () => {
+  const { profile } = useAuth();
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [tab, setTab] = useState("deposit");
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("Mobile Money");
-  const [submitting, setSubmitting] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [method, setMethod] = useState<PaymentMethod>("MOMO");
+  const [payState, setPayState] = useState<PaymentState>("idle");
+  const [pendingTxId, setPendingTxId] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<"COMPLETED" | "FAILED" | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const load = useCallback(() => {
-    void Promise.all([accountApi.portfolio(), accountApi.fundingHistory()]).then(
-      ([p, t]) => {
-        setPortfolio(p);
-        setHistory(t);
-      },
-    );
+  const load = useCallback(async () => {
+    try {
+      const [p, t] = await Promise.all([
+        accountApi.portfolio(),
+        accountApi.fundingHistory(),
+      ]);
+      setPortfolio(p);
+      setHistory(t);
+    } catch {
+      // silent
+    }
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [load]);
 
-  const submit = async () => {
+  /* Pre-fill phone from profile */
+  useEffect(() => {
+    if (profile?.phone && !phone) setPhone(profile.phone);
+  }, [profile, phone]);
+
+  /* ── Initiate gateway payment ──────────────────────────────────────────── */
+  const initiateGatewayPayment = async () => {
     const value = Number(amount);
-    if (!Number.isFinite(value) || value <= 0) {
-      toast.error("Enter a valid amount");
+    if (!Number.isFinite(value) || value < 1) {
+      toast.error("Enter a valid amount (min GHS 1)");
       return;
     }
-    setSubmitting(true);
+    if (method === "MOMO" && !phone) {
+      toast.error("Enter your MoMo number");
+      return;
+    }
+
+    setPayState("initiating");
     try {
-      if (tab === "deposit") {
-        const res = await accountApi.deposit(value, method);
-        toast.success(res.message);
-      } else {
-        const res = await accountApi.withdraw(value, method);
-        toast.success(res.message);
-      }
-      setAmount("");
-      load();
+      const res = await accountApi.initiatePayment(value, phone || undefined, method as "MOMO" | "CARD");
+      setPendingTxId(res.transactionId);
+
+      // Open checkout in a new tab
+      window.open(res.checkoutUrl, "_blank", "noopener,noreferrer");
+      setPayState("awaiting");
+
+      toast.info("Checkout opened in a new tab. Complete payment there, then click Verify.", {
+        duration: 8000,
+      });
     } catch (err) {
-      toast.error(tab === "deposit" ? "Deposit failed" : "Withdrawal failed", {
+      setPayState("failed");
+      toast.error("Could not start payment", {
         description: err instanceof Error ? err.message : undefined,
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
+  /* ── Verify after user returns ─────────────────────────────────────────── */
+  const verifyPayment = async () => {
+    if (!pendingTxId) return;
+    setPayState("verifying");
+    try {
+      const res = await accountApi.verifyPayment(pendingTxId);
+      if (res.status === "COMPLETED") {
+        setVerifyResult("COMPLETED");
+        setPayState("success");
+        toast.success("Payment confirmed! Your wallet has been credited.", {
+          icon: <CheckCircle2 className="h-4 w-4 text-green-400" />,
+        });
+        setAmount("");
+        void load();
+      } else if (["REJECTED", "FAILED", "CANCELLED"].includes(res.status)) {
+        setVerifyResult("FAILED");
+        setPayState("failed");
+        toast.error("Payment was not successful. Please try again.");
+      } else {
+        setPayState("awaiting");
+        toast.info(`Status: ${res.status}. The payment may still be processing.`);
+      }
+    } catch (err) {
+      setPayState("awaiting");
+      toast.error("Verification failed", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
+  /* ── Bank transfer deposit (manual) ────────────────────────────────────── */
+  const submitBankDeposit = async () => {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value < 1) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    setPayState("initiating");
+    try {
+      const res = await accountApi.deposit(value, "Bank Transfer");
+      toast.success(res.message || "Deposit submitted. An admin will confirm it shortly.");
+      setAmount("");
+      setPayState("idle");
+      void load();
+    } catch (err) {
+      setPayState("idle");
+      toast.error("Deposit request failed", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
+  /* ── Withdraw ───────────────────────────────────────────────────────────── */
+  const submitWithdraw = async () => {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value < 1) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    setPayState("initiating");
+    try {
+      const res = await accountApi.withdraw(value, "Bank Transfer");
+      toast.success(res.message || "Withdrawal request submitted.");
+      setAmount("");
+      setPayState("idle");
+      void load();
+    } catch (err) {
+      setPayState("idle");
+      toast.error("Withdrawal failed", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
+  const reset = () => {
+    setPayState("idle");
+    setPendingTxId(null);
+    setVerifyResult(null);
+  };
+
+  const isLoading = payState === "initiating" || payState === "verifying";
+  const cash = portfolio?.cash ?? 0;
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Funding"
-        subtitle="Deposit cash or withdraw from your Constant Capital account."
+        title="Wallet"
+        subtitle="Fund your account instantly with mobile money or card."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Available cash" value={portfolio ? formatGHS(portfolio.cash) : "—"} icon={<Wallet className="h-4 w-4 text-brand-bronze" />} />
-        <StatCard label="Total value" value={portfolio ? formatGHS(portfolio.totalValue) : "—"} />
-        <StatCard
-          label="Deposits & withdrawals"
-          value={String(history.length)}
-        />
-        <StatCard
-          label="Last activity"
-          value={history[0] ? formatDateTime(history[0].created_at) : "—"}
-        />
+      {/* ── Balance strip ───────────────────────────────────────────────── */}
+      <div className="mb-8 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-muted/30 shadow-xl">
+        <div className="grid grid-cols-1 divide-y divide-border/40 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {[
+            {
+              label: "Available Balance",
+              value: portfolio ? formatGHS(cash) : "—",
+              icon: Wallet,
+              highlight: true,
+            },
+            {
+              label: "Portfolio Value",
+              value: portfolio ? formatGHS(portfolio.totalValue) : "—",
+              icon: TrendingUp,
+              highlight: false,
+            },
+            {
+              label: "Transactions",
+              value: String(history.length),
+              icon: Banknote,
+              highlight: false,
+            },
+          ].map(({ label, value, icon: Icon, highlight }) => (
+            <div key={label} className="flex items-center gap-4 p-6">
+              <div className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+                highlight ? "bg-amber-500/15" : "bg-muted"
+              )}>
+                <Icon className={cn("h-5 w-5", highlight ? "text-amber-400" : "text-muted-foreground")} />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                <p className={cn(
+                  "text-lg font-bold tabular-nums tracking-tight",
+                  highlight && "text-amber-400"
+                )}>{value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-bold">New transaction</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="deposit">Deposit</TabsTrigger>
-                <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
-              </TabsList>
-            </Tabs>
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        {/* ── Transaction form ──────────────────────────────────────────── */}
+        <div className="space-y-6">
 
-            <div className="mt-5 space-y-4">
-              <div className="space-y-2">
-                <Label>Amount (GHS)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="10"
-                  placeholder="e.g. 5000"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
+          {/* Action tabs */}
+          <Tabs value={tab} onValueChange={(v) => { setTab(v); reset(); }}>
+            <TabsList className="h-11 w-full rounded-xl bg-muted p-1">
+              <TabsTrigger value="deposit" className="flex-1 gap-2 rounded-lg text-sm font-semibold">
+                <ArrowDownToLine className="h-4 w-4" /> Deposit
+              </TabsTrigger>
+              <TabsTrigger value="withdraw" className="flex-1 gap-2 rounded-lg text-sm font-semibold">
+                <ArrowUpFromLine className="h-4 w-4" /> Withdraw
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {tab === "deposit" && (
+            <>
+              {/* Payment method selector */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                {METHODS.map((m) => {
+                  const Icon = m.icon;
+                  const active = method === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => { setMethod(m.id); reset(); }}
+                      className={cn(
+                        "relative overflow-hidden rounded-xl border p-4 text-left transition-all duration-200 hover:scale-[1.02]",
+                        active
+                          ? `bg-gradient-to-br ${m.color} ${m.border} ring-1 ring-current`
+                          : "border-border/60 bg-card hover:border-border"
+                      )}
+                    >
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className={cn(
+                          "flex h-9 w-9 items-center justify-center rounded-lg",
+                          active ? "bg-white/10" : "bg-muted"
+                        )}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", m.badgeColor)}>
+                          {m.badge}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold">{m.label}</p>
+                      <p className="text-xs text-muted-foreground">{m.desc}</p>
+                      {active && (
+                        <CheckCircle2 className="absolute right-3 top-3 h-4 w-4 text-amber-400" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="space-y-2">
-                <Label>Method</Label>
-                <Select value={method} onValueChange={setMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FUNDING_METHODS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              {/* Success / Failed state overlay */}
+              {(payState === "success" || payState === "failed") && (
+                <div className={cn(
+                  "flex flex-col items-center gap-4 rounded-2xl border p-8 text-center",
+                  payState === "success"
+                    ? "border-green-500/30 bg-green-500/10"
+                    : "border-red-500/30 bg-red-500/10"
+                )}>
+                  {payState === "success" ? (
+                    <>
+                      <CheckCircle2 className="h-14 w-14 text-green-400" />
+                      <p className="text-xl font-bold text-green-400">Payment Confirmed!</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatGHS(Number(amount))} has been credited to your wallet.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-14 w-14 text-red-400" />
+                      <p className="text-xl font-bold text-red-400">Payment Failed</p>
+                      <p className="text-sm text-muted-foreground">
+                        The transaction was not completed. Please try again.
+                      </p>
+                    </>
+                  )}
+                  <Button variant="outline" onClick={reset} className="mt-2 gap-2">
+                    <RefreshCw className="h-4 w-4" /> New transaction
+                  </Button>
+                </div>
+              )}
+
+              {/* Form */}
+              {payState !== "success" && payState !== "failed" && (
+                <div className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+                  {/* Quick amount pills */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Quick select
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {QUICK_AMOUNTS.map((a) => (
+                        <button
+                          key={a}
+                          onClick={() => setAmount(String(a))}
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors",
+                            amount === String(a)
+                              ? "border-amber-500 bg-amber-500/15 text-amber-400"
+                              : "border-border bg-muted text-muted-foreground hover:border-border/80 hover:text-foreground"
+                          )}
+                        >
+                          {formatGHS(a)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Amount input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="amount" className="text-sm font-semibold">Amount (GHS)</Label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
+                        GH₵
+                      </span>
+                      <Input
+                        id="amount"
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="pl-12 text-lg font-bold tabular-nums"
+                        disabled={payState === "awaiting" || isLoading}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone (MoMo only) */}
+                  {method === "MOMO" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-sm font-semibold">MoMo Number</Label>
+                      <div className="relative">
+                        <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          placeholder="0244 123 456"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="pl-10"
+                          disabled={payState === "awaiting" || isLoading}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Awaiting state — show verify button */}
+                  {payState === "awaiting" && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+                      <p className="font-semibold text-amber-400">
+                        ⚡ Checkout page opened in a new tab.
+                      </p>
+                      <p className="mt-1 text-amber-300/80">
+                        Complete your payment there. Once done, return here and click <strong>Verify payment</strong>.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={verifyPayment}
+                          disabled={isLoading}
+                          className="gap-2 bg-amber-500 text-black hover:bg-amber-400"
+                        >
+                          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}
+                          Verify payment
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={reset}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CTA button */}
+                  {payState === "idle" && (
+                    <Button
+                      size="lg"
+                      className="w-full gap-2 bg-gradient-to-r from-amber-500 to-amber-600 font-bold text-black hover:from-amber-400 hover:to-amber-500"
+                      onClick={method === "BANK" ? submitBankDeposit : initiateGatewayPayment}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : method === "BANK" ? (
+                        <ArrowDownToLine className="h-5 w-5" />
+                      ) : (
+                        <ExternalLink className="h-5 w-5" />
+                      )}
+                      {method === "BANK"
+                        ? "Submit bank deposit request"
+                        : `Pay ${amount ? formatGHS(Number(amount)) : "now"} via ${METHODS.find(m => m.id === method)?.label}`}
+                    </Button>
+                  )}
+
+                  {method === "BANK" && (
+                    <div className="rounded-xl border border-border/60 bg-muted/50 p-4 text-xs text-muted-foreground">
+                      <p className="font-semibold text-foreground">Bank transfer details</p>
+                      <p className="mt-1">Transfer to the Constant Capital GCB trust account and submit your deposit slip to your relationship manager for confirmation.</p>
+                    </div>
+                  )}
+
+                  <p className="text-center text-xs text-muted-foreground">
+                    Secured by Advansis Pay · ExpressPay · GHS only
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {tab === "withdraw" && (
+            <div className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+              <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/50 p-4">
+                <Wallet className="h-5 w-5 text-amber-400" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Available to withdraw</p>
+                  <p className="text-lg font-bold tabular-nums text-amber-400">{formatGHS(cash)}</p>
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="w-amount" className="text-sm font-semibold">Amount (GHS)</Label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">GH₵</span>
+                  <Input
+                    id="w-amount"
+                    type="number"
+                    min="1"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="pl-12 text-lg font-bold tabular-nums"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
               <Button
                 size="lg"
-                variant="premium"
-                className="w-full"
-                onClick={submit}
-                disabled={submitting}
+                variant="outline"
+                className="w-full gap-2 border-red-500/30 font-bold text-red-400 hover:bg-red-500/10"
+                onClick={submitWithdraw}
+                disabled={isLoading}
               >
-                {submitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : tab === "deposit" ? (
-                  <ArrowDownToLine className="h-4 w-4" />
-                ) : (
-                  <ArrowUpFromLine className="h-4 w-4" />
-                )}
-                {tab === "deposit" ? "Deposit funds" : "Withdraw funds"}
+                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowUpFromLine className="h-5 w-5" />}
+                Request withdrawal
               </Button>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-bold">Funding history</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {history.length === 0 ? (
-              <p className="px-6 pb-8 text-center text-sm text-muted-foreground">
-                No funding transactions yet.
+              <p className="text-center text-xs text-muted-foreground">
+                Withdrawals are processed within 1–2 business days to your linked bank account.
               </p>
-            ) : (
-              <div className="max-h-[26rem] divide-y divide-border/60 overflow-y-auto">
-                {history.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between px-6 py-3.5">
-                    <div>
-                      <p className="text-sm font-semibold capitalize">{t.type}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t.reference} · {t.detail ?? "—"} · {formatDateTime(t.created_at)}
+            </div>
+          )}
+        </div>
+
+        {/* ── Transaction history ─────────────────────────────────────── */}
+        <div className="rounded-2xl border border-border/60 bg-card shadow-sm">
+          <div className="border-b border-border/60 px-5 py-4">
+            <p className="font-bold">Transaction history</p>
+          </div>
+          {history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <Banknote className="h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">No transactions yet.</p>
+            </div>
+          ) : (
+            <div className="max-h-[520px] divide-y divide-border/50 overflow-y-auto">
+              {history.map((t) => {
+                const isDeposit = t.type === "deposit";
+                return (
+                  <div key={t.id} className="flex items-center gap-3 px-5 py-4">
+                    <div className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                      isDeposit ? "bg-green-500/10" : "bg-red-500/10"
+                    )}>
+                      {isDeposit
+                        ? <ArrowDownToLine className="h-4 w-4 text-green-400" />
+                        : <ArrowUpFromLine className="h-4 w-4 text-red-400" />}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="truncate text-sm font-semibold capitalize">{t.type}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {t.detail ?? t.reference ?? "—"} · {formatDateTime(t.created_at)}
                       </p>
                     </div>
-                    <p
-                      className={`text-sm font-bold ${
-                        t.type === "withdraw" ? "text-danger" : "text-success"
-                      }`}
-                    >
-                      {t.type === "withdraw" ? "−" : "+"}
-                      {formatGHS(Math.abs(t.amount))}
+                    <p className={cn(
+                      "shrink-0 text-sm font-bold tabular-nums",
+                      isDeposit ? "text-green-400" : "text-red-400"
+                    )}>
+                      {isDeposit ? "+" : "−"}{formatGHS(Math.abs(t.amount))}
                     </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

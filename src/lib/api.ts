@@ -258,21 +258,11 @@ function toOnboardingStatus(raw: any): OnboardingStatus {
 }
 
 function toKycProgress(raw: any): KycProgress {
-  // Map backend data presence to the 4-step UI progress
-  const hasProfile = !!(raw.individualProfile || raw.corporateProfile);
-  const hasEmployment = !!raw.employmentDetails;
-  const hasFinancial = !!raw.financialInfo;
-  const isFinalized = Number(raw.onboardingStep ?? 0) >= 4;
-
-  let completedSteps = 0;
-  if (hasProfile) completedSteps = 1;
-  if (hasEmployment) completedSteps = 2;
-  if (hasFinancial) completedSteps = 3;
-  if (isFinalized) completedSteps = 4;
+  const completedSteps = raw.onboardingStep ?? 0;
 
   return {
     completedSteps,
-    totalSteps: 4,
+    totalSteps: 6,
     status: raw.kycStatus === "APPROVED" ? "approved" : "in_progress",
     data: {
       individualProfile: raw.individualProfile ?? null,
@@ -653,6 +643,27 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
         message: "Deposit request submitted for confirmation",
       };
     }
+    case "initiatePayment": {
+      // Start an instant MoMo/card deposit via Advansis Pay gateway
+      const result = await request<any>("POST", "/wallet/deposits/initiate-payment", {
+        amount: Number(body.amount),
+        phoneNumber: body.phoneNumber,
+        transType: body.transType ?? "MOMO",
+      });
+      return {
+        transactionId: result.transactionId,
+        orderId: result.orderId,
+        checkoutUrl: result.checkoutUrl,
+        payRef: result.payRef,
+      };
+    }
+    case "verifyPayment": {
+      const result = await request<any>("POST", "/wallet/deposits/verify-payment", {
+        transactionId: body.transactionId,
+      });
+      const balance = await request<any>("GET", "/wallet/balance").catch(() => ({ balance: 0 }));
+      return { status: result.status, transactionId: result.transactionId, cash: balance?.balance ?? 0 };
+    }
     case "withdraw": {
       const amount = Number(body.amount);
       const method = String(body.method ?? "Mobile Money");
@@ -726,6 +737,11 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
         },
       };
       return result;
+    }
+    case "setCsdAccount": {
+      const csdNumber = String(body.csdNumber ?? "");
+      await request("PATCH", "/onboarding/csd", { csdNumber });
+      return { success: true };
     }
     default:
       throw new ApiError("Unknown onboarding action: " + action);
@@ -908,6 +924,18 @@ export const accountApi = {
       amount,
       method,
     }),
+  initiatePayment: (amount: number, phoneNumber?: string, transType?: "MOMO" | "CARD") =>
+    call<{ transactionId: string; orderId: string; checkoutUrl: string; payRef: string }>("account", {
+      action: "initiatePayment",
+      amount,
+      phoneNumber,
+      transType: transType ?? "MOMO",
+    }),
+  verifyPayment: (transactionId: string) =>
+    call<{ status: string; transactionId: string; cash: number }>("account", {
+      action: "verifyPayment",
+      transactionId,
+    }),
 };
 
 // ---------- onboarding ----------
@@ -933,6 +961,8 @@ export const onboardingApi = {
     }).then((d) => d.document),
   submit: (declarations?: { accuracyDeclaration?: boolean; termsAccepted?: boolean; sourceOfFundsDeclaration?: boolean }) =>
     call<OnboardingResult>("onboarding", { action: "submit", declarations }),
+  setCsdAccount: (csdNumber: string) =>
+    call<{ success: boolean }>("onboarding", { action: "setCsdAccount", csdNumber }),
   downloadCsdForm: async () => {
     const base = API_BASE_URL.replace(/\/$/, "");
     const token = getAccessToken();

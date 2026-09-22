@@ -110,6 +110,21 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           </div>
         </div>
       )}
+      
+      <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
+        <div className="flex items-center space-x-3">
+          <Checkbox id="csd" checked={d.hasExistingCsd} onCheckedChange={(c) => p({ hasExistingCsd: !!c })} />
+          <Label htmlFor="csd" className="font-semibold cursor-pointer">Do you have an existing CSD Account Number?</Label>
+        </div>
+        {d.hasExistingCsd && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="CSD Account Number">
+              <Input value={d.csdNumber} onChange={(e) => p({ csdNumber: e.target.value })} placeholder="e.g. CSD1234567" />
+            </Field>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

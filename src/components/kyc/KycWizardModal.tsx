@@ -113,6 +113,10 @@ export function KycWizardModal({
             tinNumber: d.tin || "N/A",
             taxResidency: d.countryOfResidence || "Ghana",
           });
+          // Save CSD Number if existing
+          if (d.hasExistingCsd && d.csdNumber) {
+            await onboardingApi.setCsdAccount(d.csdNumber);
+          }
           break;
         }
         case 2: {
