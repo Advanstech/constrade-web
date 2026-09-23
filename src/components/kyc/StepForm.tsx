@@ -2,6 +2,9 @@
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { X } from "lucide-react";
 import {
   ChoiceChips,
   DeclarationRow,
@@ -11,6 +14,7 @@ import {
   MultiChips,
   type KycFormData,
 } from "./steps";
+import { GHANA_BANKS, GHANA_BANK_NAMES } from "./ghana-banks";
 
 type StepKey = keyof KycFormData;
 
@@ -133,7 +137,13 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const d = { ...EMPTY_FORM["2"], ...(form["2"] ?? {}) };
   const p = (v: any) => patchStep("2", v);
   const e = d.employer;
-  
+
+  const defaultAccountName = `${form["1"]?.firstName ?? ""} ${form["1"]?.surname ?? ""}`.trim();
+  const accountNameValue = d.accountName || defaultAccountName;
+
+  const branches = GHANA_BANKS[d.bankName] ?? [];
+  const hasBranches = branches.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -198,11 +208,75 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4 mt-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Bank Account Details</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Bank name"><Input value={d.bankName} onChange={(ev) => p({ bankName: ev.target.value })} placeholder="Ecobank Ghana" /></Field>
-          <Field label="Branch"><Input value={d.branch} onChange={(ev) => p({ branch: ev.target.value })} placeholder="Ridge Branch" /></Field>
+          <Field label="Bank name">
+            <div className="relative">
+              <Input
+                value={d.bankName}
+                onChange={(ev) => p({ bankName: ev.target.value })}
+                placeholder="Select or type your bank"
+                list="ghana-banks"
+              />
+              <datalist id="ghana-banks">
+                {GHANA_BANK_NAMES.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              {d.bankName && (
+                <button
+                  type="button"
+                  onClick={() => p({ bankName: "", branch: "" })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear bank"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </Field>
+          <Field label="Branch (optional)">
+            <div className="relative">
+              <Input
+                value={d.branch}
+                onChange={(ev) => p({ branch: ev.target.value })}
+                placeholder={hasBranches ? "Select or type branch" : "Type your branch"}
+                list={hasBranches ? "ghana-branches" : undefined}
+              />
+              {hasBranches && (
+                <datalist id="ghana-branches">
+                  {branches.map((branch) => (
+                    <option key={branch} value={branch} />
+                  ))}
+                </datalist>
+              )}
+              {d.branch && (
+                <button
+                  type="button"
+                  onClick={() => p({ branch: "" })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear branch"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Account name"><Input value={d.accountName} onChange={(ev) => p({ accountName: ev.target.value })} placeholder="Kwame Mensah" /></Field>
+          <Field label="Account name">
+            <div className="relative">
+              <Input value={accountNameValue} onChange={(ev) => p({ accountName: ev.target.value })} placeholder="Kwame Mensah" />
+              {accountNameValue && (
+                <button
+                  type="button"
+                  onClick={() => p({ accountName: "" })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear account name"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </Field>
           <Field label="Account number"><Input value={d.accountNumber} onChange={(ev) => p({ accountNumber: ev.target.value })} placeholder="1234567890123" /></Field>
         </div>
       </div>

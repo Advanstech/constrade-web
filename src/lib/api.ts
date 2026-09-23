@@ -1009,6 +1009,29 @@ export const authApi = {
   async logout() {
     await logoutRemote();
   },
+  async requestOtp(email: string, type: string) {
+    return request<{ success: boolean; message: string; emailSent: boolean; smsSent: boolean; expiresIn: number }>(
+      "POST",
+      "/auth/2fa/request-otp",
+      { email: email.trim(), type },
+    );
+  },
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const res = await request<{ accessToken: string; refreshToken: string; userId: string; email: string }>(
+      "POST",
+      "/auth/reset-password",
+      { email: email.trim(), code, newPassword },
+    );
+    setTokens(res.accessToken, res.refreshToken);
+    return res;
+  },
+  async changePassword(currentPassword: string, newPassword: string) {
+    return request<{ success: boolean; message: string }>(
+      "POST",
+      "/auth/change-password",
+      { currentPassword, newPassword },
+    );
+  },
 };
 
 // ---------- admin ----------

@@ -1,0 +1,25 @@
+export const GHANA_BANKS: Record<string, string[]> = {
+  "Ecobank Ghana": ["Accra Main", "Airport City", "Cantonments", "East Legon", "Makola", "Osu", "Ridge", "Spintex", "Tema Main", "Tudu", "Kumasi Adum", "Takoradi"],
+  "GCB Bank": ["Accra Main", "Airport City", "Cantonments", "Kaneshie", "Koforidua", "Kumasi Adum", "Makola", "Sunyani", "Takoradi", "Tamale", "Tema", "Wa"],
+  "Standard Chartered Bank Ghana": ["Accra Main", "Airport City", "Cantonments", "East Legon", "Kumasi", "Osu", "Ridge", "Takoradi", "Tema", "Westlands"],
+  "Absa Bank Ghana": ["Accra Main", "Airport City", "East Legon", "Kumasi", "Makola", "Osu", "Ridge", "Spintex", "Takoradi", "Tema"],
+  "Fidelity Bank": ["Accra Main", "Airport City", "East Legon", "Kaneshie", "Kumasi", "Makola", "Osu", "Ridge", "Takoradi", "Tema"],
+  "CalBank": ["Accra", "Airport City", "East Legon", "Kumasi", "Osu", "Ridge", "Spintex", "Takoradi", "Tema"],
+  "Zenith Bank Ghana": ["Accra", "Airport City", "East Legon", "Kumasi", "Takoradi", "Tema"],
+  "United Bank for Africa (UBA) Ghana": ["Accra", "Airport City", "Kumasi", "Takoradi", "Tema"],
+  "GTBank Ghana": ["Accra", "Airport City", "Kumasi", "Takoradi", "Tema"],
+  "Access Bank Ghana": ["Accra", "Airport City", "Kumasi", "Takoradi", "Tema"],
+  "Stanbic Bank Ghana": ["Accra", "Airport City", "Kumasi", "Takoradi", "Tema"],
+  "First National Bank Ghana": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "Republic Bank Ghana": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "Agriculture Development Bank (ADB)": ["Accra", "Kumasi", "Tamale", "Takoradi", "Tema"],
+  "National Investment Bank (NIB)": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "Consolidated Bank Ghana (CBG)": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "Prudential Bank": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "Societe Generale Ghana": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "Universal Merchant Bank": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "Bank of Africa Ghana": ["Accra", "Kumasi", "Takoradi", "Tema"],
+  "First Atlantic Bank": ["Accra", "Kumasi", "Takoradi", "Tema"],
+};
+
+export const GHANA_BANK_NAMES = Object.keys(GHANA_BANKS).sort();

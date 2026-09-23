@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 
@@ -39,6 +39,10 @@ export function KycWizardModal({
   const [submitting, setSubmitting] = useState(false);
   const [completedSteps, setCompletedSteps] = useState(0);
 
+  // Snapshot of each UI step at its last-saved state. Used to skip API calls
+  // when the user presses Next without making any changes.
+  const snapshots = useRef<Record<number, KycFormData[keyof KycFormData]>>({});
+
   // Derive simple percentage
   const pct = Math.round((step / STEP_LABELS.length) * 100);
 
@@ -67,6 +71,28 @@ export function KycWizardModal({
     }
   }, [open, fetchStatus]);
 
+  const cloneStep = (stepNum: number): KycFormData[keyof KycFormData] | undefined => {
+    const data = form[String(stepNum) as keyof KycFormData];
+    if (data === undefined) return undefined;
+    // Deep copy, dropping any File objects (we compare fileName strings instead).
+    try {
+      return JSON.parse(JSON.stringify(data));
+    } catch {
+      return { ...data };
+    }
+  };
+
+  const updateSnapshot = (stepNum: number) => {
+    snapshots.current[stepNum] = cloneStep(stepNum);
+  };
+
+  const isStepDirty = (stepNum: number): boolean => {
+    const current = cloneStep(stepNum);
+    const snapshot = snapshots.current[stepNum];
+    if (snapshot === undefined) return true;
+    return JSON.stringify(snapshot) !== JSON.stringify(current);
+  };
+
   // Use this generic patch step function
   const patchStep = <K extends keyof KycFormData>(
     key: K,
@@ -87,9 +113,16 @@ export function KycWizardModal({
       return;
     }
 
+    // If nothing changed on this step, just move forward without touching the server.
+    if (!isStepDirty(step)) {
+      setCompletedSteps((c) => Math.max(c, step));
+      setStep((s) => s + 1);
+      return;
+    }
+
     try {
       setSaving(true);
-      // The 4 UI steps map to multiple backend endpoints via saveOnboardingStep:
+      // The UI steps map to multiple backend endpoints via saveOnboardingStep:
       //   saveStep(1) = investor type,  saveStep(2) = individual profile,
       //   saveStep(3) = employment,     saveStep(4) = tax,
       //   saveStep(5) = financial,      saveStep(6) = bank,
@@ -207,6 +240,7 @@ export function KycWizardModal({
         }
       }
 
+      updateSnapshot(step);
       setCompletedSteps((c) => Math.max(c, step));
       setStep((s) => s + 1);
     } catch (err) {
@@ -233,6 +267,25 @@ export function KycWizardModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const goToStep = async (target: number) => {
+    if (target === step) return;
+
+    // Going back to an already-completed step is always allowed.
+    if (target < step) {
+      setStep(target);
+      return;
+    }
+
+    // Forward navigation is limited to the very next step, which will save
+    // the current step first if it is dirty.
+    if (target > step + 1) {
+      toast.error("Please complete the current step first.");
+      return;
+    }
+
+    await next();
   };
 
   const summary = useMemo(() => {
@@ -270,6 +323,42 @@ export function KycWizardModal({
                 className="h-full rounded-full bg-gradient-brand transition-all duration-300"
                 style={{ width: `${Math.max(pct, step === STEP_LABELS.length ? 100 : 0)}%` }}
               />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {STEP_LABELS.map((label, idx) => {
+                const num = idx + 1;
+                const completed = num <= completedSteps || num < step;
+                const active = num === step;
+                const reachable = num <= step + 1 || num <= completedSteps + 1;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    disabled={!reachable || active || loading}
+                    onClick={() => void goToStep(num)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                      active
+                        ? "bg-brand-bronze text-white"
+                        : completed
+                        ? "bg-brand-bronze/15 text-brand-bronze hover:bg-brand-bronze/25"
+                        : reachable
+                        ? "border border-border bg-background text-foreground hover:border-brand-bronze/40"
+                        : "border border-border bg-muted/50 text-muted-foreground cursor-not-allowed",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-4 w-4 items-center justify-center rounded-full text-[10px]",
+                        completed ? "bg-white text-brand-bronze" : active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {completed ? <Check className="h-3 w-3" /> : num}
+                    </span>
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -61,13 +61,12 @@ const Login = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <button
-              type="button"
+            <Link
+              href="/forgot-password"
               className="text-xs font-medium text-brand-bronze hover:underline"
-              onClick={() => toast.info("Password reset", { description: "Contact support@constantcap.com.gh" })}
             >
               Forgot password?
-            </button>
+            </Link>
           </div>
           <Input
             id="password"

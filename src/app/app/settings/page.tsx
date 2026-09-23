@@ -1,14 +1,18 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { 
-  Laptop, Moon, Sun, User, ShieldCheck, Palette, Bell, CheckCircle2, Loader2 
+import {
+  Laptop, Moon, Sun, User, ShieldCheck, Palette, Bell, CheckCircle2, Loader2
 } from "lucide-react";
 import { applyThemePreference } from "@/hooks/use-area-theme";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/AuthProvider";
+import { authApi } from "@/lib/api";
 
 const SECTIONS = [
   { id: "profile", label: "Profile Details", icon: User },
@@ -28,6 +32,14 @@ export default function ClientSettingsPage() {
   const [phone, setPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Password Form State
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -240,14 +252,109 @@ export default function ClientSettingsPage() {
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-              <div>
-                <h4 className="text-base font-medium">Change Password</h4>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Update your password to keep your account secure.
-                </p>
+            <div className="border-b border-border pb-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-base font-medium">Change Password</h4>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Update your password to keep your account secure.
+                  </p>
+                </div>
+                {!showPasswordForm && (
+                  <Button variant="outline" onClick={() => setShowPasswordForm(true)}>
+                    Update Password
+                  </Button>
+                )}
               </div>
-              <Button variant="outline">Update Password</Button>
+
+              {showPasswordForm && (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (newPassword !== confirmPassword) {
+                      toast.error("New passwords do not match");
+                      return;
+                    }
+                    if (newPassword.length < 8) {
+                      toast.error("Password must be at least 8 characters");
+                      return;
+                    }
+                    setChangingPassword(true);
+                    try {
+                      await authApi.changePassword(currentPassword, newPassword);
+                      setPasswordSuccess(true);
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                      setTimeout(() => {
+                        setShowPasswordForm(false);
+                        setPasswordSuccess(false);
+                      }, 2000);
+                    } catch (err: unknown) {
+                      const message = err instanceof Error ? err.message : "Failed to update password";
+                      toast.error("Password update failed", { description: message });
+                    } finally {
+                      setChangingPassword(false);
+                    }
+                  }}
+                  className="rounded-xl border border-border bg-card p-4 space-y-4"
+                >
+                  {passwordSuccess ? (
+                    <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Password updated successfully.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="current">Current password</Label>
+                          <Input
+                            id="current"
+                            type="password"
+                            required
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="new">New password</Label>
+                          <Input
+                            id="new"
+                            type="password"
+                            required
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="confirm">Confirm new password</Label>
+                          <Input
+                            id="confirm"
+                            type="password"
+                            required
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button type="submit" disabled={changingPassword}>
+                          {changingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Update Password
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setShowPasswordForm(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </form>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
