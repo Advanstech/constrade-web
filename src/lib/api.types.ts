@@ -122,7 +122,10 @@ export interface Transaction {
   user_id: string;
   type: "deposit" | "withdraw" | "trade_buy" | "trade_sell" | "dividend" | "fee";
   amount: number;
+  status: string;
   reference: string | null;
+  payRef: string | null;
+  channel: string | null;
   detail: string | null;
   created_at: string;
 }
@@ -166,6 +169,7 @@ export interface Profile {
 }
 
 export interface AdminUser extends Profile {
+  id?: string;
   cash: number;
   orderCount: number;
 }
@@ -303,3 +307,19 @@ export interface AppNotification {
   read: boolean;
   createdAt: string;
 }
+
+export interface AdminAuditLog {
+  id: string;
+  action: string;
+  entityId?: string | null;
+  details?: Record<string, unknown> | null;
+  createdAt: string;
+  user?: {
+    id?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    role?: string | null;
+  } | null;
+}
+

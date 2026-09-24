@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { accountApi } from "@/lib/api";
 import type { Portfolio, Transaction } from "@/lib/api.types";
@@ -86,10 +87,11 @@ const Funding = () => {
   const [tab, setTab] = useState("deposit");
   const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("MOMO");
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [payState, setPayState] = useState<PaymentState>("idle");
   const [pendingTxId, setPendingTxId] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<"COMPLETED" | "FAILED" | null>(null);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
@@ -369,10 +371,22 @@ const Funding = () => {
 
               {/* Form */}
               {payState !== "success" && payState !== "failed" && (
-                <div className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-                  {/* Quick amount pills */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm transition-all duration-300 min-h-[300px]">
+                  {!method ? (
+                    <div className="flex h-full min-h-[300px] flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in-95 duration-500">
+                      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-muted border border-border/50 shadow-sm">
+                        <Wallet className="h-10 w-10 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-lg font-bold text-foreground">Select a payment method</p>
+                      <p className="mt-2 max-w-[260px] text-sm text-muted-foreground">
+                        Please select Mobile Money, Card, or Bank Transfer above to continue with your deposit.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-5">
+                      {/* Quick amount pills */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Quick select
                     </Label>
                     <div className="flex flex-wrap gap-2">
@@ -485,9 +499,11 @@ const Funding = () => {
                     </div>
                   )}
 
-                  <p className="text-center text-xs text-muted-foreground">
+                  <p className="text-center text-xs text-muted-foreground mt-2">
                     Secured by Advansis Pay · ExpressPay · GHS only
                   </p>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -553,7 +569,11 @@ const Funding = () => {
               {history.map((t) => {
                 const isDeposit = t.type === "deposit";
                 return (
-                  <div key={t.id} className="flex items-center gap-3 px-5 py-4">
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTx(t)}
+                    className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus:bg-muted/40 outline-none"
+                  >
                     <div className={cn(
                       "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
                       isDeposit ? "bg-green-500/10" : "bg-red-500/10"
@@ -568,19 +588,97 @@ const Funding = () => {
                         {t.detail ?? t.reference ?? "—"} · {formatDateTime(t.created_at)}
                       </p>
                     </div>
-                    <p className={cn(
-                      "shrink-0 text-sm font-bold tabular-nums",
-                      isDeposit ? "text-green-400" : "text-red-400"
-                    )}>
-                      {isDeposit ? "+" : "−"}{formatGHS(Math.abs(t.amount))}
-                    </p>
-                  </div>
+                    <div className="text-right">
+                      <p className={cn(
+                        "shrink-0 text-sm font-bold tabular-nums",
+                        isDeposit ? "text-green-400" : "text-red-400"
+                      )}>
+                        {isDeposit ? "+" : "−"}{formatGHS(Math.abs(t.amount))}
+                      </p>
+                      <p className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider mt-0.5",
+                        t.status === "completed" ? "text-green-500" :
+                        t.status === "pending" || t.status === "processing" ? "text-amber-500" :
+                        "text-red-500"
+                      )}>{t.status}</p>
+                    </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
       </div>
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
+        <DialogContent className="sm:max-w-md border-border/60 shadow-xl bg-card">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>Full overview of this {selectedTx?.type}</DialogDescription>
+          </DialogHeader>
+          
+          {selectedTx && (
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center justify-center py-4">
+                <div className="text-center space-y-2">
+                  <div className={cn(
+                    "mx-auto flex h-14 w-14 items-center justify-center rounded-full",
+                    selectedTx.type === "deposit" ? "bg-green-500/10" : "bg-red-500/10"
+                  )}>
+                    {selectedTx.type === "deposit" ? (
+                      <ArrowDownToLine className="h-7 w-7 text-green-500" />
+                    ) : (
+                      <ArrowUpFromLine className="h-7 w-7 text-red-500" />
+                    )}
+                  </div>
+                  <h2 className="text-3xl font-bold tabular-nums tracking-tight">
+                    {formatGHS(Math.abs(selectedTx.amount))}
+                  </h2>
+                  <div className={cn(
+                    "inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider",
+                    selectedTx.status === "completed" ? "bg-green-500/15 text-green-500" :
+                    selectedTx.status === "pending" || selectedTx.status === "processing" ? "bg-amber-500/15 text-amber-500" :
+                    "bg-red-500/15 text-red-500"
+                  )}>
+                    {selectedTx.status}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-muted/20 divide-y divide-border/60">
+                <div className="flex items-center justify-between p-3.5 text-sm">
+                  <span className="text-muted-foreground">Type</span>
+                  <span className="font-semibold capitalize">{selectedTx.type}</span>
+                </div>
+                <div className="flex items-center justify-between p-3.5 text-sm">
+                  <span className="text-muted-foreground">Date</span>
+                  <span className="font-medium">{formatDateTime(selectedTx.created_at)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3.5 text-sm">
+                  <span className="text-muted-foreground">Reference</span>
+                  <span className="font-mono text-xs">{selectedTx.payRef || selectedTx.reference || selectedTx.id}</span>
+                </div>
+                <div className="flex items-center justify-between p-3.5 text-sm">
+                  <span className="text-muted-foreground">Method</span>
+                  <span className="font-medium">
+                    {selectedTx.channel === "MOMO" ? "Mobile Money" :
+                     selectedTx.channel === "CARD" ? "Card" :
+                     selectedTx.channel === "BANK_TRANSFER" ? "Bank Transfer" :
+                     selectedTx.detail || "Gateway"}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                <Button className="w-full" variant="outline" onClick={() => setSelectedTx(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

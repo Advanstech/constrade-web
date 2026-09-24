@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { ArrowLeftRight, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/market/StatCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { changeBgClass, formatGHS } from "@/lib/format";
 const PortfolioPage = () => {
   const [data, setData] = useState<Portfolio | null>(null);
   const [page, setPage] = useState(1);
+  const [activeSlice, setActiveSlice] = useState<number | null>(null);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -86,8 +88,21 @@ const PortfolioPage = () => {
                         paddingAngle={3}
                         stroke="hsl(var(--card))"
                       >
-                        {data.allocation.map((a) => (
-                          <Cell key={a.label} fill={a.color} />
+                        {data.allocation.map((a, i) => (
+                          <Cell 
+                            key={`${a.label}-${i}`} 
+                            fill={a.color}
+                            style={{
+                              outline: 'none',
+                              opacity: activeSlice === null || activeSlice === i ? 1 : 0.25,
+                              cursor: 'pointer',
+                              filter: activeSlice === i ? `drop-shadow(0 0 8px ${a.color}90)` : 'none',
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                            onMouseEnter={() => setActiveSlice(i)}
+                            onMouseLeave={() => setActiveSlice(null)}
+                            onClick={() => setActiveSlice(activeSlice === i ? null : i)}
+                          />
                         ))}
                       </Pie>
                       <Tooltip
@@ -102,14 +117,44 @@ const PortfolioPage = () => {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="mt-4 space-y-2">
-                  {data.allocation.map((a) => (
-                    <div key={a.label} className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.color }} />
+                <div className="mt-4 space-y-1">
+                  {data.allocation.map((a, i) => (
+                    <div 
+                      key={`${a.label}-${i}`} 
+                      className={cn(
+                        "flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm transition-all duration-300 ease-out",
+                        activeSlice === i 
+                          ? "bg-muted shadow-sm ring-1 ring-border/50 translate-x-1" 
+                          : activeSlice !== null 
+                            ? "opacity-30 grayscale saturate-0"
+                            : "hover:bg-muted/40"
+                      )}
+                      onMouseEnter={() => setActiveSlice(i)}
+                      onMouseLeave={() => setActiveSlice(null)}
+                      onClick={() => setActiveSlice(activeSlice === i ? null : i)}
+                    >
+                      <span className={cn(
+                        "flex items-center gap-2.5 transition-colors duration-300",
+                        activeSlice === i ? "text-foreground font-semibold" : "text-muted-foreground"
+                      )}>
+                        <span 
+                          className={cn(
+                            "h-2.5 w-2.5 rounded-full transition-all duration-300",
+                            activeSlice === i && "scale-[1.4] ring-[3px] ring-background shadow-sm"
+                          )}
+                          style={{ 
+                            background: a.color, 
+                            boxShadow: activeSlice === i ? `0 0 10px ${a.color}` : undefined 
+                          }} 
+                        />
                         {a.label}
                       </span>
-                      <span className="font-semibold">{formatGHS(a.value)}</span>
+                      <span className={cn(
+                        "font-semibold transition-colors duration-300 tracking-tight",
+                        activeSlice === i ? "text-foreground" : "text-muted-foreground"
+                      )}>
+                        {formatGHS(a.value)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -142,8 +187,8 @@ const PortfolioPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(data.holdings.slice((page - 1) * itemsPerPage, page * itemsPerPage)).map((h) => (
-                      <tr key={h.instrument} className="border-b border-border/60 hover:bg-muted/40">
+                    {(data.holdings.slice((page - 1) * itemsPerPage, page * itemsPerPage)).map((h, i) => (
+                      <tr key={`${h.instrument}-${i}`} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="px-6 py-3.5">
                           <p className="font-semibold">{h.instrument}</p>
                         </td>

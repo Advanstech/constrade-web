@@ -193,7 +193,7 @@ export default function AdminOrdersPage() {
   const [uploadTarget, setUploadTarget] = useState<AdminOrder | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);

@@ -13,12 +13,12 @@ function ClientPortalLayoutInner({ children }: { children: ReactNode }) {
   const [kycOpen, setKycOpen] = useState(false);
 
   useEffect(() => {
-    // Open if forced via URL or if the user hasn't completed onboarding yet
+    // Open if forced via URL
     const forceOpen = searchParams.get("kyc") === "true";
-    if (forceOpen || (profile && !profile.onboarded)) {
+    if (forceOpen) {
       setKycOpen(true);
     }
-  }, [searchParams, profile]);
+  }, [searchParams]);
 
   return (
     <>

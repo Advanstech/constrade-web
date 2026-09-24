@@ -15,14 +15,16 @@ const Login = () => {
   const navigate = useRouter();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
+  const [loginMethod, setLoginMethod] = useState<"pin" | "password">("pin");
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const profile = await signIn(email.trim(), password);
+      const profile = await signIn(email.trim(), loginMethod === "pin" ? pin : password);
       toast.success("Welcome back");
       const destination = ["trader", "compliance", "admin"].includes(profile?.role ?? "")
         ? "/admin/dashboard"
@@ -58,31 +60,66 @@ const Login = () => {
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
-            <Link
-              href="/forgot-password"
-              className="text-xs font-medium text-brand-bronze hover:underline"
-            >
-              Forgot password?
-            </Link>
+        {loginMethod === "pin" ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="pin">6-digit PIN</Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-brand-bronze hover:underline"
+              >
+                Forgot PIN?
+              </Link>
+            </div>
+            <Input
+              id="pin"
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              required
+              autoComplete="current-password"
+              placeholder="••••••"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            />
           </div>
-          <Input
-            id="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-brand-bronze hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <Input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        )}
 
         <Button type="submit" className="w-full" size="lg" variant="premium" disabled={submitting}>
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {submitting ? "Signing in…" : "Sign in"}
         </Button>
+        
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => setLoginMethod(prev => prev === "pin" ? "password" : "pin")}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {loginMethod === "pin" ? "Sign in with password instead" : "Sign in with PIN instead"}
+          </button>
+        </div>
       </form>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">

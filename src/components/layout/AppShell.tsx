@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   ArrowLeftRight,
   BarChart3,
@@ -47,6 +47,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { useAreaTheme } from "@/hooks/use-area-theme";
 import { canAdminister, isStaff, ROLE_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { onboardingApi } from "@/lib/api";
 import type { ReactNode } from "react";
 
 const CLIENT_NAV = [
@@ -99,6 +100,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const staff = isStaff(role);
   const admin = canAdminister(role);
   const kycApproved = profile?.kyc_status === "approved";
+
+  const [kycProgress, setKycProgress] = useState<number>(0);
+
+  useEffect(() => {
+    if (profile && !kycApproved) {
+      onboardingApi.progress().then(res => {
+        if (res && typeof res.completedSteps === 'number') {
+           setKycProgress(Math.round((res.completedSteps / 6) * 100));
+        }
+      }).catch(err => {
+         // ignore error or log it if needed
+      });
+    }
+  }, [profile, kycApproved]);
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -206,6 +221,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="hidden items-center gap-2 text-sm text-muted-foreground md:flex">
                 <ShieldCheck className="h-4 w-4 text-brand-bronze" />
                 SEC-Regulated · Ghana Stock Exchange
+                <span className="mx-2 h-4 w-px bg-sidebar-border" />
+                {kycApproved ? (
+                  <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Verified Account
+                  </span>
+                ) : (
+                  <Link href="?kyc=true" className="flex items-center gap-1.5 rounded-full border border-brand-orange/30 bg-brand-orange/10 px-2.5 py-0.5 text-xs font-medium text-brand-orange hover:bg-brand-orange/20 transition-colors">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    {kycProgress > 0 ? `${kycProgress}% complete — tap to continue` : "Verification Pending"}
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
@@ -287,11 +314,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function SidebarKycLink({ compact }: { compact: boolean }) {
   const pathname = usePathname();
-  const isActive = pathname === "/register/onboarding";
+  const searchParams = useSearchParams();
+  const isActive = searchParams.get("kyc") === "true";
   
   const content = (
     <Link
-      href="/register/onboarding"
+      href="?kyc=true"
       className={cn(
         "flex items-center rounded-md py-2.5 text-sm font-semibold transition-colors",
         compact ? "justify-center px-0" : "gap-3 px-3",

@@ -11,16 +11,16 @@ import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { authApi } from "@/lib/api";
 
-type Step = "email" | "code" | "password" | "done";
+type Step = "email" | "code" | "pin" | "done";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const requestCode = async (e: React.FormEvent) => {
@@ -47,27 +47,27 @@ export default function ForgotPasswordPage() {
       toast.error("Enter the 6-digit PIN");
       return;
     }
-    setStep("password");
+    setStep("pin");
   };
 
-  const resetPassword = async (e: React.FormEvent) => {
+  const resetPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password too short", { description: "Use at least 8 characters" });
+    if (pin.length !== 6) {
+      toast.error("PIN must be exactly 6 digits");
       return;
     }
-    if (password !== confirm) {
-      toast.error("Passwords do not match");
+    if (pin !== confirm) {
+      toast.error("PINs do not match");
       return;
     }
     setLoading(true);
     try {
-      await authApi.resetPassword(email.trim(), code.trim(), password);
-      toast.success("Password reset", { description: "You are now signed in." });
+      await authApi.resetPassword(email.trim(), code.trim(), pin);
+      toast.success("PIN reset", { description: "You are now signed in." });
       setStep("done");
       setTimeout(() => router.replace("/app/dashboard"), 1500);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Could not reset password";
+      const message = err instanceof Error ? err.message : "Could not reset PIN";
       toast.error("Reset failed", { description: message });
     } finally {
       setLoading(false);
@@ -84,15 +84,15 @@ export default function ForgotPasswordPage() {
       </div>
 
       <h1 className="font-display text-2xl font-extrabold tracking-tight text-foreground">
-        {step === "email" && "Reset your password"}
+        {step === "email" && "Reset your PIN"}
         {step === "code" && "Enter the reset PIN"}
-        {step === "password" && "Choose a new password"}
-        {step === "done" && "Password updated"}
+        {step === "pin" && "Choose a new 6-digit PIN"}
+        {step === "done" && "PIN updated"}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {step === "email" && "We will send a 6-digit PIN to your email and phone."}
-        {step === "code" && "Enter the PIN we sent to your registered email and phone."}
-        {step === "password" && "Create a strong password for your Constant Capital account."}
+        {step === "email" && "We will send a 6-digit reset code to your email and phone."}
+        {step === "code" && "Enter the reset code we sent to your registered email and phone."}
+        {step === "pin" && "Create a secure 6-digit PIN for your Constant Capital account."}
         {step === "done" && "You are being signed in…"}
       </p>
 
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
       ) : (
         <form
           onSubmit={
-            step === "email" ? requestCode : step === "code" ? verifyCode : resetPassword
+            step === "email" ? requestCode : step === "code" ? verifyCode : resetPin
           }
           className="mt-8 space-y-5"
         >
@@ -150,38 +150,41 @@ export default function ForgotPasswordPage() {
             </div>
           )}
 
-          {step === "password" && (
+          {step === "pin" && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="password">New password</Label>
+                <Label htmlFor="pin">New 6-digit PIN</Label>
                 <div className="relative">
                   <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
+                    id="pin"
+                    type={showPin ? "text" : "password"}
+                    inputMode="numeric"
                     required
-                    minLength={8}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    maxLength={6}
+                    placeholder="••••••"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPin(!showPin)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-brand-bronze"
                   >
-                    {showPassword ? "Hide" : "Show"}
+                    {showPin ? "Hide" : "Show"}
                   </button>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm">Confirm new password</Label>
+                <Label htmlFor="confirm">Confirm new PIN</Label>
                 <Input
                   id="confirm"
-                  type={showPassword ? "text" : "password"}
+                  type={showPin ? "text" : "password"}
+                  inputMode="numeric"
                   required
-                  placeholder="••••••••"
+                  maxLength={6}
+                  placeholder="••••••"
                   value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
+                  onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ""))}
                 />
               </div>
             </>
@@ -189,9 +192,9 @@ export default function ForgotPasswordPage() {
 
           <Button type="submit" className="w-full" variant="premium" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {step === "email" && (loading ? "Sending PIN…" : "Send reset PIN")}
+            {step === "email" && (loading ? "Sending code…" : "Send reset code")}
             {step === "code" && "Continue"}
-            {step === "password" && (loading ? "Resetting…" : "Reset password")}
+            {step === "pin" && (loading ? "Resetting…" : "Reset PIN")}
           </Button>
         </form>
       )}

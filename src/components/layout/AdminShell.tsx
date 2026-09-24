@@ -17,6 +17,7 @@ import {
   X,
   LayoutDashboard,
   Settings,
+  Banknote,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -45,6 +46,7 @@ import type { ReactNode } from "react";
 const ADMIN_NAV = [
   { label: "Analytics", href: "/admin", icon: BarChart3 },
   { label: "Clients", href: "/admin/users", icon: Users },
+  { label: "Transactions", href: "/admin/transactions", icon: Banknote },
   { label: "Order Approvals", href: "/admin/orders", icon: ClipboardCheck },
   { label: "Reports", href: "/admin/reports", icon: FileText },
   { label: "Settings", href: "/admin/settings", icon: Settings },

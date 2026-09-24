@@ -140,18 +140,20 @@ async function rawRequest<T = unknown>(
   let message: string | undefined;
 
   if (errJson) {
-    if (typeof errJson.error === "string") {
-      message = errJson.error;
-    } else if (typeof errJson.error === "object" && errJson.error !== null) {
+    // 1. Try to get detailed message array or string
+    if (typeof errJson.message === "string") {
+      message = errJson.message;
+    } else if (Array.isArray(errJson.message)) {
+      message = errJson.message.join(", ");
+    }
+    // 2. Fallback to nested error message
+    if (!message && typeof errJson.error === "object" && errJson.error !== null) {
       const inner = errJson.error as Record<string, unknown>;
       message = typeof inner.message === "string" ? inner.message : (typeof inner.error === "string" ? inner.error : undefined);
     }
-    if (!message) {
-      if (typeof errJson.message === "string") {
-        message = errJson.message;
-      } else if (Array.isArray(errJson.message)) {
-        message = errJson.message.join(", ");
-      }
+    // 3. Fallback to top-level error string (e.g. "Bad Request")
+    if (!message && typeof errJson.error === "string") {
+      message = errJson.error;
     }
   }
 

@@ -5,10 +5,12 @@ import Link from "next/link";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowLeftRight, Search, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Sparkline } from "@/components/market/Sparkline";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/auth/AuthProvider";
 import { marketsApi } from "@/lib/api";
 import type { Quote } from "@/lib/api.types";
 import { changeBgClass, formatGHS, formatPercent } from "@/lib/format";
@@ -56,6 +58,7 @@ const Chart = ({ ticker, points }: { ticker: string; points: number[] }) => {
 };
 
 const AppMarkets = () => {
+  const { profile } = useAuth();
   const [tab, setTab] = useState("equity");
   const [query, setQuery] = useState("");
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -149,21 +152,29 @@ const AppMarkets = () => {
                     key={q.ticker}
                     onClick={() => select(q)}
                     className={cn(
-                      "flex w-full items-center justify-between border-b border-border/50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-muted/50",
+                      "flex w-full items-center border-b border-border/50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-muted/50",
                       selected?.ticker === q.ticker && "bg-brand-bronze-soft/60 hover:bg-brand-bronze-soft/60",
                     )}
                   >
-                    <div>
-                      <p className="text-sm font-semibold text-card-foreground">
+                    <div className="flex-1 overflow-hidden">
+                      <p className="truncate text-sm font-semibold text-card-foreground">
                         {q.assetClass === "fixed_income" ? q.name : q.ticker}
                       </p>
-                      <p className="text-xs text-muted-foreground font-mono">
+                      <p className="truncate text-xs text-muted-foreground font-mono">
                         {q.assetClass === "fixed_income"
                           ? q.ticker?.startsWith("GH") ? `ISIN: ${q.ticker}` : q.ticker
                           : q.name}
                       </p>
                     </div>
-                    <div className="text-right">
+                    
+                    <div className="mx-4 hidden w-16 shrink-0 sm:block">
+                      <Sparkline
+                        points={sparks[q.ticker] ?? []}
+                        positive={q.changePct >= 0}
+                      />
+                    </div>
+
+                    <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-card-foreground">
                         {q.assetClass === "fixed_income" && q.yieldToMaturity
                           ? `${q.yieldToMaturity.toFixed(2)}%`
@@ -249,7 +260,7 @@ const AppMarkets = () => {
               </div>
 
               <Button asChild size="lg" variant="premium" className="mt-6 w-full">
-                <Link href={`/app/trade?ticker=${selected.ticker}`}>
+                <Link href={profile?.onboarded ? `/app/trade?ticker=${selected.ticker}` : "?kyc=true"}>
                   <ArrowLeftRight className="h-4 w-4" />
                   Trade {selected.assetClass === "fixed_income" ? selected.name : selected.ticker}
                 </Link>

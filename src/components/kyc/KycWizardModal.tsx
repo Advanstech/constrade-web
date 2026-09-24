@@ -380,13 +380,22 @@ export function KycWizardModal({
         </div>
 
         <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t bg-background/80 px-6 py-4 backdrop-blur-md">
-          <Button
-            variant="outline"
-            onClick={() => setStep((s) => Math.max(1, s - 1))}
-            disabled={step === 1 || loading}
-          >
-            <ArrowLeft className="h-4 w-4" /> Previous
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setStep((s) => Math.max(1, s - 1))}
+              disabled={step === 1 || loading}
+            >
+              <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Previous</span>
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+              className="text-muted-foreground"
+            >
+              Save & Exit
+            </Button>
+          </div>
           
           {step < STEP_LABELS.length ? (
             <Button variant="premium" onClick={() => void next()} disabled={saving || loading}>

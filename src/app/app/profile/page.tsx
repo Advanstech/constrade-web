@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -107,9 +108,9 @@ const ProfilePage = () => {
           </div>
           {!kycApproved && (
             <Button asChild variant="premium" size="sm" className="shrink-0">
-              <a href="/app?kyc=true">
+              <Link href="?kyc=true">
                 Continue application <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
             </Button>
           )}
         </CardContent>

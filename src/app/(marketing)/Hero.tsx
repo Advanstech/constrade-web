@@ -120,9 +120,15 @@ export function Hero() {
                       <span className="text-xs text-white/70">{r.label}</span>
                       <span className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-white">{r.value}</span>
-                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${changeBgClass(r.change)}`}>
-                          {formatPercent(r.change)}
-                        </span>
+                        {r.change != null ? (
+                          <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${changeBgClass(r.change)}`}>
+                            {formatPercent(r.change)}
+                          </span>
+                        ) : (
+                          <span className="rounded bg-white/5 px-1.5 py-0.5 text-[11px] font-semibold text-white/40">
+                            —
+                          </span>
+                        )}
                       </span>
                     </div>
                   ))}

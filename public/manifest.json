@@ -1,0 +1,21 @@
+{
+  "name": "Constant Capital",
+  "short_name": "Constant",
+  "description": "Premium brokerage platform for the Ghana Stock Exchange",
+  "start_url": "/app/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff6f00",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

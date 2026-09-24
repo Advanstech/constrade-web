@@ -365,21 +365,63 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Ghana Card or International Passport</p>
-        {d.identityDocs.map((doc: any, i: number) => (
-          <div key={i} className="space-y-4">
-            <p className="text-[11px] font-semibold uppercase text-muted-foreground mt-4">Document {i + 1} ({i === 0 ? "Front" : "Back"})</p>
-            <Field label="ID type">
-              <ChoiceChips options={["Ghana Card", "Passport"]} value={doc.type} onChange={(type) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, type } : x)) })} />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="ID number"><Input value={doc.number} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, number: e.target.value } : x)) })} /></Field>
-              <Field label="Place of issue"><Input value={doc.placeOfIssue} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, placeOfIssue: e.target.value } : x)) })} /></Field>
-              <Field label="Issue date"><Input type="date" value={doc.issueDate} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, issueDate: e.target.value } : x)) })} /></Field>
-              <Field label="Expiring date"><Input type="date" value={doc.expiryDate} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, expiryDate: e.target.value } : x)) })} /></Field>
+        {d.identityDocs.map((doc: any, i: number) => {
+          const isBack = i === 1;
+          const frontDoc: any = d.identityDocs[0] || {};
+          
+          if (isBack && frontDoc.type === "Passport") {
+            return null; // Passports do not require a back upload
+          }
+          
+          return (
+            <div key={i} className="space-y-4">
+              <p className="text-[11px] font-semibold uppercase text-muted-foreground mt-4">
+                Document {i + 1} ({isBack ? "Back" : "Front"})
+              </p>
+              {!isBack && (
+                <>
+                  <Field label="ID type">
+                    <ChoiceChips options={["Ghana Card", "Passport"]} value={doc.type} onChange={(type) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, type } : x)) })} />
+                  </Field>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="ID number"><Input value={doc.number} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, number: e.target.value } : x)) })} /></Field>
+                    <Field label="Place of issue"><Input value={doc.placeOfIssue} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, placeOfIssue: e.target.value } : x)) })} /></Field>
+                    <Field label="Issue date"><Input type="date" value={doc.issueDate} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, issueDate: e.target.value } : x)) })} /></Field>
+                    <Field label="Expiring date"><Input type="date" value={doc.expiryDate} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, expiryDate: e.target.value } : x)) })} /></Field>
+                  </div>
+                </>
+              )}
+              <FileUpload 
+                label={`Upload ${isBack ? (frontDoc.type || "ID") : (doc.type || "ID")} ${isBack ? "Back" : "Front"} copy`} 
+                fileName={doc.fileName} 
+                onChange={(fileName) => {
+                  p({ 
+                    identityDocs: d.identityDocs.map((x: any, j: number) => {
+                      if (j === i) {
+                        return isBack 
+                          ? { ...x, fileName, type: frontDoc.type, number: frontDoc.number, placeOfIssue: frontDoc.placeOfIssue, issueDate: frontDoc.issueDate, expiryDate: frontDoc.expiryDate } 
+                          : { ...x, fileName };
+                      }
+                      return x;
+                    }) 
+                  });
+                }} 
+                onFile={(file) => {
+                  p({ 
+                    identityDocs: d.identityDocs.map((x: any, j: number) => {
+                      if (j === i) {
+                        return isBack 
+                          ? { ...x, file, type: frontDoc.type, number: frontDoc.number, placeOfIssue: frontDoc.placeOfIssue, issueDate: frontDoc.issueDate, expiryDate: frontDoc.expiryDate } 
+                          : { ...x, file };
+                      }
+                      return x;
+                    }) 
+                  });
+                }} 
+              />
             </div>
-            <FileUpload label={`Upload ${doc.type || "ID"} ${i === 0 ? "Front" : "Back"} copy`} fileName={doc.fileName} onChange={(fileName) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, fileName } : x)) })} onFile={(file) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, file } : x)) })} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

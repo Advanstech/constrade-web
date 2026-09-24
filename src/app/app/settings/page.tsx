@@ -33,13 +33,13 @@ export default function ClientSettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
 
-  // Password Form State
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  // PIN Form State
+  const [showPinForm, setShowPinForm] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [changingPin, setChangingPin] = useState(false);
+  const [pinSuccess, setPinSuccess] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -248,105 +248,111 @@ export default function ClientSettingsPage() {
           <div>
             <h3 className="text-xl font-semibold text-foreground">Security & Login</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Manage your password and secure your account.
+              Manage your PIN and secure your account.
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
             <div className="border-b border-border pb-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h4 className="text-base font-medium">Change Password</h4>
+                  <h4 className="text-base font-medium">Change PIN</h4>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Update your password to keep your account secure.
+                    Update your 6-digit PIN to keep your account secure.
                   </p>
                 </div>
-                {!showPasswordForm && (
-                  <Button variant="outline" onClick={() => setShowPasswordForm(true)}>
-                    Update Password
+                {!showPinForm && (
+                  <Button variant="outline" onClick={() => setShowPinForm(true)}>
+                    Update PIN
                   </Button>
                 )}
               </div>
 
-              {showPasswordForm && (
+              {showPinForm && (
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (newPassword !== confirmPassword) {
-                      toast.error("New passwords do not match");
+                    if (newPin !== confirmPin) {
+                      toast.error("New PINs do not match");
                       return;
                     }
-                    if (newPassword.length < 8) {
-                      toast.error("Password must be at least 8 characters");
+                    if (newPin.length !== 6) {
+                      toast.error("PIN must be exactly 6 digits");
                       return;
                     }
-                    setChangingPassword(true);
+                    setChangingPin(true);
                     try {
-                      await authApi.changePassword(currentPassword, newPassword);
-                      setPasswordSuccess(true);
-                      setCurrentPassword("");
-                      setNewPassword("");
-                      setConfirmPassword("");
+                      await authApi.changePassword(currentPin, newPin);
+                      setPinSuccess(true);
+                      setCurrentPin("");
+                      setNewPin("");
+                      setConfirmPin("");
                       setTimeout(() => {
-                        setShowPasswordForm(false);
-                        setPasswordSuccess(false);
+                        setShowPinForm(false);
+                        setPinSuccess(false);
                       }, 2000);
                     } catch (err: unknown) {
-                      const message = err instanceof Error ? err.message : "Failed to update password";
-                      toast.error("Password update failed", { description: message });
+                      const message = err instanceof Error ? err.message : "Failed to update PIN";
+                      toast.error("PIN update failed", { description: message });
                     } finally {
-                      setChangingPassword(false);
+                      setChangingPin(false);
                     }
                   }}
                   className="rounded-xl border border-border bg-card p-4 space-y-4"
                 >
-                  {passwordSuccess ? (
+                  {pinSuccess ? (
                     <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
                       <CheckCircle2 className="h-4 w-4" />
-                      Password updated successfully.
+                      PIN updated successfully.
                     </div>
                   ) : (
                     <>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="current">Current password</Label>
+                          <Label htmlFor="current">Current PIN</Label>
                           <Input
                             id="current"
                             type="password"
+                            inputMode="numeric"
+                            maxLength={6}
                             required
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            value={currentPin}
+                            onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="new">New password</Label>
+                          <Label htmlFor="new">New PIN</Label>
                           <Input
                             id="new"
                             type="password"
+                            inputMode="numeric"
+                            maxLength={6}
                             required
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
+                            value={newPin}
+                            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="confirm">Confirm new password</Label>
+                          <Label htmlFor="confirm">Confirm new PIN</Label>
                           <Input
                             id="confirm"
                             type="password"
+                            inputMode="numeric"
+                            maxLength={6}
                             required
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            value={confirmPin}
+                            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
                           />
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Button type="submit" disabled={changingPassword}>
-                          {changingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Update Password
+                        <Button type="submit" disabled={changingPin}>
+                          {changingPin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Update PIN
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
-                          onClick={() => setShowPasswordForm(false)}
+                          onClick={() => setShowPinForm(false)}
                         >
                           Cancel
                         </Button>

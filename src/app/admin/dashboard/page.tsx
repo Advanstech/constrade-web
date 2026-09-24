@@ -22,6 +22,14 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LoadError } from "@/components/layout/LoadError";
 import { StatCard } from "@/components/market/StatCard";
@@ -43,6 +51,8 @@ const AdminDashboard = () => {
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
 
   const load = () => {
     setLoading(true);
@@ -85,6 +95,9 @@ const AdminDashboard = () => {
     month: label,
     clients: data.chart.clientGrowth[i] ?? 0,
   }));
+
+  const paginatedOrders = data.latestOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.ceil(data.latestOrders.length / pageSize);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -224,7 +237,7 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.latestOrders.map((o) => (
+                  {paginatedOrders.map((o) => (
                     <tr key={o.id} className="border-b border-border/60 hover:bg-muted/40">
                       <td className="px-6 py-3 font-mono text-xs text-muted-foreground">#{shortId(o.id)}</td>
                       <td className="px-4 py-3 font-semibold">{o.instrument}</td>
@@ -248,6 +261,48 @@ const AdminDashboard = () => {
               </table>
             </div>
           </CardContent>
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-border/50">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setCurrentPage((p) => Math.max(1, p - 1));
+                      }}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink
+                        href="#"
+                        isActive={currentPage === p}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(p);
+                        }}
+                      >
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setCurrentPage((p) => Math.min(totalPages, p + 1));
+                      }}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </Card>
       </div>
     </div>

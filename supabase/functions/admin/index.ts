@@ -437,6 +437,8 @@ Deno.serve(async (req) => {
         return await updateUserRole(body);
       case "orders":
         return await orders();
+      case "transactions":
+        return await transactions();
       case "approveOrder":
         return await approveOrder(body);
       case "rejectOrder":
@@ -578,6 +580,24 @@ async function orders() {
     orders: orderRows.map((o) => ({
       ...o,
       client: nameMap.get(o.user_id) ?? o.user_id,
+    })),
+  });
+}
+
+async function transactions() {
+  const [txRes, profileRes] = await Promise.all([
+    serviceClient.schema("cc").from("transactions").select("*").order("created_at", { ascending: false }).limit(200),
+    serviceClient.schema("cc").from("profiles").select("*"),
+  ]);
+
+  const txRows = (txRes.data as any[]) ?? [];
+  const profileRows = (profileRes.data as any[]) ?? [];
+  const nameMap = new Map(profileRows.map((p) => [p.user_id, p.full_name || p.email]));
+
+  return json({
+    transactions: txRows.map((t) => ({
+      ...t,
+      clientName: nameMap.get(t.user_id) ?? t.user_id,
     })),
   });
 }

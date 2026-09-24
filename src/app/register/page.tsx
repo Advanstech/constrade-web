@@ -18,7 +18,7 @@ const Register = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -27,12 +27,12 @@ const Register = () => {
     try {
       await authApi.register({
         email: email.trim(),
-        password,
+        password: pin,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         accountType: "individual",
       });
-      await signIn(email.trim(), password);
+      await signIn(email.trim(), pin);
       toast.success("Account created — let's complete your onboarding");
       navigate.replace("/app?kyc=true");
     } catch (err: unknown) {
@@ -91,16 +91,17 @@ const Register = () => {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="pin">6-digit PIN</Label>
           <Input
-            id="password"
+            id="pin"
             type="password"
+            inputMode="numeric"
+            maxLength={6}
             required
-            minLength={8}
             autoComplete="new-password"
-            placeholder="At least 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
           />
         </div>
 
