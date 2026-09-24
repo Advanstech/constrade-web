@@ -89,10 +89,18 @@ const Funding = () => {
   const [phone, setPhone] = useState("");
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [payState, setPayState] = useState<PaymentState>("idle");
-  const [pendingTxId, setPendingTxId] = useState<string | null>(null);
-  const [verifyResult, setVerifyResult] = useState<"COMPLETED" | "FAILED" | null>(null);
+  /** Identifiers for the in-flight gateway payment (local txn id, or the
+   *  gateway orderId/token carried back by the return redirect). */
+  const [pendingRef, setPendingRef] = useState<{
+    transactionId?: string;
+    orderId?: string;
+    token?: string;
+  } | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<{ amount?: number; payRef?: string } | null>(null);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCountRef = useRef(0);
 
   const load = useCallback(async () => {
     try {
@@ -119,6 +127,87 @@ const Funding = () => {
     if (profile?.phone && !phone) setPhone(profile.phone);
   }, [profile, phone]);
 
+  /* ── Shared verify — used by the manual button, the auto-poll, and the
+       return-redirect detector. The API confirms with the gateway
+       authoritatively; redirect params are only lookup keys. ─────────────── */
+  const runVerify = useCallback(
+    async (
+      ref: { transactionId?: string; orderId?: string; token?: string },
+      opts?: { quiet?: boolean },
+    ): Promise<boolean> => {
+      if (!opts?.quiet) setPayState("verifying");
+      try {
+        const res = await accountApi.verifyPayment(ref);
+        const status = (res.status ?? "").toUpperCase();
+        if (status === "COMPLETED") {
+          setReceipt({ amount: res.amount, payRef: res.payRef });
+          setPayState("success");
+          toast.success("Payment confirmed! Your wallet has been credited.", {
+            icon: <CheckCircle2 className="h-4 w-4 text-green-400" />,
+          });
+          setAmount("");
+          void load();
+          return true;
+        }
+        if (["REJECTED", "FAILED", "CANCELLED"].includes(status)) {
+          setPayState("failed");
+          toast.error("Payment was not successful. Please try again.");
+          return true;
+        }
+        setPayState("awaiting");
+        if (!opts?.quiet) {
+          toast.info(`Status: ${res.status}. The payment may still be processing.`);
+        }
+        return false;
+      } catch (err) {
+        setPayState("awaiting");
+        if (!opts?.quiet) {
+          toast.error("Verification failed", {
+            description: err instanceof Error ? err.message : undefined,
+          });
+        }
+        return false;
+      }
+    },
+    [load],
+  );
+
+  /* ── Return redirect from the hosted checkout ────────────────────────────
+     The gateway 302s back to /app/funding?orderId=…&token=…&status=… once the
+     host is allowlisted. Detect it, strip the params, and verify. The `status`
+     param is a UX hint only — fulfilment comes from the API verify call. */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("orderId");
+    const token = params.get("token");
+    if (!orderId && !token) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    const ref = { orderId: orderId ?? undefined, token: token ?? undefined };
+    setPendingRef(ref);
+    void runVerify(ref);
+  }, [runVerify]);
+
+  /* ── Auto-poll while awaiting — mimics the mobile flow: the checkout tab
+       resolves on its own and this tab updates without a manual click. ── */
+  useEffect(() => {
+    if (payState !== "awaiting" || !pendingRef) return;
+    pollCountRef.current = 0;
+    pollRef.current = setInterval(() => {
+      pollCountRef.current += 1;
+      if (pollCountRef.current > 36) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        return; // ~3 min elapsed — the manual Verify button stays available
+      }
+      void runVerify(pendingRef, { quiet: true });
+    }, 5000);
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [payState, pendingRef, runVerify]);
+
   /* ── Initiate gateway payment ──────────────────────────────────────────── */
   const initiateGatewayPayment = async () => {
     const value = Number(amount);
@@ -132,18 +221,28 @@ const Funding = () => {
     }
 
     setPayState("initiating");
+    // Open the tab synchronously within the click gesture — an await before
+    // window.open lets popup blockers kill it. We point it at the checkout
+    // once the API responds.
+    const checkoutTab = window.open("about:blank", "_blank");
     try {
       const res = await accountApi.initiatePayment(value, phone || undefined, method as "MOMO" | "CARD");
-      setPendingTxId(res.transactionId);
+      setPendingRef({ transactionId: res.transactionId });
+      setCheckoutUrl(res.checkoutUrl);
 
-      // Open checkout in a new tab
-      window.open(res.checkoutUrl, "_blank", "noopener,noreferrer");
+      if (checkoutTab) {
+        checkoutTab.location.href = res.checkoutUrl;
+      }
       setPayState("awaiting");
 
-      toast.info("Checkout opened in a new tab. Complete payment there, then click Verify.", {
-        duration: 8000,
-      });
+      toast.info(
+        checkoutTab
+          ? "Checkout opened in a new tab. This page updates automatically when the payment completes."
+          : "Popup blocked — use the Open checkout link below.",
+        { duration: 8000 },
+      );
     } catch (err) {
+      checkoutTab?.close();
       setPayState("failed");
       toast.error("Could not start payment", {
         description: err instanceof Error ? err.message : undefined,
@@ -153,32 +252,8 @@ const Funding = () => {
 
   /* ── Verify after user returns ─────────────────────────────────────────── */
   const verifyPayment = async () => {
-    if (!pendingTxId) return;
-    setPayState("verifying");
-    try {
-      const res = await accountApi.verifyPayment(pendingTxId);
-      if (res.status === "COMPLETED") {
-        setVerifyResult("COMPLETED");
-        setPayState("success");
-        toast.success("Payment confirmed! Your wallet has been credited.", {
-          icon: <CheckCircle2 className="h-4 w-4 text-green-400" />,
-        });
-        setAmount("");
-        void load();
-      } else if (["REJECTED", "FAILED", "CANCELLED"].includes(res.status)) {
-        setVerifyResult("FAILED");
-        setPayState("failed");
-        toast.error("Payment was not successful. Please try again.");
-      } else {
-        setPayState("awaiting");
-        toast.info(`Status: ${res.status}. The payment may still be processing.`);
-      }
-    } catch (err) {
-      setPayState("awaiting");
-      toast.error("Verification failed", {
-        description: err instanceof Error ? err.message : undefined,
-      });
-    }
+    if (!pendingRef) return;
+    await runVerify(pendingRef);
   };
 
   /* ── Bank transfer deposit (manual) ────────────────────────────────────── */
@@ -227,8 +302,9 @@ const Funding = () => {
 
   const reset = () => {
     setPayState("idle");
-    setPendingTxId(null);
-    setVerifyResult(null);
+    setPendingRef(null);
+    setCheckoutUrl(null);
+    setReceipt(null);
   };
 
   const isLoading = payState === "initiating" || payState === "verifying";
@@ -351,8 +427,11 @@ const Funding = () => {
                       <CheckCircle2 className="h-14 w-14 text-green-400" />
                       <p className="text-xl font-bold text-green-400">Payment Confirmed!</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatGHS(Number(amount))} has been credited to your wallet.
+                        {receipt?.amount != null ? formatGHS(receipt.amount) : "Your deposit"} has been credited to your wallet.
                       </p>
+                      {receipt?.payRef && (
+                        <p className="font-mono text-xs text-muted-foreground/70">Ref: {receipt.payRef}</p>
+                      )}
                     </>
                   ) : (
                     <>
@@ -447,16 +526,31 @@ const Funding = () => {
                     </div>
                   )}
 
-                  {/* Awaiting state — show verify button */}
+                  {/* Awaiting state — auto-polling + manual verify */}
                   {payState === "awaiting" && (
                     <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
                       <p className="font-semibold text-amber-400">
-                        ⚡ Checkout page opened in a new tab.
+                        ⚡ Checkout opened — waiting for payment…
                       </p>
                       <p className="mt-1 text-amber-300/80">
-                        Complete your payment there. Once done, return here and click <strong>Verify payment</strong>.
+                        Complete your payment in the checkout tab. This page checks automatically — or click <strong>Verify payment</strong> once you&apos;re done.
+                        {checkoutUrl && (
+                          <>
+                            {" "}
+                            If the checkout didn&apos;t open,{" "}
+                            <a
+                              href={checkoutUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold underline underline-offset-2"
+                            >
+                              open it manually
+                            </a>
+                            .
+                          </>
+                        )}
                       </p>
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-3 flex items-center gap-2">
                         <Button
                           size="sm"
                           onClick={verifyPayment}
@@ -467,6 +561,9 @@ const Funding = () => {
                           Verify payment
                         </Button>
                         <Button size="sm" variant="outline" onClick={reset}>Cancel</Button>
+                        <span className="ml-auto flex items-center gap-1.5 text-xs text-amber-300/70">
+                          <Loader2 className="h-3 w-3 animate-spin" /> auto-checking
+                        </span>
                       </div>
                     </div>
                   )}

@@ -653,6 +653,9 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
         amount: Number(body.amount),
         phoneNumber: body.phoneNumber,
         transType: body.transType ?? "MOMO",
+        // Selects the web returnUrl server-side — the gateway 302s back to
+        // ADVANSIS_WEB_RETURN_URL (/app/funding) once the host is allowlisted.
+        platform: "WEB",
       });
       return {
         transactionId: result.transactionId,
@@ -664,9 +667,17 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
     case "verifyPayment": {
       const result = await request<any>("POST", "/wallet/deposits/verify-payment", {
         transactionId: body.transactionId,
+        orderId: body.orderId,
+        token: body.token,
       });
       const balance = await request<any>("GET", "/wallet/balance").catch(() => ({ balance: 0 }));
-      return { status: result.status, transactionId: result.transactionId, cash: balance?.balance ?? 0 };
+      return {
+        status: result.status,
+        transactionId: result.transactionId,
+        amount: result.amount,
+        payRef: result.payRef,
+        cash: balance?.balance ?? 0,
+      };
     }
     case "withdraw": {
       const amount = Number(body.amount);
@@ -935,11 +946,11 @@ export const accountApi = {
       phoneNumber,
       transType: transType ?? "MOMO",
     }),
-  verifyPayment: (transactionId: string) =>
-    call<{ status: string; transactionId: string; cash: number }>("account", {
-      action: "verifyPayment",
-      transactionId,
-    }),
+  verifyPayment: (ref: { transactionId?: string; orderId?: string; token?: string }) =>
+    call<{ status: string; transactionId: string; amount?: number; payRef?: string; cash: number }>(
+      "account",
+      { action: "verifyPayment", ...ref },
+    ),
 };
 
 // ---------- onboarding ----------
