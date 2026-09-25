@@ -30,11 +30,11 @@ export function PriceTicker({ dark }: { dark?: boolean }) {
     return (
       <div
         className={cn(
-          "flex h-9 items-center overflow-hidden border-b border-border/80 bg-muted/40 px-4",
+          "flex h-11 items-center overflow-hidden border-b border-border/80 bg-muted/40 px-4",
           dark && "bg-sidebar border-sidebar-border"
         )}
       >
-        <span className="text-xs text-muted-foreground">Loading market data…</span>
+        <span className="text-sm text-muted-foreground">Loading market data…</span>
       </div>
     );
   }
@@ -54,21 +54,21 @@ export function PriceTicker({ dark }: { dark?: boolean }) {
   return (
     <div
       className={cn(
-        "relative flex h-9 items-center overflow-hidden border-b border-border/80 bg-card/60 backdrop-blur-sm",
+        "relative flex h-11 items-center overflow-hidden border-b border-border/80 bg-card/60 backdrop-blur-sm",
         dark && "bg-sidebar border-sidebar-border"
       )}
     >
       <div className="animate-ticker flex w-max items-center gap-8 whitespace-nowrap px-4">
         {[...items, ...items].map((item, i) => (
-          <span key={i} className="flex items-center gap-1.5 text-xs">
+          <span key={i} className="flex items-center gap-2 text-sm">
             <span className="font-semibold text-foreground/80">{item.label}</span>
             <span className="font-mono text-foreground font-medium">{item.value}</span>
             {item.change != null && (
               <span className={cn("flex items-center gap-0.5 font-medium", changeClass(item.change))}>
                 {item.change >= 0 ? (
-                  <ArrowUpRight className="h-3 w-3" />
+                  <ArrowUpRight className="h-4 w-4" />
                 ) : (
-                  <ArrowDownRight className="h-3 w-3" />
+                  <ArrowDownRight className="h-4 w-4" />
                 )}
                 {item.change.toFixed(2)}%
               </span>

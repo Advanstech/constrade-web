@@ -42,7 +42,7 @@ export function SiteHeader() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" aria-label="Constant Capital home">
-          <Logo compact tone={scrolled ? "navy" : "white"} className="scale-90" />
+          <Logo compact tone="navy" className="scale-90" />
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
@@ -52,9 +52,7 @@ export function SiteHeader() {
               href={item.href}
               className={cn(
                 "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                scrolled
-                  ? "text-foreground/80 hover:bg-muted hover:text-foreground"
-                  : "text-white/85 hover:bg-white/10 hover:text-white",
+                "text-foreground/80 hover:bg-muted hover:text-foreground"
               )}
             >
               {item.label}
@@ -64,10 +62,7 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle
-            className={cn(
-              "hidden sm:inline-flex",
-              !scrolled && "text-white hover:bg-white/10 hover:text-white",
-            )}
+            className="hidden sm:inline-flex"
           />
           {user ? (
             <Button asChild variant="premium" size="sm" className="hidden sm:inline-flex">
@@ -79,10 +74,7 @@ export function SiteHeader() {
                 asChild
                 variant="ghost"
                 size="sm"
-                className={cn(
-                  "hidden sm:inline-flex",
-                  !scrolled && "text-white hover:bg-white/10 hover:text-white",
-                )}
+                className="hidden sm:inline-flex"
               >
                 <Link href="/login">Sign in</Link>
               </Button>
@@ -94,7 +86,7 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             size="icon"
-            className={cn("lg:hidden", !scrolled && "text-white hover:bg-white/10 hover:text-white")}
+            className="lg:hidden"
             onClick={() => setOpen((v) => !v)}
             aria-label="Menu"
           >
