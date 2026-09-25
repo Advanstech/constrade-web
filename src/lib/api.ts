@@ -165,6 +165,9 @@ function toEquityOrder(raw: any): Order {
     status: mapOrderStatus(raw.status),
     filled_price: raw.filledPrice ?? (raw.status === "EXECUTED" ? Number(raw.price) : null),
     created_at: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? null,
+    totalAmount: raw.totalAmount ?? null,
+    fees: raw.fees ?? null,
     // result fields
     filledQty: raw.filledQty ?? null,
     settlementDate: raw.settlementDate ?? null,
@@ -192,6 +195,9 @@ function toFixedIncomeOrder(raw: any): Order {
     status: mapOrderStatus(raw.status),
     filled_price: raw.filledPrice ?? (raw.status === "EXECUTED" ? Number(raw.price) : null),
     created_at: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? null,
+    totalAmount: raw.totalAmount ?? null,
+    fees: raw.fees ?? null,
     // result fields
     filledFaceValue: raw.filledFaceValue ?? null,
     settlementDate: raw.settlementDate ?? null,

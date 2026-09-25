@@ -84,6 +84,15 @@ export interface Order {
   status: OrderStatus;
   filled_price: number | null;
   created_at: string;
+  // Execution result — populated once the trading desk uploads the outcome
+  filledQty?: number | null;
+  filledFaceValue?: number | null;
+  settlementDate?: string | null;
+  executionNote?: string | null;
+  paymentConfirmedAt?: string | null;
+  updatedAt?: string | null;
+  totalAmount?: number | null;
+  fees?: number | null;
 }
 
 export interface Position {

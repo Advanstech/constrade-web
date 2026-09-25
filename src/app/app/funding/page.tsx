@@ -22,7 +22,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { accountApi } from "@/lib/api";
 import type { Portfolio, Transaction } from "@/lib/api.types";
@@ -707,14 +707,14 @@ const Funding = () => {
         </div>
       </div>
 
-      {/* Transaction Details Dialog */}
-      <Dialog open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
-        <DialogContent className="sm:max-w-md border-border/60 shadow-xl bg-card">
-          <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
-            <DialogDescription>Full overview of this {selectedTx?.type}</DialogDescription>
-          </DialogHeader>
-          
+      {/* Transaction Details Drawer */}
+      <Sheet open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
+        <SheetContent side="right" className="w-full border-border/60 bg-card sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Transaction Details</SheetTitle>
+            <SheetDescription>Full overview of this {selectedTx?.type}</SheetDescription>
+          </SheetHeader>
+
           {selectedTx && (
             <div className="space-y-4 pt-4">
               <div className="flex items-center justify-center py-4">
@@ -774,8 +774,8 @@ const Funding = () => {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

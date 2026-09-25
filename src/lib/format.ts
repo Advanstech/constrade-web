@@ -59,13 +59,15 @@ export function changeBgClass(value: number | null | undefined): string {
 export function statusLabel(status: string): string {
   switch (status) {
     case "pending_approval":
-      return "Pending approval";
+      return "Pending";
+    case "processing":
+      return "Processing";
     case "approved":
       return "Approved";
     case "rejected":
       return "Rejected";
     case "filled":
-      return "Filled";
+      return "Executed";
     case "cancelled":
       return "Cancelled";
     default:
@@ -77,6 +79,8 @@ export function statusClass(status: string): string {
   switch (status) {
     case "filled":
       return "bg-success/10 text-success";
+    case "processing":
+      return "bg-blue-500/10 text-blue-600 dark:text-blue-400";
     case "pending_approval":
     case "approved":
       return "bg-brand-bronze/15 text-brand-bronze";
