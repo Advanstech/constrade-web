@@ -110,6 +110,7 @@ function toProfile(raw: any): Profile {
     onboarded: raw.kycStatus === "APPROVED" || raw.onboardingStep === 4,
     created_at: raw.createdAt ?? new Date().toISOString(),
     updated_at: raw.updatedAt ?? new Date().toISOString(),
+    watchlist: Array.isArray(raw.watchlist) ? raw.watchlist : [],
   };
 }
 
@@ -624,6 +625,7 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
       if (firstName) patch.firstName = firstName;
       if (lastName) patch.lastName = lastName;
       if (body.phone !== undefined) patch.phone = body.phone;
+      if (body.watchlist !== undefined) patch.watchlist = body.watchlist;
       const updated = await request<any>("PATCH", "/auth/me", patch);
       return { profile: toProfile(updated) };
     }
@@ -936,7 +938,7 @@ export const accountApi = {
     call<Portfolio>("account", { action: "portfolio" }),
   profile: () =>
     call<{ profile: Profile }>("account", { action: "profile" }).then((d) => d.profile),
-  updateProfile: (patch: { fullName?: string; phone?: string }) =>
+  updateProfile: (patch: { fullName?: string; phone?: string; watchlist?: string[] }) =>
     call<{ profile: Profile }>("account", { action: "updateProfile", ...patch }).then(
       (d) => d.profile,
     ),

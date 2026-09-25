@@ -175,6 +175,7 @@ export interface Profile {
   onboarded: boolean;
   created_at: string;
   updated_at: string;
+  watchlist: string[];
 }
 
 export interface AdminUser extends Profile {

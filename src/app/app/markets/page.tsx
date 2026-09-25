@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowLeftRight, Search, TrendingUp } from "lucide-react";
+import { ArrowLeftRight, Search, TrendingUp, Star, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Sparkline } from "@/components/market/Sparkline";
 import { Input } from "@/components/ui/input";
@@ -58,13 +58,14 @@ const Chart = ({ ticker, points }: { ticker: string; points: number[] }) => {
 };
 
 const AppMarkets = () => {
-  const { profile } = useAuth();
+  const { profile, updateProfile } = useAuth();
   const [tab, setTab] = useState("equity");
   const [query, setQuery] = useState("");
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selected, setSelected] = useState<Quote | null>(null);
   const [sparks, setSparks] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState(true);
+  const [isUpdatingWatchlist, setIsUpdatingWatchlist] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -96,15 +97,38 @@ const AppMarkets = () => {
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const currentWatchlist = profile?.watchlist || [];
+    
     return quotes
-      .filter((x) => x.assetClass === (tab === "all" ? x.assetClass : tab))
+      .filter((x) => {
+        if (tab === "watchlist") return currentWatchlist.includes(x.ticker);
+        if (tab === "all") return true;
+        return x.assetClass === tab;
+      })
       .filter(
         (x) =>
           !q ||
           x.ticker.toLowerCase().includes(q) ||
           x.name.toLowerCase().includes(q),
       );
-  }, [quotes, tab, query]);
+  }, [quotes, tab, query, profile?.watchlist]);
+
+  const toggleWatchlist = async (ticker: string) => {
+    if (!profile) return;
+    setIsUpdatingWatchlist(true);
+    try {
+      const current = profile.watchlist || [];
+      const updated = current.includes(ticker) 
+        ? current.filter(t => t !== ticker) 
+        : [...current, ticker];
+      
+      await updateProfile({ watchlist: updated });
+    } finally {
+      setIsUpdatingWatchlist(false);
+    }
+  };
+
+  const isWatched = selected ? (profile?.watchlist || []).includes(selected.ticker) : false;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -134,7 +158,8 @@ const AppMarkets = () => {
               />
             </div>
             <Tabs value={tab} onValueChange={setTab} className="mt-3">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="equity">Equities</TabsTrigger>
                 <TabsTrigger value="fixed_income">Fixed income</TabsTrigger>
@@ -218,15 +243,34 @@ const AppMarkets = () => {
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-display text-2xl font-extrabold">
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className={cn(
+                    "h-10 w-10 shrink-0 rounded-full transition-colors",
+                    isWatched ? "text-amber-500 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  disabled={isUpdatingWatchlist || !profile}
+                  onClick={() => toggleWatchlist(selected.ticker)}
+                  title={isWatched ? "Remove from watchlist" : "Add to watchlist"}
+                >
+                  {isUpdatingWatchlist ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Star className="h-5 w-5" fill={isWatched ? "currentColor" : "none"} />
+                  )}
+                </Button>
+                <div className="text-right">
+                  <p className="font-display text-2xl font-extrabold">
                   {selected.assetClass === "fixed_income" && selected.yieldToMaturity
                     ? `${selected.yieldToMaturity.toFixed(2)}%`
                     : formatGHS(selected.price)}
-                </p>
-                <p className={`text-sm font-semibold ${changeBgClass(selected.changePct)}`}>
-                  {formatPercent(selected.changePct)} today
-                </p>
+                  </p>
+                  <p className={`text-sm font-semibold ${changeBgClass(selected.changePct)}`}>
+                    {formatPercent(selected.changePct)} today
+                  </p>
+                </div>
               </div>
             </div>
 

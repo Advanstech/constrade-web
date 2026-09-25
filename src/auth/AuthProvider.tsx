@@ -73,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = await accountApi.updateProfile({
         fullName: patch.full_name,
         phone: patch.phone ?? undefined,
+        watchlist: patch.watchlist,
       });
       setProfile(updated);
       return updated;
