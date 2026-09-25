@@ -15,12 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   RefreshCw,
   Download,
@@ -100,6 +100,8 @@ export default function AdminTransactionsPage() {
   const [selectedTx, setSelectedTx] = useState<AdminTx | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
@@ -121,13 +123,31 @@ export default function AdminTransactionsPage() {
   // Reset to first page whenever filters change.
   useEffect(() => {
     setPage(1);
-  }, [activeTab, search, pageSize]);
+  }, [activeTab, search, pageSize, dateFrom, dateTo]);
 
   /* filtering */
   const filtered = useMemo(
     () =>
       transactions.filter((t) => {
         const tabMatch = activeTab === "all" ? true : t.type === activeTab;
+        
+        let dateMatch = true;
+        if (dateFrom || dateTo) {
+          const txDate = new Date(t.created_at);
+          txDate.setHours(0, 0, 0, 0);
+          
+          if (dateFrom) {
+            const fromDate = new Date(dateFrom);
+            fromDate.setHours(0, 0, 0, 0);
+            if (txDate < fromDate) dateMatch = false;
+          }
+          if (dateTo) {
+            const toDate = new Date(dateTo);
+            toDate.setHours(0, 0, 0, 0);
+            if (txDate > toDate) dateMatch = false;
+          }
+        }
+
         const q = search.toLowerCase();
         const searchMatch =
           !q ||
@@ -135,10 +155,14 @@ export default function AdminTransactionsPage() {
           t.type.toLowerCase().includes(q) ||
           t.id.toLowerCase().includes(q) ||
           t.user_id.toLowerCase().includes(q) ||
-          (t.reference || "").toLowerCase().includes(q);
-        return tabMatch && searchMatch;
+          (t.reference || "").toLowerCase().includes(q) ||
+          (t.detail || "").toLowerCase().includes(q) ||
+          (t.status || "").toLowerCase().includes(q) ||
+          t.amount.toString().includes(q);
+          
+        return tabMatch && dateMatch && searchMatch;
       }),
-    [transactions, activeTab, search],
+    [transactions, activeTab, search, dateFrom, dateTo],
   );
 
   /* pagination */
@@ -206,15 +230,34 @@ export default function AdminTransactionsPage() {
                 );
               })}
             </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search transactions..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-md border border-input bg-transparent py-2 pl-9 pr-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus:border-brand-bronze focus:outline-none focus:ring-1 focus:ring-brand-bronze"
-              />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full sm:w-[130px] rounded-md border border-input bg-transparent py-2 px-3 text-sm shadow-sm transition-colors focus:border-brand-bronze focus:outline-none focus:ring-1 focus:ring-brand-bronze text-foreground [color-scheme:light] dark:[color-scheme:dark]"
+                  title="Start Date"
+                />
+                <span className="text-muted-foreground text-sm">to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full sm:w-[130px] rounded-md border border-input bg-transparent py-2 px-3 text-sm shadow-sm transition-colors focus:border-brand-bronze focus:outline-none focus:ring-1 focus:ring-brand-bronze text-foreground [color-scheme:light] dark:[color-scheme:dark]"
+                  title="End Date"
+                />
+              </div>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search transactions..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-md border border-input bg-transparent py-2 pl-9 pr-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus:border-brand-bronze focus:outline-none focus:ring-1 focus:ring-brand-bronze"
+                />
+              </div>
             </div>
           </div>
 
@@ -350,13 +393,13 @@ export default function AdminTransactionsPage() {
         </Card>
       </div>
 
-      {/* Transaction Details Dialog */}
-      <Dialog open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
-        <DialogContent className="sm:max-w-md border-border/60 shadow-xl bg-card">
-          <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
-            <DialogDescription>ID: {selectedTx?.id}</DialogDescription>
-          </DialogHeader>
+      {/* Transaction Details Sheet */}
+      <Sheet open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
+        <SheetContent side="right" className="sm:max-w-md border-border/60 shadow-xl bg-card overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Transaction Details</SheetTitle>
+            <SheetDescription>ID: {selectedTx?.id}</SheetDescription>
+          </SheetHeader>
           
           {selectedTx && (
             <div className="space-y-4 pt-4">
@@ -422,8 +465,8 @@ export default function AdminTransactionsPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
