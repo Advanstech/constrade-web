@@ -40,34 +40,57 @@ export default function AdminSettingsPage() {
     }
   }, [profile]);
 
-  // Scrollspy logic
+  // Scrollspy logic — the admin layout scrolls inside <main>, not window,
+  // so listeners and offsets must target that container.
   useEffect(() => {
     if (!mounted) return;
-    
-    const handleScroll = () => {
-      const sectionElements = SECTIONS.map(s => document.getElementById(s.id));
-      const scrollPosition = window.scrollY + 150; // offset for header
 
-      for (let i = sectionElements.length - 1; i >= 0; i--) {
-        const el = sectionElements[i];
-        if (el && el.offsetTop <= scrollPosition) {
+    const scrollerEl = document.getElementById(SECTIONS[0].id)?.closest("main");
+    const target: HTMLElement | Window = scrollerEl ?? window;
+
+    const scrollTop = () => (scrollerEl ? scrollerEl.scrollTop : window.scrollY);
+    const sectionTop = (el: HTMLElement) =>
+      scrollerEl
+        ? el.getBoundingClientRect().top -
+          scrollerEl.getBoundingClientRect().top +
+          scrollerEl.scrollTop
+        : el.getBoundingClientRect().top + window.scrollY;
+
+    const handleScroll = () => {
+      const scrollPosition = scrollTop() + 150; // offset for header
+
+      // Bottom of the scroll area: the last section can never reach the
+      // top threshold, so pin it active once the end is reached.
+      const scrollHeight = scrollerEl
+        ? scrollerEl.scrollHeight
+        : document.documentElement.scrollHeight;
+      const clientHeight = scrollerEl ? scrollerEl.clientHeight : window.innerHeight;
+      if (scrollTop() + clientHeight >= scrollHeight - 8) {
+        setActiveSection(SECTIONS[SECTIONS.length - 1].id);
+        return;
+      }
+
+      for (let i = SECTIONS.length - 1; i >= 0; i--) {
+        const el = document.getElementById(SECTIONS[i].id);
+        if (el && sectionTop(el) <= scrollPosition) {
           setActiveSection(SECTIONS[i].id);
           break;
         }
       }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    target.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll(); // Initial check
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => target.removeEventListener("scroll", handleScroll);
   }, [mounted]);
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
-    if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 100;
-      window.scrollTo({ top: y, behavior: "smooth" });
-    }
+    if (!el) return;
+    setActiveSection(id);
+    // scrollIntoView respects each section's scroll-mt-24 offset inside
+    // the <main> scroll container.
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleThemeChange = (val: string) => {

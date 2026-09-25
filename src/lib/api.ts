@@ -1031,6 +1031,15 @@ export const authApi = {
       { email: email.trim(), type },
     );
   },
+  async verifyOtp(email: string, code: string, type: string) {
+    const res = await request<{ accessToken: string; refreshToken: string; userId: string; email: string }>(
+      "POST",
+      "/auth/2fa/verify-otp",
+      { email: email.trim(), code, type },
+    );
+    setTokens(res.accessToken, res.refreshToken);
+    return res;
+  },
   async resetPassword(email: string, code: string, newPassword: string) {
     const res = await request<{ accessToken: string; refreshToken: string; userId: string; email: string }>(
       "POST",

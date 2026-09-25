@@ -19,6 +19,7 @@ interface AuthContextValue {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<Profile | null>;
+  signInWithOtp: (email: string, code: string) => Promise<Profile | null>;
   refreshProfile: () => Promise<void>;
   updateProfile: (patch: Partial<Profile>) => Promise<Profile>;
   signOut: () => Promise<void>;
@@ -43,6 +44,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const res = await authApi.login(email, password);
+    setSession(res.accessToken);
+    setUser({ id: res.userId, email: res.email });
+    const p = await fetchProfile(res.userId);
+    setProfile(p);
+    return p;
+  }, []);
+
+  const signInWithOtp = useCallback(async (email: string, code: string) => {
+    const res = await authApi.verifyOtp(email, code, "LOGIN");
     setSession(res.accessToken);
     setUser({ id: res.userId, email: res.email });
     const p = await fetchProfile(res.userId);
@@ -105,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     loading,
     signIn,
+    signInWithOtp,
     refreshProfile,
     updateProfile,
     signOut,
