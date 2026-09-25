@@ -17,6 +17,8 @@ import {
   TrendingUp,
   Wallet,
   XCircle,
+  Printer,
+  Download,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -767,10 +769,64 @@ const Funding = () => {
                 </div>
               </div>
               
-              <div className="pt-2">
+              <div className="pt-2 flex gap-3 print:hidden">
+                <Button className="w-full bg-brand-navy text-white hover:bg-brand-navy/90" onClick={() => window.print()}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Receipt
+                </Button>
                 <Button className="w-full" variant="outline" onClick={() => setSelectedTx(null)}>
                   Close
                 </Button>
+              </div>
+
+              {/* Printable Receipt (Hidden on screen, visible on print) */}
+              <div className="hidden print:block fixed inset-0 z-[99999] bg-white text-black p-10 font-sans">
+                <div className="mx-auto max-w-2xl border border-gray-200 rounded-2xl p-8 bg-white">
+                  <div className="flex justify-between items-start mb-12">
+                    <div>
+                      <h1 className="text-3xl font-black tracking-tight text-gray-900">CONSTANT CAPITAL</h1>
+                      <p className="text-sm text-gray-500 mt-1">Premium Brokerage Services</p>
+                    </div>
+                    <div className="text-right">
+                      <h2 className="text-2xl font-semibold text-gray-800">TRANSACTION RECEIPT</h2>
+                      <p className="text-sm font-mono text-gray-500 mt-1">{selectedTx.payRef || selectedTx.reference || selectedTx.id}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-12">
+                    <p className="text-sm text-gray-500 uppercase tracking-widest font-semibold mb-2">Transaction Details</p>
+                    <div className="grid grid-cols-2 gap-y-4 text-base">
+                      <div className="text-gray-600">Type</div>
+                      <div className="font-semibold text-gray-900 capitalize">{selectedTx.type}</div>
+                      
+                      <div className="text-gray-600">Date</div>
+                      <div className="font-semibold text-gray-900">{formatDateTime(selectedTx.created_at)}</div>
+                      
+                      <div className="text-gray-600">Method</div>
+                      <div className="font-semibold text-gray-900">
+                        {selectedTx.channel === "MOMO" ? "Mobile Money" :
+                         selectedTx.channel === "CARD" ? "Card" :
+                         selectedTx.channel === "BANK_TRANSFER" ? "Bank Transfer" :
+                         selectedTx.detail || "Gateway"}
+                      </div>
+                      
+                      <div className="text-gray-600">Status</div>
+                      <div className="font-semibold text-gray-900 uppercase">{selectedTx.status}</div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-b border-gray-200 py-6 mb-12 flex justify-between items-center">
+                    <span className="text-lg font-medium text-gray-700">Total Amount</span>
+                    <span className="text-3xl font-bold text-gray-900">
+                      {formatGHS(Math.abs(selectedTx.amount))}
+                    </span>
+                  </div>
+
+                  <div className="text-center text-sm text-gray-500">
+                    <p>Thank you for choosing Constant Capital.</p>
+                    <p>For support, contact support@constantcap.com.gh</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
