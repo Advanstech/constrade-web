@@ -10,9 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-reports
-!src/pages/admin/reports/
-!src/pages/admin/reports/**
+/reports/
 *.local
 
 # Editor directories and files
