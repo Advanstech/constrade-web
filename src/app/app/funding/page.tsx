@@ -318,8 +318,8 @@ const Funding = () => {
       />
 
       {/* ── Balance strip ───────────────────────────────────────────────── */}
-      <div className="mb-8 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-muted/30 shadow-xl">
-        <div className="grid grid-cols-1 divide-y divide-border/40 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <div className="mb-8 overflow-x-auto rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-muted/30 shadow-xl no-scrollbar">
+        <div className="flex divide-x divide-border/40 sm:grid sm:grid-cols-3 sm:divide-y-0">
           {[
             {
               label: "Available Balance",
@@ -340,7 +340,7 @@ const Funding = () => {
               highlight: false,
             },
           ].map(({ label, value, icon: Icon, highlight }) => (
-            <div key={label} className="flex items-center gap-4 p-6">
+            <div key={label} className="flex shrink-0 items-center gap-4 p-5 sm:p-6 min-w-[220px] sm:min-w-0">
               <div className={cn(
                 "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
                 highlight ? "bg-amber-500/15" : "bg-muted"
