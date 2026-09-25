@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { ArrowLeftRight, Wallet } from "lucide-react";
+import { ArrowLeftRight, Wallet, Search, TrendingUp, BarChart3, Clock, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/market/StatCard";
@@ -18,6 +18,7 @@ const PortfolioPage = () => {
   const [data, setData] = useState<Portfolio | null>(null);
   const [page, setPage] = useState(1);
   const [activeSlice, setActiveSlice] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -63,9 +64,9 @@ const PortfolioPage = () => {
         />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      <div className="mt-6 grid gap-6 lg:grid-cols-3 items-start">
         {/* Allocation */}
-        <Card>
+        <Card className="sticky top-20 z-10 shadow-sm border-border/60">
           <CardHeader>
             <CardTitle className="text-base font-bold">Allocation</CardTitle>
           </CardHeader>
@@ -164,72 +165,125 @@ const PortfolioPage = () => {
         </Card>
 
         {/* Holdings */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base font-bold">Holdings</CardTitle>
+        <Card className="lg:col-span-2 shadow-sm border-border/60">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-brand-bronze" /> 
+              Your Holdings
+            </CardTitle>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search instrument..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1); // Reset page on search
+                }}
+                className="h-9 w-full sm:w-64 rounded-md border border-input bg-transparent pl-9 pr-4 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-bronze"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {data.holdings.length === 0 ? (
               <p className="px-6 pb-10 text-center text-sm text-muted-foreground">
                 You don't hold any securities yet. Browse the market to place your first order.
               </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3">Instrument</th>
-                      <th className="px-4 py-3 text-right">Qty</th>
-                      <th className="px-4 py-3 text-right">Avg cost</th>
-                      <th className="hidden px-4 py-3 text-right sm:table-cell">Price</th>
-                      <th className="px-4 py-3 text-right">Market value</th>
-                      <th className="px-4 py-3 text-right">P/L</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data.holdings.slice((page - 1) * itemsPerPage, page * itemsPerPage)).map((h, i) => (
-                      <tr key={`${h.instrument}-${i}`} className="border-b border-border/60 hover:bg-muted/40">
-                        <td className="px-6 py-3.5">
-                          <p className="font-semibold">{h.instrument}</p>
-                        </td>
-                        <td className="px-4 py-3.5 text-right">{h.quantity}</td>
-                        <td className="px-4 py-3.5 text-right">{formatGHS(h.avgPrice)}</td>
-                        <td className="hidden px-4 py-3.5 text-right sm:table-cell">{formatGHS(h.marketPrice)}</td>
-                        <td className="px-4 py-3.5 text-right font-semibold">{formatGHS(h.marketValue)}</td>
-                        <td className="px-4 py-3.5 text-right">
-                          <span className={changeBgClass(h.pl)}>{formatGHS(h.pl)}</span>
-                        </td>
+            ) : (() => {
+              const filteredHoldings = data.holdings.filter(h => 
+                h.instrument.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              
+              if (filteredHoldings.length === 0) {
+                return (
+                  <div className="py-12 text-center">
+                    <p className="text-sm text-muted-foreground">No holdings match your search.</p>
+                    <Button variant="link" onClick={() => setSearchQuery("")} className="mt-2">Clear search</Button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/60 bg-muted/20 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <th className="px-6 py-3">Instrument</th>
+                        <th className="px-4 py-3 text-right">Qty</th>
+                        <th className="px-4 py-3 text-right">Avg cost</th>
+                        <th className="hidden px-4 py-3 text-right sm:table-cell">Mkt Price</th>
+                        <th className="px-4 py-3 text-right">Market value</th>
+                        <th className="px-4 py-3 text-right">P/L</th>
+                        <th className="px-4 py-3 text-center">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {data.holdings.length > itemsPerPage && (
-              <div className="flex items-center justify-between border-t border-border p-4 text-sm">
-                <span className="text-muted-foreground">
-                  Page {page} of {Math.ceil(data.holdings.length / itemsPerPage)}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === Math.ceil(data.holdings.length / itemsPerPage)}
-                    onClick={() => setPage((p) => Math.min(Math.ceil(data.holdings.length / itemsPerPage), p + 1))}
-                  >
-                    Next
-                  </Button>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {(filteredHoldings.slice((page - 1) * itemsPerPage, page * itemsPerPage)).map((h, i) => (
+                        <tr key={`${h.instrument}-${i}`} className="group hover:bg-muted/40 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-foreground">{h.instrument}</div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> Updated recently
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-right font-mono text-xs">
+                            {Number(h.quantity).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-4 py-4 text-right font-medium">{formatGHS(h.avgPrice)}</td>
+                          <td className="hidden px-4 py-4 text-right sm:table-cell text-muted-foreground">{formatGHS(h.marketPrice)}</td>
+                          <td className="px-4 py-4 text-right font-bold text-foreground">{formatGHS(h.marketValue)}</td>
+                          <td className="px-4 py-4 text-right">
+                            <span className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                              h.pl > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                              h.pl < 0 ? "bg-red-500/10 text-red-600 dark:text-red-400" :
+                              "bg-muted text-muted-foreground"
+                            )}>
+                              {h.pl > 0 ? <TrendingUp className="h-3 w-3" /> : null}
+                              {formatGHS(h.pl)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <Button asChild variant="ghost" size="sm" className="h-8 text-xs font-semibold hover:text-brand-bronze opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Link href={`/app/trade?symbol=${encodeURIComponent(h.instrument)}`}>
+                                Trade <ChevronRight className="ml-1 h-3 w-3" />
+                              </Link>
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {filteredHoldings.length > itemsPerPage && (
+                    <div className="flex items-center justify-between border-t border-border/60 p-4 text-sm bg-muted/10">
+                      <span className="text-muted-foreground font-medium">
+                        Showing {(page - 1) * itemsPerPage + 1} to {Math.min(page * itemsPerPage, filteredHoldings.length)} of {filteredHoldings.length}
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={page === 1}
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={page === Math.ceil(filteredHoldings.length / itemsPerPage)}
+                          onClick={() => setPage((p) => Math.min(Math.ceil(filteredHoldings.length / itemsPerPage), p + 1))}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       </div>

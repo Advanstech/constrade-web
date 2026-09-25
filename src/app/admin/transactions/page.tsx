@@ -34,8 +34,12 @@ import {
   ArrowUpFromLine,
   Banknote,
   Eye,
+  Printer,
+  CheckCircle,
+  FileText,
 } from "lucide-react";
 import { formatDateTime, formatGHS } from "@/lib/format";
+import { PrintableTransactionReceipt } from "@/components/transactions/PrintableTransactionReceipt";
 
 /* ─── helpers ─────────────────────────────────────────────────────────── */
 
@@ -102,6 +106,7 @@ export default function AdminTransactionsPage() {
   const [pageSize, setPageSize] = useState(25);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
@@ -395,78 +400,117 @@ export default function AdminTransactionsPage() {
 
       {/* Transaction Details Sheet */}
       <Sheet open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
-        <SheetContent side="right" className="sm:max-w-md border-border/60 shadow-xl bg-card overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Transaction Details</SheetTitle>
-            <SheetDescription>ID: {selectedTx?.id}</SheetDescription>
+        <SheetContent side="right" className="w-full sm:max-w-2xl border-border/60 shadow-2xl bg-card overflow-y-auto p-0">
+          <SheetHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/80 px-6 py-4 flex flex-row items-center justify-between">
+            <div>
+              <SheetTitle>Transaction Details</SheetTitle>
+              <SheetDescription className="font-mono text-[11px] mt-0.5">REF: {selectedTx?.id}</SheetDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 text-brand-bronze hover:text-brand-bronze hover:bg-brand-orange/10 border-brand-orange/30"
+                onClick={() => setIsPrintModalOpen(true)}
+              >
+                <Printer className="h-4 w-4" />
+                <span className="hidden sm:inline">Print Receipt</span>
+              </Button>
+            </div>
           </SheetHeader>
           
           {selectedTx && (
-            <div className="space-y-4 pt-4">
-              <div className="flex items-center justify-center py-4">
-                <div className="text-center space-y-2">
-                  <div className={cn(
-                    "mx-auto flex h-14 w-14 items-center justify-center rounded-full",
-                    selectedTx.type === "deposit" ? "bg-green-500/10" : selectedTx.type === "withdraw" ? "bg-red-500/10" : "bg-blue-500/10"
+            <div className="p-6 sm:p-10 space-y-10">
+              {/* Hero Banner */}
+              <div className="flex flex-col items-center justify-center p-8 bg-muted/20 rounded-2xl border border-border/60 shadow-sm">
+                <div className={cn(
+                  "flex h-16 w-16 items-center justify-center rounded-2xl shadow-sm mb-4",
+                  selectedTx.type === "deposit" ? "bg-emerald-500/10 text-emerald-500" : selectedTx.type === "withdraw" ? "bg-rose-500/10 text-rose-500" : "bg-blue-500/10 text-blue-500"
+                )}>
+                  {selectedTx.type === "deposit" ? (
+                    <ArrowDownToLine className="h-8 w-8" />
+                  ) : selectedTx.type === "withdraw" ? (
+                    <ArrowUpFromLine className="h-8 w-8" />
+                  ) : (
+                    <Banknote className="h-8 w-8" />
+                  )}
+                </div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Amount {selectedTx.type === "deposit" ? "Received" : selectedTx.type === "withdraw" ? "Transferred" : "Processed"}
+                </p>
+                <h2 className="text-5xl font-display font-bold tracking-tight text-foreground">
+                  {formatGHS(Math.abs(selectedTx.amount))}
+                </h2>
+                <div className="mt-4">
+                  <span className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider shadow-sm",
+                    selectedTx.status === "completed" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+                    selectedTx.status === "pending" || selectedTx.status === "processing" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+                    "bg-red-500/15 text-red-600 dark:text-red-400"
                   )}>
-                    {selectedTx.type === "deposit" ? (
-                      <ArrowDownToLine className="h-7 w-7 text-green-500" />
-                    ) : selectedTx.type === "withdraw" ? (
-                      <ArrowUpFromLine className="h-7 w-7 text-red-500" />
-                    ) : (
-                      <Banknote className="h-7 w-7 text-blue-500" />
-                    )}
-                  </div>
-                  <h2 className="text-3xl font-bold tabular-nums tracking-tight">
-                    {formatGHS(Math.abs(selectedTx.amount))}
-                  </h2>
-                  <div className={cn(
-                    "inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider",
-                    selectedTx.status === "completed" ? "bg-green-500/15 text-green-500" :
-                    selectedTx.status === "pending" || selectedTx.status === "processing" ? "bg-amber-500/15 text-amber-500" :
-                    "bg-red-500/15 text-red-500"
-                  )}>
+                    {selectedTx.status === "completed" && <CheckCircle className="h-3.5 w-3.5" />}
                     {selectedTx.status}
-                  </div>
+                  </span>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-border/60 bg-muted/20 divide-y divide-border/60">
-                <div className="flex items-center justify-between p-3.5 text-sm">
-                  <span className="text-muted-foreground">Client Name</span>
-                  <span className="font-semibold">{selectedTx.clientName || "Unknown"}</span>
-                </div>
-                <div className="flex items-center justify-between p-3.5 text-sm">
-                  <span className="text-muted-foreground">Client ID</span>
-                  <span className="font-mono text-xs">{selectedTx.user_id}</span>
-                </div>
-                <div className="flex items-center justify-between p-3.5 text-sm">
-                  <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium capitalize">{selectedTx.type.replace("_", " ")}</span>
-                </div>
-                <div className="flex items-center justify-between p-3.5 text-sm">
-                  <span className="text-muted-foreground">Date</span>
-                  <span className="font-medium">{formatDateTime(selectedTx.created_at)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3.5 text-sm">
-                  <span className="text-muted-foreground">Reference</span>
-                  <span className="font-mono text-xs max-w-[200px] truncate">{selectedTx.reference || "N/A"}</span>
-                </div>
-                <div className="flex items-center justify-between p-3.5 text-sm">
-                  <span className="text-muted-foreground">Method / Detail</span>
-                  <span className="font-medium">{selectedTx.detail || "Gateway"}</span>
-                </div>
+              {/* Detailed Breakdown */}
+              <div className="space-y-6">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> Comprehensive Details
+                </h3>
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/60">
+                    <div className="p-5 space-y-4 bg-muted/10">
+                      <div>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Client Name</p>
+                        <p className="text-sm font-medium">{selectedTx.clientName || "Unknown Client"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Client ID</p>
+                        <p className="text-xs font-mono bg-background px-2 py-1 rounded border border-border/50 inline-block shadow-sm text-muted-foreground">{selectedTx.user_id}</p>
+                      </div>
+                    </div>
+                    <div className="p-5 space-y-4 bg-background">
+                      <div>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Date & Time</p>
+                        <p className="text-sm font-medium">{formatDateTime(selectedTx.created_at)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Transaction Type</p>
+                        <p className="text-sm font-medium capitalize">{selectedTx.type.replace("_", " ")}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-border/60 p-5 bg-background">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Payment Reference / Detail</p>
+                    <p className="text-sm">{selectedTx.detail || selectedTx.reference || "No additional reference provided."}</p>
+                  </div>
+                </Card>
               </div>
-              
-              <div className="pt-2">
-                <Button className="w-full" variant="outline" onClick={() => setSelectedTx(null)}>
-                  Close
+
+              {/* Footer Actions */}
+              <div className="pt-6 pb-8 flex items-center justify-between border-t border-border/60">
+                <Button variant="ghost" onClick={() => setSelectedTx(null)}>Close Drawer</Button>
+                <Button 
+                  onClick={() => setIsPrintModalOpen(true)}
+                  className="bg-brand-navy hover:bg-brand-navy-light text-white shadow-md gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  Generate Receipt
                 </Button>
               </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      <PrintableTransactionReceipt 
+        open={isPrintModalOpen} 
+        onOpenChange={setIsPrintModalOpen} 
+        transaction={selectedTx} 
+      />
     </div>
   );
 }

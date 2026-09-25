@@ -284,8 +284,20 @@ function SidebarLink({
   isExternal?: boolean;
 }) {
   const pathname = usePathname();
-  const isExact = href === "/admin";
-  const isActive = !isExternal && (isExact ? pathname === "/admin" || pathname === "/admin/dashboard" : pathname?.startsWith(href));
+  
+  // Find the longest matching href from ADMIN_NAV to avoid highlighting multiple parents
+  const activeHref = ADMIN_NAV.reduce((bestMatch, item) => {
+    if (pathname?.startsWith(item.href) && item.href.length > bestMatch.length) {
+      return item.href;
+    }
+    return bestMatch;
+  }, "");
+
+  const isActive = !isExternal && (
+    href === "/admin" 
+      ? pathname === "/admin" || pathname === "/admin/dashboard" || activeHref === "/admin"
+      : activeHref === href
+  );
   
   const link = (
     <Link
