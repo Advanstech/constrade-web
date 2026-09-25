@@ -816,6 +816,19 @@ async function handleAdmin(body: Record<string, unknown>): Promise<unknown> {
       const updated = await request<any>("PATCH", `/admin/users/${userId}/profile`, { role: role.toUpperCase() });
       return { user: toAdminUser(updated) };
     }
+    case "transactions": {
+      const [deposits, withdrawals] = await Promise.all([
+        request<any[]>("GET", "/admin/wallet/deposits").catch(() => []),
+        request<any[]>("GET", "/admin/wallet/withdrawals").catch(() => []),
+      ]);
+      const mapped = [...deposits, ...withdrawals].map((t) => {
+        const tx = toTransaction(t);
+        const u = t.wallet?.user;
+        const clientName = u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email : undefined;
+        return { ...tx, clientName };
+      });
+      return { transactions: mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) };
+    }
     case "orders": {
       const [eq, fi, bids] = await Promise.all([
         request<any[]>("GET", "/equities/admin/orders").catch(() => []),
