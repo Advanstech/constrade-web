@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import {
   ArrowLeftRight,
   Briefcase,
@@ -24,6 +25,7 @@ const SERVICES = [
     titleClassName: "text-white",
     bodyClassName: "text-white/70",
     isLarge: true,
+    href: "/app/trade",
   },
   {
     icon: LineChart,
@@ -33,6 +35,7 @@ const SERVICES = [
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
     bodyClassName: "text-muted-foreground",
+    href: "/app/markets",
   },
   {
     icon: ArrowLeftRight,
@@ -42,6 +45,7 @@ const SERVICES = [
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
     bodyClassName: "text-muted-foreground",
+    href: "/app/trade",
   },
   {
     icon: FileSearch,
@@ -51,6 +55,7 @@ const SERVICES = [
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
     bodyClassName: "text-muted-foreground",
+    href: "/app/markets",
   },
   {
     icon: Briefcase,
@@ -60,6 +65,7 @@ const SERVICES = [
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
     bodyClassName: "text-muted-foreground",
+    href: "/register",
   },
   {
     icon: Users,
@@ -69,6 +75,7 @@ const SERVICES = [
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
     bodyClassName: "text-muted-foreground",
+    href: "/register",
   },
 ];
 
@@ -86,6 +93,58 @@ const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
 };
+
+function DecorativeChart() {
+  return (
+    <div className="flex-1 min-h-[180px] my-6 relative rounded-2xl border border-white/10 bg-black/20 overflow-hidden flex flex-col p-4">
+      {/* Chart grid background */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      
+      {/* Top Bar */}
+      <div className="relative z-10 flex items-center justify-between mb-4">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
+          <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/80" />
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80" />
+        </div>
+        <div className="text-white/40 text-[10px] font-mono tracking-wider">LIVE TRADING</div>
+      </div>
+
+      {/* Candlesticks & Line */}
+      <div className="relative z-10 flex-1 flex items-end justify-between gap-2 mt-2 px-1">
+        {[
+          { h: 30, t: 'up' }, { h: 50, t: 'up' }, { h: 40, t: 'down' },
+          { h: 65, t: 'up' }, { h: 80, t: 'up' }, { h: 55, t: 'down' },
+          { h: 45, t: 'down' }, { h: 75, t: 'up' }, { h: 90, t: 'up' }, { h: 100, t: 'up' }
+        ].map((candle, i) => (
+          <div key={i} className="relative flex flex-col items-center flex-1 justify-end h-full group/candle">
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              whileInView={{ height: `${candle.h}%`, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: i * 0.1, type: "spring", bounce: 0.4 }}
+              className="w-full flex items-center justify-center relative"
+            >
+              {/* Wick */}
+              <div className={cn(
+                "absolute top-[-20%] bottom-[-10%] w-[1px] transition-colors duration-300",
+                candle.t === 'up' ? "bg-emerald-400/40 group-hover/candle:bg-emerald-400" : "bg-rose-400/40 group-hover/candle:bg-rose-400"
+              )} />
+              {/* Body */}
+              <div className={cn(
+                "w-full max-w-[12px] rounded-[2px] relative z-10 h-[60%] transition-colors duration-300",
+                candle.t === 'up' ? "bg-emerald-400/80 group-hover/candle:bg-emerald-400" : "bg-rose-400/80 group-hover/candle:bg-rose-400"
+              )} />
+            </motion.div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Gradient fade at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+    </div>
+  );
+}
 
 export function Services() {
   return (
@@ -137,57 +196,67 @@ export function Services() {
               variants={itemVariants}
               whileHover={{ y: -5 }}
               className={cn(
-                "group relative overflow-hidden rounded-3xl border p-8 transition-all duration-300 shadow-sm hover:shadow-xl",
+                "group relative overflow-hidden rounded-3xl border transition-all duration-300 shadow-sm hover:shadow-xl",
                 s.className
               )}
             >
-              {/* Glassmorphic hover overlay */}
-              <div className="absolute inset-0 bg-gradient-to-b from-white/0 to-white/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-              
-              <div className="relative z-10 flex h-full flex-col">
-                <span className={cn(
-                  "inline-flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm mb-6 transition-transform duration-300 group-hover:scale-110",
-                  s.iconClassName
-                )}>
-                  <s.icon className="h-6 w-6" />
-                </span>
+              <Link href={s.href} className="flex h-full flex-col p-8">
+                {/* Glassmorphic hover overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/0 to-white/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 pointer-events-none" />
                 
-                <h3 className={cn("font-display text-2xl font-bold tracking-tight mb-3", s.titleClassName)}>
-                  {s.title}
-                </h3>
-                
-                <p className={cn("text-base leading-relaxed flex-1", s.bodyClassName)}>
-                  {s.body}
-                </p>
-                
-                {s.isLarge && (
-                  <div className="mt-8 grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl bg-white/5 border border-white/10 p-4 backdrop-blur-md">
-                      <div className="flex items-center gap-2 mb-2 text-white/80">
-                        <Smartphone className="h-4 w-4 text-brand-bronze" />
-                        <span className="text-xs font-semibold uppercase tracking-wider">Mobile App</span>
+                <div className="relative z-10 flex h-full flex-col">
+                  <span className={cn(
+                    "inline-flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm mb-6 transition-transform duration-300 group-hover:scale-110",
+                    s.iconClassName
+                  )}>
+                    <s.icon className="h-6 w-6" />
+                  </span>
+                  
+                  <h3 className={cn("font-display text-2xl font-bold tracking-tight mb-3", s.titleClassName)}>
+                    {s.title}
+                  </h3>
+                  
+                  <p className={cn("text-base leading-relaxed flex-none", s.bodyClassName)}>
+                    {s.body}
+                  </p>
+                  
+                  {s.isLarge && (
+                    <DecorativeChart />
+                  )}
+                  
+                  {!s.isLarge && (
+                    <div className="flex-1" />
+                  )}
+                  
+                  {s.isLarge && (
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4 backdrop-blur-md transition-colors hover:bg-white/10">
+                        <div className="flex items-center gap-2 mb-2 text-white/80">
+                          <Smartphone className="h-4 w-4 text-brand-bronze" />
+                          <span className="text-xs font-semibold uppercase tracking-wider">Mobile App</span>
+                        </div>
+                        <p className="text-xs text-white/60 leading-relaxed">Native iOS & Android apps for trading on the go.</p>
                       </div>
-                      <p className="text-xs text-white/60 leading-relaxed">Native iOS & Android apps for trading on the go.</p>
-                    </div>
-                    <div className="rounded-2xl bg-white/5 border border-white/10 p-4 backdrop-blur-md">
-                      <div className="flex items-center gap-2 mb-2 text-white/80">
-                        <Activity className="h-4 w-4 text-brand-bronze" />
-                        <span className="text-xs font-semibold uppercase tracking-wider">Live Market</span>
+                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4 backdrop-blur-md transition-colors hover:bg-white/10">
+                        <div className="flex items-center gap-2 mb-2 text-white/80">
+                          <Activity className="h-4 w-4 text-brand-bronze" />
+                          <span className="text-xs font-semibold uppercase tracking-wider">Live Market</span>
+                        </div>
+                        <p className="text-xs text-white/60 leading-relaxed">Real-time GSE market data and interactive charts.</p>
                       </div>
-                      <p className="text-xs text-white/60 leading-relaxed">Real-time GSE market data and interactive charts.</p>
                     </div>
-                  </div>
-                )}
+                  )}
+                  
+                  {!s.isLarge && (
+                    <div className="mt-6 flex items-center text-sm font-semibold text-brand-bronze opacity-0 -translate-x-4 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0">
+                      Learn more <ArrowLeftRight className="ml-2 h-4 w-4" />
+                    </div>
+                  )}
+                </div>
                 
-                {!s.isLarge && (
-                  <div className="mt-6 flex items-center text-sm font-semibold text-brand-bronze opacity-0 -translate-x-4 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0">
-                    Learn more <ArrowLeftRight className="ml-2 h-4 w-4" />
-                  </div>
-                )}
-              </div>
-              
-              {/* Decorative corner blur for all cards */}
-              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-brand-bronze/20 blur-3xl transition-transform duration-700 group-hover:scale-150" />
+                {/* Decorative corner blur for all cards */}
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-brand-bronze/20 blur-3xl transition-transform duration-700 group-hover:scale-150 pointer-events-none" />
+              </Link>
             </motion.div>
           ))}
         </motion.div>
