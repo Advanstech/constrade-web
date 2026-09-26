@@ -359,7 +359,7 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Standard Passport Picture</p>
         <Field label="Upload a standard passport picture">
-          <FileUpload label="Upload passport photo" fileName={d.passportPhoto} onChange={(passportPhoto) => p({ passportPhoto })} onFile={(passportFile) => p({ passportFile })} />
+          <FileUpload label="Upload passport photo" fileName={d.passportPhoto} file={d.passportFile} onChange={(passportPhoto) => p({ passportPhoto })} onFile={(passportFile) => p({ passportFile })} />
         </Field>
       </div>
       
@@ -394,6 +394,7 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
               <FileUpload 
                 label={`Upload ${isBack ? (frontDoc.type || "ID") : (doc.type || "ID")} ${isBack ? "Back" : "Front"} copy`} 
                 fileName={doc.fileName} 
+                file={doc.file}
                 onChange={(fileName) => {
                   p({ 
                     identityDocs: d.identityDocs.map((x: any, j: number) => {

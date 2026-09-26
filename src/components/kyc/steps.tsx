@@ -2,7 +2,7 @@ import { Check, Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 
 // ---------- types ----------
 export interface EmergencyContact {
@@ -249,23 +249,43 @@ export function MultiChips({
   );
 }
 
-/** Fake file upload: captures the file name for the demo. */
+/** File upload component with image preview. */
 export function FileUpload({
   label,
   fileName,
+  file,
   onChange,
   onFile,
 }: {
   label: string;
   fileName: string;
+  file?: File | null;
   onChange: (name: string) => void;
   onFile?: (file: File | null) => void;
 }) {
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file && file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreview(null);
+    }
+  }, [file]);
+
   return (
     <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3.5 transition-colors hover:border-brand-bronze/50 hover:bg-brand-bronze-soft/30">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-bronze/15">
-        <Upload className="h-4 w-4 text-brand-bronze" />
-      </span>
+      {preview ? (
+        <div className="h-10 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-black/5">
+          <img src={preview} alt="Preview" className="h-full w-full object-cover" />
+        </div>
+      ) : (
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-bronze/15">
+          <Upload className="h-4 w-4 text-brand-bronze" />
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-foreground">{label}</span>
         <span className="block truncate text-xs text-muted-foreground">
@@ -277,9 +297,9 @@ export function FileUpload({
         accept="image/*,.pdf"
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          onChange(file?.name ?? "");
-          if (onFile) onFile(file ?? null);
+          const selectedFile = e.target.files?.[0];
+          onChange(selectedFile?.name ?? "");
+          if (onFile) onFile(selectedFile ?? null);
         }}
       />
     </label>
