@@ -167,19 +167,22 @@ export default function AuditReportPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Audit Events"
-          value={String(logs.length)}
+          numericValue={logs.length}
+          isCurrency={false}
           hint="Captured in secure log"
           icon={<ShieldCheck className="h-4 w-4 text-emerald-500" />}
         />
         <StatCard
           label="Compliance Categories"
-          value={String(uniqueActions.length)}
+          numericValue={uniqueActions.length}
+          isCurrency={false}
           hint="Distinct supervisory action types"
           icon={<Filter className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Active Staff Operators"
-          value={String(new Set(logs.map((l) => l.user?.email).filter(Boolean)).size || 1)}
+          numericValue={new Set(logs.map((l) => l.user?.email).filter(Boolean)).size || 1}
+          isCurrency={false}
           hint="Unique authorized initiators"
           icon={<UserCheck className="h-4 w-4 text-brand-navy dark:text-blue-400" />}
         />

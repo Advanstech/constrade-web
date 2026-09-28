@@ -1,17 +1,22 @@
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 
 interface StatCardProps {
   label: string;
-  value: string;
+  value?: string | React.ReactNode;
+  numericValue?: number;
+  isCurrency?: boolean;
+  prefix?: string;
+  suffix?: string;
   change?: number;
   hint?: string;
   icon?: React.ReactNode;
   invert?: boolean;
 }
 
-export function StatCard({ label, value, change, hint, icon, invert }: StatCardProps) {
+export function StatCard({ label, value, numericValue, isCurrency = true, prefix = "", suffix = "", change, hint, icon, invert }: StatCardProps) {
   return (
     <Card className="border-border/70 shadow-card">
       <CardContent className="p-5">
@@ -21,9 +26,13 @@ export function StatCard({ label, value, change, hint, icon, invert }: StatCardP
           </p>
           {icon}
         </div>
-        <p className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          {value}
-        </p>
+        <div className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          {numericValue !== undefined ? (
+            <AnimatedNumber value={numericValue} isCurrency={isCurrency} prefix={prefix} suffix={suffix} />
+          ) : (
+            value
+          )}
+        </div>
         <div className="mt-1.5 flex items-center gap-2">
           {change !== undefined && (
             <span

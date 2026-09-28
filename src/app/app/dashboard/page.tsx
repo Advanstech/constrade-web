@@ -158,24 +158,24 @@ const ClientDashboard = () => {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total portfolio value"
-          value={formatGHS(portfolio.totalValue)}
+          numericValue={portfolio.totalValue}
           change={portfolio.totalPlPct}
           hint="all-time P/L"
           icon={<Wallet className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Available cash"
-          value={formatGHS(portfolio.cash)}
+          numericValue={portfolio.cash}
           icon={<ArrowDownRight className="h-4 w-4 text-success" />}
         />
         <StatCard
           label="Securities value"
-          value={formatGHS(portfolio.securitiesValue)}
+          numericValue={portfolio.securitiesValue}
           icon={<ArrowUpRight className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Day P/L"
-          value={formatGHS(portfolio.dayPl)}
+          numericValue={portfolio.dayPl}
           hint="today's unrealised"
           icon={<ArrowUpRight className="h-4 w-4 text-brand-bronze" />}
         />

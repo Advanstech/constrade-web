@@ -54,11 +54,11 @@ const PortfolioPage = () => {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total value" value={formatGHS(data.totalValue)} icon={<Wallet className="h-4 w-4 text-brand-bronze" />} />
-        <StatCard label="Cash" value={formatGHS(data.cash)} />
+        <StatCard label="Total value" numericValue={data.totalValue} icon={<Wallet className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Cash" numericValue={data.cash} />
         <StatCard
           label="Total P/L"
-          value={formatGHS(data.totalPl)}
+          numericValue={data.totalPl}
           change={data.totalPlPct}
           hint="all-time"
         />

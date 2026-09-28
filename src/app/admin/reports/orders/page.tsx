@@ -167,25 +167,28 @@ export default function OrdersReportPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Orders Placed"
-          value={String(orders.length)}
+          numericValue={orders.length}
+          isCurrency={false}
           hint={`${metrics.totalFilled} successfully filled`}
           icon={<TableIcon className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Total Trade Notional"
-          value={formatGHS(metrics.totalVolume, { compact: true })}
+          numericValue={metrics.totalVolume}
           hint="Gross order value"
           icon={<DollarSign className="h-4 w-4 text-emerald-500" />}
         />
         <StatCard
           label="Est. Brokerage Fees"
-          value={formatGHS(metrics.estFees, { compact: true })}
+          numericValue={metrics.estFees}
           hint="1.15% fee model calculation"
           icon={<TrendingUp className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Trade Fill Rate"
-          value={`${metrics.fillRate}%`}
+          numericValue={metrics.fillRate}
+          isCurrency={false}
+          suffix="%"
           hint="Executed vs open ratio"
           icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
         />

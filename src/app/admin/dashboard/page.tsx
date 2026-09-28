@@ -112,10 +112,10 @@ const AdminDashboard = () => {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Assets under management" value={formatGHS(m.aum, { compact: true })} icon={<Wallet className="h-4 w-4 text-brand-bronze" />} />
-        <StatCard label="Total clients" value={String(m.totalClients)} hint={`+${m.newClients30d} this month`} icon={<Users className="h-4 w-4 text-brand-bronze" />} />
-        <StatCard label="Pending approvals" value={String(m.pendingApprovals)} icon={<ClipboardCheck className="h-4 w-4 text-brand-bronze" />} />
-        <StatCard label="Est. revenue (fees)" value={formatGHS(m.revenue, { compact: true })} icon={<Coins className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Assets under management" numericValue={m.aum} icon={<Wallet className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Total clients" numericValue={m.totalClients} isCurrency={false} hint={`+${m.newClients30d} this month`} icon={<Users className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Pending approvals" numericValue={m.pendingApprovals} isCurrency={false} icon={<ClipboardCheck className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Est. revenue (fees)" numericValue={m.revenue} icon={<Coins className="h-4 w-4 text-brand-bronze" />} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

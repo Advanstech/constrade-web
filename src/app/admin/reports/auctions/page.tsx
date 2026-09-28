@@ -168,25 +168,28 @@ export default function AuctionsReportPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Tendered Bids"
-          value={String(bids.length)}
+          numericValue={bids.length}
+          isCurrency={false}
           hint={`${metrics.acceptedCount} settled / accepted`}
           icon={<Landmark className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Total Bid Face Value"
-          value={formatGHS(metrics.totalAmount, { compact: true })}
+          numericValue={metrics.totalAmount}
           hint="Gross competitive tender notional"
           icon={<Wallet className="h-4 w-4 text-emerald-500" />}
         />
         <StatCard
           label="Allotted Value"
-          value={formatGHS(metrics.totalAllotted, { compact: true })}
+          numericValue={metrics.totalAllotted}
           hint="Bank of Ghana auction allotment"
           icon={<CheckCircle2 className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Weighted Avg. Rate"
-          value={`${metrics.avgRate.toFixed(2)}%`}
+          numericValue={metrics.avgRate}
+          isCurrency={false}
+          suffix="%"
           hint="Annualized yield / discount"
           icon={<Percent className="h-4 w-4 text-brand-navy dark:text-blue-400" />}
         />

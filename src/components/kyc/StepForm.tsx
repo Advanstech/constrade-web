@@ -49,8 +49,8 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const isForeign = !!d.countryOfOrigin && d.countryOfOrigin !== "Ghana";
   
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
+    <div className="space-y-8">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Title">
           <ChoiceChips columns={3} options={["Dr.", "Prof.", "Mr.", "Mrs.", "Ms.", "Other"]} value={d.title} onChange={(title) => p({ title })} />
         </Field>
@@ -58,7 +58,7 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           <ChoiceChips options={["Male", "Female"]} value={d.gender} onChange={(gender) => p({ gender })} />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Surname">
           <Input value={d.surname} onChange={(e) => p({ surname: e.target.value })} placeholder="Mensah" />
         </Field>
@@ -69,7 +69,7 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           <Input value={d.otherNames} onChange={(e) => p({ otherNames: e.target.value })} />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Maiden name (if applicable)">
           <Input value={d.maidenName} onChange={(e) => p({ maidenName: e.target.value })} />
         </Field>
@@ -77,7 +77,7 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           <ChoiceChips options={["Single", "Married", "Divorced", "Widowed", "Separated"]} value={d.maritalStatus} onChange={(maritalStatus) => p({ maritalStatus })} />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Date of birth">
           <Input type="date" value={d.dateOfBirth} onChange={(e) => p({ dateOfBirth: e.target.value })} />
         </Field>
@@ -85,7 +85,7 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           <Input value={d.placeOfBirth} onChange={(e) => p({ placeOfBirth: e.target.value })} placeholder="Accra" />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Mother's maiden name">
           <Input value={d.mothersMaidenName} onChange={(e) => p({ mothersMaidenName: e.target.value })} />
         </Field>
@@ -96,7 +96,7 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       <Field label="Residential status">
         <ChoiceChips columns={3} options={["Resident Ghanaian", "Non-Resident Ghanaian", "Resident Foreigner", "Non-Resident Foreigner"]} value={d.residentialStatus} onChange={(residentialStatus) => p({ residentialStatus })} />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Country of origin">
           <Input value={d.countryOfOrigin} onChange={(e) => p({ countryOfOrigin: e.target.value })} placeholder="Ghana" />
         </Field>
@@ -105,9 +105,12 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
         </Field>
       </div>
       {isForeign && (
-        <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Resident permit (foreign nationals)</p>
-          <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-5 rounded-2xl border border-border bg-muted/20 p-6">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-bronze flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-brand-bronze inline-block" />
+            Resident permit (foreign nationals)
+          </p>
+          <div className="grid gap-6 sm:grid-cols-3">
             <Field label="Resident permit number"><Input value={d.permitNumber} onChange={(e) => p({ permitNumber: e.target.value })} /></Field>
             <Field label="Permit issue date"><Input type="date" value={d.permitIssueDate} onChange={(e) => p({ permitIssueDate: e.target.value })} /></Field>
             <Field label="Permit expiring date"><Input type="date" value={d.permitExpiryDate} onChange={(e) => p({ permitExpiryDate: e.target.value })} /></Field>
@@ -115,13 +118,13 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
         </div>
       )}
       
-      <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
+      <div className="space-y-8 rounded-2xl border border-border bg-muted/20 p-6">
         <div className="flex items-center space-x-3">
           <Checkbox id="csd" checked={d.hasExistingCsd} onCheckedChange={(c) => p({ hasExistingCsd: !!c })} />
           <Label htmlFor="csd" className="font-semibold cursor-pointer">Do you have an existing CSD Account Number?</Label>
         </div>
         {d.hasExistingCsd && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-6 sm:grid-cols-2 pt-2 border-t border-border/50">
             <Field label="CSD Account Number">
               <Input value={d.csdNumber} onChange={(e) => p({ csdNumber: e.target.value })} placeholder="e.g. CSD1234567" />
             </Field>
@@ -145,8 +148,8 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const hasBranches = branches.length > 0;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+    <div className="space-y-8">
+      <div className="grid gap-6 sm:grid-cols-3">
         <Field label="Mobile number 1">
           <Input value={d.mobile1} onChange={(ev) => p({ mobile1: ev.target.value })} placeholder="+233 ..." />
         </Field>
@@ -161,11 +164,11 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       <Field label="Residential address">
         <Textarea rows={2} value={d.residentialAddress} onChange={(ev) => p({ residentialAddress: ev.target.value })} placeholder="House number, street, area" />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Nearest landmark"><Input value={d.nearestLandmark} onChange={(ev) => p({ nearestLandmark: ev.target.value })} /></Field>
         <Field label="City/Town"><Input value={d.cityTown} onChange={(ev) => p({ cityTown: ev.target.value })} placeholder="Accra" /></Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Digital address (GhanaPost GPS)"><Input value={d.digitalAddress} onChange={(ev) => p({ digitalAddress: ev.target.value })} placeholder="GA-123-4567" /></Field>
         <Field label="Postal address"><Input value={d.postalAddress} onChange={(ev) => p({ postalAddress: ev.target.value })} placeholder="P.O. Box ..." /></Field>
       </div>
@@ -173,7 +176,7 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       {d.emergencyContacts.map((c: any, i: number) => (
         <div key={i} className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Emergency contact {i + 1}</p>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-3">
             <Field label="Contact name"><Input value={c.name} onChange={(ev) => p({ emergencyContacts: d.emergencyContacts.map((x: any, j: number) => (j === i ? { ...x, name: ev.target.value } : x)) })} /></Field>
             <Field label="Relationship"><Input value={c.relationship} onChange={(ev) => p({ emergencyContacts: d.emergencyContacts.map((x: any, j: number) => (j === i ? { ...x, relationship: ev.target.value } : x)) })} /></Field>
             <Field label="Contact number"><Input value={c.number} onChange={(ev) => p({ emergencyContacts: d.emergencyContacts.map((x: any, j: number) => (j === i ? { ...x, number: ev.target.value } : x)) })} /></Field>
@@ -183,14 +186,14 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
 
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4 mt-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Employment Information</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <Field label="Occupation"><Input value={d.occupation} onChange={(ev) => p({ occupation: ev.target.value })} /></Field>
           <Field label="Profession"><Input value={d.profession} onChange={(ev) => p({ profession: ev.target.value })} /></Field>
         </div>
         <Field label="Employment status">
           <ChoiceChips options={["Employed", "Self-employed", "Retired", "Student", "Unemployed"]} value={d.employmentStatus} onChange={(employmentStatus) => p({ employmentStatus })} />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-3">
           <Field label="Years of employment"><Input value={d.yearsEmployed} onChange={(ev) => p({ yearsEmployed: ev.target.value })} /></Field>
           <Field label="Years at current"><Input value={d.yearsCurrent} onChange={(ev) => p({ yearsCurrent: ev.target.value })} /></Field>
           <Field label="Years at previous"><Input value={d.yearsPrevious} onChange={(ev) => p({ yearsPrevious: ev.target.value })} /></Field>
@@ -199,7 +202,7 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           <ChoiceChips options={["Below 1,000", "1,001 – 5,000", "5,001 – 10,000", "Above 10,000"]} value={d.monthlyIncomeRange} onChange={(monthlyIncomeRange) => p({ monthlyIncomeRange })} />
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2 mt-4">
+        <div className="grid gap-6 sm:grid-cols-2 mt-4">
           <Field label="Employer Name"><Input value={e.name} onChange={(ev) => p({ employer: { ...e, name: ev.target.value } })} /></Field>
           <Field label="Nature of business (Industry)"><Input value={e.natureOfBusiness} onChange={(ev) => p({ employer: { ...e, natureOfBusiness: ev.target.value } })} /></Field>
         </div>
@@ -207,7 +210,7 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
 
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4 mt-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Bank Account Details</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <Field label="Bank name">
             <div className="relative">
               <Input
@@ -261,7 +264,7 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
             </div>
           </Field>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <Field label="Account name">
             <div className="relative">
               <Input value={accountNameValue} onChange={(ev) => p({ accountName: ev.target.value })} placeholder="Kwame Mensah" />
@@ -288,7 +291,7 @@ function Step3({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const d = { ...EMPTY_FORM["3"], ...(form["3"] ?? {}) };
   const p = (v: any) => patchStep("3", v);
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Field label="Account Type">
         <ChoiceChips
           options={["Individual Investor", "Corporate Client", "Institutional Customer", "Financial Professional"]}
@@ -306,7 +309,7 @@ function Step3({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       <Field label="Additional Information (Investment Objectives)">
         <Textarea rows={3} value={d.investmentObjectives} onChange={(e) => p({ investmentObjectives: e.target.value })} placeholder="Tell us more about your investment goals, experience..." />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-3">
         <Field label="Risk tolerance">
           <ChoiceChips columns={1} options={["Low", "Medium", "High"]} value={d.riskTolerance} onChange={(riskTolerance) => p({ riskTolerance })} />
         </Field>
@@ -355,7 +358,7 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const d = { ...EMPTY_FORM["4"], ...(form["4"] ?? {}) };
   const p = (v: any) => patchStep("4", v);
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Standard Passport Picture</p>
         <Field label="Upload a standard passport picture">
@@ -383,7 +386,7 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
                   <Field label="ID type">
                     <ChoiceChips options={["Ghana Card", "Passport"]} value={doc.type} onChange={(type) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, type } : x)) })} />
                   </Field>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-6 sm:grid-cols-2">
                     <Field label="ID number"><Input value={doc.number} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, number: e.target.value } : x)) })} /></Field>
                     <Field label="Place of issue"><Input value={doc.placeOfIssue} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, placeOfIssue: e.target.value } : x)) })} /></Field>
                     <Field label="Issue date"><Input type="date" value={doc.issueDate} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, issueDate: e.target.value } : x)) })} /></Field>
@@ -455,7 +458,7 @@ function Step5({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Digital Signature</p>
         <p className="text-sm text-muted-foreground mb-4">Please draw your signature in the box below to complete your KYC application.</p>

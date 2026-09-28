@@ -171,25 +171,28 @@ export default function ClientsReportPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Registered Clients"
-          value={String(users.length)}
+          numericValue={users.length}
+          isCurrency={false}
           hint={`${metrics.approvedCount} fully verified`}
           icon={<Users className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Verified CSD Accounts"
-          value={String(metrics.verifiedCsd)}
+          numericValue={metrics.verifiedCsd}
+          isCurrency={false}
           hint={`${Math.round((metrics.verifiedCsd / (users.length || 1)) * 100)}% market-ready`}
           icon={<IdCard className="h-4 w-4 text-emerald-500" />}
         />
         <StatCard
           label="Pending Compliance Reviews"
-          value={String(metrics.pendingCount)}
+          numericValue={metrics.pendingCount}
+          isCurrency={false}
           hint="KYC review queue"
           icon={<Clock className="h-4 w-4 text-amber-500" />}
         />
         <StatCard
           label="Total Liquid Client Cash"
-          value={formatGHS(metrics.totalCash, { compact: true })}
+          numericValue={metrics.totalCash}
           hint="Segregated escrow pool"
           icon={<Wallet className="h-4 w-4 text-brand-bronze" />}
         />

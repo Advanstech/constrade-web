@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/auth/AuthProvider";
+import { IdleLogoutPrompt } from "@/components/auth/IdleLogoutPrompt";
 import { useState, useEffect, type ReactNode } from "react";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -36,6 +37,7 @@ export function Providers({ children }: { children: ReactNode }) {
             {children}
             <Toaster />
             <Sonner />
+            <IdleLogoutPrompt />
           </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>

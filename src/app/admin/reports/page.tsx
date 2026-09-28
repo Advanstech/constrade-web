@@ -293,25 +293,25 @@ export default function AdminReports() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Assets Under Management"
-          value={formatGHS(m.aum, { compact: true })}
+          numericValue={m.aum}
           hint="Cash reserves + custody securities"
           icon={<Wallet className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Turnover (Filled Orders)"
-          value={formatGHS(m.turnover, { compact: true })}
+          numericValue={m.turnover}
           hint={`${m.filledOrders} matched trades executed`}
           icon={<TrendingUp className="h-4 w-4 text-emerald-500" />}
         />
         <StatCard
           label="Est. Gross Revenue (Fees)"
-          value={formatGHS(m.revenue, { compact: true })}
+          numericValue={m.revenue}
           hint="≈ 1.15% brokerage commission"
           icon={<Coins className="h-4 w-4 text-brand-bronze" />}
         />
         <StatCard
           label="Liquid Client Cash Reserves"
-          value={formatGHS(m.cashReserves, { compact: true })}
+          numericValue={m.cashReserves}
           hint="Uninvested wallet liquidity"
           icon={<Building2 className="h-4 w-4 text-brand-navy dark:text-blue-400" />}
         />

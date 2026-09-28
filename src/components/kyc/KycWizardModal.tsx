@@ -68,8 +68,31 @@ export function KycWizardModal({
   useEffect(() => {
     if (open) {
       void fetchStatus();
+      if (profile) {
+        const parts = profile.full_name.split(" ");
+        const firstName = parts[0] || "";
+        const surname = parts.length > 1 ? parts.slice(1).join(" ") : "";
+        
+        setForm(prev => {
+          const s1 = prev["1"] || EMPTY_FORM["1"]!;
+          const s2 = prev["2"] || EMPTY_FORM["2"]!;
+          
+          return {
+            ...prev,
+            "1": {
+              ...s1,
+              firstName: s1.firstName || firstName,
+              surname: s1.surname || surname,
+            },
+            "2": {
+              ...s2,
+              email: s2.email || profile.email,
+            }
+          };
+        });
+      }
     }
-  }, [open, fetchStatus]);
+  }, [open, fetchStatus, profile]);
 
   const cloneStep = (stepNum: number): KycFormData[keyof KycFormData] | undefined => {
     const data = form[String(stepNum) as keyof KycFormData];
@@ -299,32 +322,39 @@ export function KycWizardModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto p-0 sm:rounded-2xl">
-        <div className="sticky top-0 z-10 bg-background/80 px-6 py-4 backdrop-blur-md border-b">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-display font-extrabold text-brand-bronze">
-              Complete your KYC application
-            </DialogTitle>
-            <DialogDescription>
-              {STEP_LABELS.length} steps to finalize your account setup. Progress is saved automatically.
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="max-w-none w-screen h-[100dvh] max-h-screen !rounded-none m-0 p-0 border-0 flex flex-col bg-background/95 backdrop-blur-xl">
+        <div className="flex-none border-b border-border/40 bg-background/80 px-6 py-6 sm:px-12 lg:px-20 backdrop-blur-md">
+          <div className="mx-auto max-w-4xl w-full flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <DialogHeader className="text-left">
+                <DialogTitle className="text-2xl md:text-3xl font-display font-extrabold text-brand-bronze tracking-tight">
+                  Complete your KYC application
+                </DialogTitle>
+                <DialogDescription className="text-base mt-2">
+                  {STEP_LABELS.length} steps to finalize your account setup. Progress is saved automatically.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="w-full md:w-auto md:min-w-[320px]">
+              <div className="flex items-center justify-between text-sm mb-2.5">
+                <span className="font-semibold text-foreground">
+                  Step {step} of {STEP_LABELS.length} — {STEP_LABELS[step - 1]}
+                </span>
+                <span className="text-brand-bronze font-bold">{pct}%</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-muted/50 border border-border/50">
+                <div
+                  className="h-full rounded-full bg-gradient-brand transition-all duration-500 ease-out"
+                  style={{ width: `${Math.max(pct, step === STEP_LABELS.length ? 100 : 0)}%` }}
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Stepper Progress */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-xs mb-2">
-              <span className="font-semibold text-foreground">
-                Step {step} of {STEP_LABELS.length} — {STEP_LABELS[step - 1]}
-              </span>
-              <span className="text-muted-foreground">{pct}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-gradient-brand transition-all duration-300"
-                style={{ width: `${Math.max(pct, step === STEP_LABELS.length ? 100 : 0)}%` }}
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-8 mx-auto max-w-4xl w-full">
+            <div className="flex flex-wrap gap-2.5">
               {STEP_LABELS.map((label, idx) => {
                 const num = idx + 1;
                 const completed = num <= completedSteps || num < step;
@@ -337,20 +367,20 @@ export function KycWizardModal({
                     disabled={!reachable || active || loading}
                     onClick={() => void goToStep(num)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                      "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200",
                       active
-                        ? "bg-brand-bronze text-white"
+                        ? "bg-brand-bronze text-white shadow-md ring-2 ring-brand-bronze/20 ring-offset-1 ring-offset-background"
                         : completed
-                        ? "bg-brand-bronze/15 text-brand-bronze hover:bg-brand-bronze/25"
+                        ? "bg-brand-bronze/10 text-brand-bronze hover:bg-brand-bronze/20"
                         : reachable
-                        ? "border border-border bg-background text-foreground hover:border-brand-bronze/40"
-                        : "border border-border bg-muted/50 text-muted-foreground cursor-not-allowed",
+                        ? "border border-border/60 bg-background text-foreground hover:border-brand-bronze/50 hover:bg-muted/30"
+                        : "border border-border/40 bg-muted/20 text-muted-foreground/60 cursor-not-allowed",
                     )}
                   >
                     <span
                       className={cn(
-                        "flex h-4 w-4 items-center justify-center rounded-full text-[10px]",
-                        completed ? "bg-white text-brand-bronze" : active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground",
+                        "flex h-4 w-4 items-center justify-center rounded-full text-[10px] transition-colors",
+                        completed ? "bg-brand-bronze text-white" : active ? "bg-white/20 text-white" : "bg-muted-foreground/20 text-muted-foreground",
                       )}
                     >
                       {completed ? <Check className="h-3 w-3" /> : num}
@@ -363,51 +393,62 @@ export function KycWizardModal({
           </div>
         </div>
 
-        <div className="px-6 py-6 sm:px-8">
-          {step === STEP_LABELS.length ? (
-            <div className="space-y-4">
-              {summary.map((row) => (
-                <div key={row.label} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 text-sm">
-                  <span className="shrink-0 text-muted-foreground">{row.label}</span>
-                  <span className="text-right font-medium text-foreground">{row.value || "—"}</span>
+        <div className="flex-1 overflow-y-auto px-6 py-10 sm:px-12 lg:px-20 bg-muted/5">
+          <div className="mx-auto max-w-4xl w-full">
+            <div className="bg-background rounded-2xl sm:rounded-[2rem] border border-border/50 shadow-sm p-6 sm:p-10">
+              {step === STEP_LABELS.length ? (
+                <div className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2 bg-muted/20 p-6 rounded-xl border border-border/50">
+                    {summary.map((row) => (
+                      <div key={row.label} className="flex flex-col gap-1 border-b sm:border-b-0 border-border/40 pb-3 sm:pb-0 last:border-0">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{row.label}</span>
+                        <span className="font-medium text-foreground text-sm">{row.value || "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <StepForm step={step} form={form} patchStep={patchStep} />
                 </div>
-              ))}
-              <StepForm step={step} form={form} patchStep={patchStep} />
+              ) : (
+                <StepForm step={step} form={form} patchStep={patchStep} />
+              )}
             </div>
-          ) : (
-            <StepForm step={step} form={form} patchStep={patchStep} />
-          )}
+          </div>
         </div>
 
-        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t bg-background/80 px-6 py-4 backdrop-blur-md">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setStep((s) => Math.max(1, s - 1))}
-              disabled={step === 1 || loading}
-            >
-              <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Previous</span>
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-              className="text-muted-foreground"
-            >
-              Save & Exit
-            </Button>
+        <div className="flex-none border-t border-border/40 bg-background/80 px-6 py-5 sm:px-12 lg:px-20 backdrop-blur-md">
+          <div className="mx-auto max-w-4xl w-full flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setStep((s) => Math.max(1, s - 1))}
+                disabled={step === 1 || loading}
+                className="font-semibold shadow-sm"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> <span className="hidden sm:inline">Previous</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={() => onOpenChange(false)}
+                className="text-muted-foreground hover:text-foreground font-medium hidden sm:flex"
+              >
+                Save & Exit
+              </Button>
+            </div>
+            
+            {step < STEP_LABELS.length ? (
+              <Button size="lg" className="min-w-[140px] shadow-md font-semibold" variant="premium" onClick={() => void next()} disabled={saving || loading}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {saving ? "Saving…" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            ) : (
+              <Button size="lg" className="min-w-[200px] shadow-md font-semibold" variant="premium" onClick={() => void submit()} disabled={submitting || loading}>
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                {submitting ? "Submitting…" : "Submit Application"}
+              </Button>
+            )}
           </div>
-          
-          {step < STEP_LABELS.length ? (
-            <Button variant="premium" onClick={() => void next()} disabled={saving || loading}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {saving ? "Saving…" : "Next"} <ArrowRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button variant="premium" onClick={() => void submit()} disabled={submitting || loading}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {submitting ? "Submitting…" : "Submit application"}
-            </Button>
-          )}
         </div>
       </DialogContent>
     </Dialog>
