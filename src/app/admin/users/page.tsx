@@ -1150,6 +1150,11 @@ export default function AdminUsersPage() {
                     profile exists until they do.
                   </p>
                 )}
+                {selected.kycApprovedBy && selected.kycStatus === "APPROVED" && (
+                  <p className="mt-3 rounded-lg bg-success/10 px-3 py-2 text-xs text-success border border-success/20 font-medium">
+                    Verified by: {selected.kycApprovedBy.firstName || ''} {selected.kycApprovedBy.lastName || ''} ({selected.kycApprovedBy.email})
+                  </p>
+                )}
               </div>
 
               {/* KYC actions banner */}

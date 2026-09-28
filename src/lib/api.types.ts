@@ -206,6 +206,12 @@ export interface AdminUserDetail {
   role: string;
   kycStatus: string;
   kycApprovedAt?: string | null;
+  kycApprovedBy?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   isPendingEmailConfirmation?: boolean;
