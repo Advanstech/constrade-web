@@ -249,7 +249,9 @@ export function KycWizardModal({
         }
         case 5: {
           const d = data as NonNullable<KycFormData["5"]>;
-          if (d.signature) {
+          if (d.signatureFile) {
+            await onboardingApi.uploadDocument(d.signatureFile, "SIGNATURE").catch(() => {});
+          } else if (d.signature) {
             const res = await fetch(d.signature);
             const blob = await res.blob();
             const file = new File([blob], "signature.png", { type: "image/png" });

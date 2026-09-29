@@ -98,6 +98,8 @@ export interface Step4Data {
 
 export interface Step5Data {
   signature: string;
+  signatureFile?: File | null;
+  signatureFileName?: string;
 }
 
 export interface Step6Data {
@@ -152,7 +154,7 @@ export const EMPTY_FORM: KycFormData = {
       { type: "", number: "", placeOfIssue: "", issueDate: "", expiryDate: "", fileName: "", file: undefined },
     ],
   },
-  "5": { signature: "" },
+  "5": { signature: "", signatureFile: null, signatureFileName: "" },
   "6": { accuracy: false, sourceOfFundsDeclaration: false, terms: false },
 };
 

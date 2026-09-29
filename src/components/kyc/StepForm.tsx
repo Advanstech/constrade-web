@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import {
   ChoiceChips,
@@ -15,6 +16,11 @@ import {
   type KycFormData,
 } from "./steps";
 import { GHANA_BANKS, GHANA_BANK_NAMES } from "./ghana-banks";
+import {
+  normalizeIdDocument,
+  normalizePassportPhoto,
+  normalizeSignatureImage,
+} from "@/lib/kyc-image-processing";
 
 type StepKey = keyof KycFormData;
 
@@ -352,7 +358,7 @@ function Step6({ form, patchStep }: { form: KycFormData; patchStep: any }) {
 }
 
 import SignatureCanvas from 'react-signature-canvas';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const d = { ...EMPTY_FORM["4"], ...(form["4"] ?? {}) };
@@ -362,7 +368,16 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Standard Passport Picture</p>
         <Field label="Upload a standard passport picture">
-          <FileUpload label="Upload passport photo" fileName={d.passportPhoto} file={d.passportFile} onChange={(passportPhoto) => p({ passportPhoto })} onFile={(passportFile) => p({ passportFile })} />
+          <FileUpload
+            label="Upload or take passport photo"
+            fileName={d.passportPhoto}
+            file={d.passportFile}
+            onChange={(passportPhoto) => p({ passportPhoto })}
+            onFile={async (passportFile) => {
+              const processed = passportFile ? await normalizePassportPhoto(passportFile) : null;
+              p({ passportFile: processed });
+            }}
+          />
         </Field>
       </div>
       
@@ -410,13 +425,14 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
                     }) 
                   });
                 }} 
-                onFile={(file) => {
+                onFile={async (file) => {
+                  const processed = file ? await normalizeIdDocument(file) : null;
                   p({ 
                     identityDocs: d.identityDocs.map((x: any, j: number) => {
                       if (j === i) {
                         return isBack 
-                          ? { ...x, file, type: frontDoc.type, number: frontDoc.number, placeOfIssue: frontDoc.placeOfIssue, issueDate: frontDoc.issueDate, expiryDate: frontDoc.expiryDate } 
-                          : { ...x, file };
+                          ? { ...x, file: processed, fileName: processed?.name ?? "", type: frontDoc.type, number: frontDoc.number, placeOfIssue: frontDoc.placeOfIssue, issueDate: frontDoc.issueDate, expiryDate: frontDoc.expiryDate } 
+                          : { ...x, file: processed, fileName: processed?.name ?? "" };
                       }
                       return x;
                     }) 
@@ -435,25 +451,40 @@ function Step5({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const d = { ...EMPTY_FORM["5"], ...(form["5"] ?? {}) };
   const p = (v: any) => patchStep("5", v);
   const sigCanvas = useRef<any>(null);
+  const [mode, setMode] = useState<"draw" | "upload">("draw");
 
   useEffect(() => {
-    if (d.signature && sigCanvas.current) {
+    if (mode === "draw" && d.signature && sigCanvas.current) {
       if (sigCanvas.current.isEmpty()) {
         sigCanvas.current.fromDataURL(d.signature);
       }
     }
-  }, [d.signature]);
+  }, [d.signature, mode]);
 
   const handleEnd = () => {
     if (sigCanvas.current) {
-      p({ signature: sigCanvas.current.toDataURL() });
+      p({
+        signature: sigCanvas.current.toDataURL(),
+        signatureFile: null,
+        signatureFileName: "",
+      });
     }
   };
 
   const clearSignature = () => {
     if (sigCanvas.current) {
       sigCanvas.current.clear();
+    }
+    p({ signature: "", signatureFile: null, signatureFileName: "" });
+  };
+
+  const switchMode = (next: "draw" | "upload") => {
+    setMode(next);
+    if (next === "draw") {
+      p({ signatureFile: null, signatureFileName: "" });
+    } else {
       p({ signature: "" });
+      if (sigCanvas.current) sigCanvas.current.clear();
     }
   };
 
@@ -461,22 +492,68 @@ function Step5({ form, patchStep }: { form: KycFormData; patchStep: any }) {
     <div className="space-y-8">
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Digital Signature</p>
-        <p className="text-sm text-muted-foreground mb-4">Please draw your signature in the box below to complete your KYC application.</p>
-        
-        <div className="border border-dashed border-brand-bronze/50 rounded-lg bg-background overflow-hidden">
-          <SignatureCanvas
-            ref={sigCanvas}
-            canvasProps={{ className: 'w-full h-48 cursor-crosshair' }}
-            onEnd={handleEnd}
-            penColor="black"
-          />
-        </div>
-        
-        <div className="flex justify-end mt-2">
-          <button type="button" onClick={clearSignature} className="text-xs font-medium text-destructive hover:underline">
-            Clear Signature
+        <p className="text-sm text-muted-foreground mb-2">Choose how you want to provide your signature.</p>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => switchMode("draw")}
+            className={cn(
+              "flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
+              mode === "draw"
+                ? "border-brand-bronze bg-brand-bronze-soft text-brand-bronze-dark"
+                : "border-border bg-background text-foreground hover:bg-muted/50",
+            )}
+          >
+            Draw signature
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("upload")}
+            className={cn(
+              "flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
+              mode === "upload"
+                ? "border-brand-bronze bg-brand-bronze-soft text-brand-bronze-dark"
+                : "border-border bg-background text-foreground hover:bg-muted/50",
+            )}
+          >
+            Upload signature
           </button>
         </div>
+
+        {mode === "draw" ? (
+          <>
+            <div className="border border-dashed border-brand-bronze/50 rounded-lg bg-background overflow-hidden">
+              <SignatureCanvas
+                ref={sigCanvas}
+                canvasProps={{ className: 'w-full h-48 cursor-crosshair' }}
+                onEnd={handleEnd}
+                penColor="black"
+              />
+            </div>
+            <div className="flex justify-end mt-2">
+              <button type="button" onClick={clearSignature} className="text-xs font-medium text-destructive hover:underline">
+                Clear Signature
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <FileUpload
+              label="Upload or photograph your signature"
+              fileName={d.signatureFileName ?? ""}
+              file={d.signatureFile}
+              onChange={() => {}}
+              onFile={async (file) => {
+                const processed = file ? await normalizeSignatureImage(file) : null;
+                p({ signatureFile: processed, signatureFileName: processed?.name ?? "" });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Photograph your signature on a plain white background for best results.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
