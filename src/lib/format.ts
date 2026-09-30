@@ -62,6 +62,8 @@ export function statusLabel(status: string): string {
       return "Pending";
     case "processing":
       return "Processing";
+    case "placed":
+      return "Placed on Exchange";
     case "approved":
       return "Approved";
     case "rejected":
@@ -81,6 +83,8 @@ export function statusClass(status: string): string {
       return "bg-success/10 text-success";
     case "processing":
       return "bg-blue-500/10 text-blue-600 dark:text-blue-400";
+    case "placed":
+      return "bg-violet-500/10 text-violet-600 dark:text-violet-400";
     case "pending_approval":
     case "approved":
       return "bg-brand-bronze/15 text-brand-bronze";

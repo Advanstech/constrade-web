@@ -12,6 +12,7 @@ export type OrderStatus =
   | "pending_approval"
   | "approved"
   | "processing"       // payment confirmed, dispatched to trading desk
+  | "placed"           // placed on the exchange / GFIM / GSE
   | "rejected"
   | "filled"
   | "cancelled";
@@ -90,6 +91,7 @@ export interface Order {
   settlementDate?: string | null;
   executionNote?: string | null;
   paymentConfirmedAt?: string | null;
+  placedAt?: string | null;
   updatedAt?: string | null;
   totalAmount?: number | null;
   fees?: number | null;
@@ -290,6 +292,7 @@ export interface AdminOrder extends Order {
   executionNote?: string | null;
   traderNotes?: string | null;
   paymentConfirmedAt?: string | null;
+  placedAt?: string | null;
 }
 
 export interface ExecutionResultScan {

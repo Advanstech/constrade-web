@@ -48,10 +48,24 @@ function LifecycleTracker({ order }: { order: Order }) {
       reached: true,
     },
     {
-      label: "Payment Confirmed",
-      hint: "Funds verified — order queued for execution",
+      label: order.side === "sell" ? "Holdings Verified" : "Payment Confirmed",
+      hint: order.side === "sell"
+        ? "Available holdings checked — order queued for the exchange"
+        : "Funds verified — order queued for the exchange",
       at: order.paymentConfirmedAt ?? null,
-      reached: order.status === "processing" || done,
+      reached:
+        order.status === "processing" ||
+        order.status === "placed" ||
+        done,
+    },
+    {
+      label: "Placed on Exchange",
+      hint:
+        order.asset_class === "equity"
+          ? "Order sent to the Ghana Stock Exchange"
+          : "Order sent to the Ghana Fixed Income Market",
+      at: order.placedAt ?? null,
+      reached: order.status === "placed" || done,
     },
     {
       label: "Executed",
@@ -152,7 +166,12 @@ const OrdersPage = () => {
   const totalPages = Math.ceil((orders?.length ?? 0) / itemsPerPage);
   const visible = orders?.slice((page - 1) * itemsPerPage, page * itemsPerPage) ?? [];
   const inFlight =
-    orders?.filter((o) => o.status === "pending_approval" || o.status === "processing") ?? [];
+    orders?.filter(
+      (o) =>
+        o.status === "pending_approval" ||
+        o.status === "processing" ||
+        o.status === "placed",
+    ) ?? [];
 
   const cancel = async (id: string) => {
     setCancelling(true);

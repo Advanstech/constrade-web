@@ -89,6 +89,7 @@ function mapOrderStatus(status: string): OrderStatus {
   const s = String(status).toLowerCase();
   if (s === "pending") return "pending_approval";
   if (s === "payment_confirmed") return "processing";
+  if (s === "placed") return "placed";
   if (s === "executed") return "filled";
   if (s === "cancelled") return "cancelled";
   if (s === "rejected") return "rejected";
@@ -175,6 +176,7 @@ function toEquityOrder(raw: any): Order {
     executionNote: raw.executionNote ?? null,
     traderNotes: raw.traderNotes ?? null,
     paymentConfirmedAt: raw.paymentConfirmedAt ?? null,
+    placedAt: raw.placedAt ?? null,
   } as any;
 }
 
@@ -205,6 +207,7 @@ function toFixedIncomeOrder(raw: any): Order {
     executionNote: raw.executionNote ?? null,
     traderNotes: raw.traderNotes ?? null,
     paymentConfirmedAt: raw.paymentConfirmedAt ?? null,
+    placedAt: raw.placedAt ?? null,
   } as any;
 }
 
@@ -863,6 +866,15 @@ async function handleAdmin(body: Record<string, unknown>): Promise<unknown> {
       const order = await request<any>("POST", path);
       return { order: toOrder(order.order ?? order), message: order.message ?? "Payment confirmed" };
     }
+    case "markAsPlaced": {
+      const id = String(body.id ?? "");
+      const assetClass = String(body.assetClass ?? "");
+      const path = assetClass === "equity"
+        ? `/equities/admin/orders/${id}/mark-as-placed`
+        : `/fixed-income/admin/orders/${id}/mark-as-placed`;
+      const order = await request<any>("POST", path);
+      return { order: toOrder(order.order ?? order), message: order.message ?? "Order marked as placed on exchange" };
+    }
     case "uploadResult": {
       const id = String(body.id ?? "");
       const assetClass = String(body.assetClass ?? "");
@@ -1165,6 +1177,8 @@ export const adminApi = {
   },
   confirmOrderPayment: (id: string, assetClass: "equity" | "fixed_income") =>
     call<{ order: Order; message: string }>("admin", { action: "confirmPayment", id, assetClass }),
+  markOrderAsPlaced: (id: string, assetClass: "equity" | "fixed_income") =>
+    call<{ order: Order; message: string }>("admin", { action: "markAsPlaced", id, assetClass }),
   uploadOrderResult: (id: string, assetClass: "equity" | "fixed_income", result: {
     filledPrice: number;
     filledQty?: number;

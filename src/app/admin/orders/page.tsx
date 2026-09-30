@@ -72,6 +72,13 @@ const STATUS_CONFIG: Record<
     dot: "bg-blue-500",
     icon: Banknote,
   },
+  placed: {
+    label: "Placed on Exchange",
+    text: "text-violet-600 dark:text-violet-400",
+    bg: "bg-violet-500/10",
+    dot: "bg-violet-500",
+    icon: Upload,
+  },
   filled: {
     label: "Executed",
     text: "text-emerald-600 dark:text-emerald-400",
@@ -106,6 +113,7 @@ const TABS = [
   { key: "all", label: "All Orders" },
   { key: "pending_approval", label: "Pending" },
   { key: "processing", label: "Processing" },
+  { key: "placed", label: "Placed on Exchange" },
   { key: "filled", label: "Executed" },
   { key: "rejected", label: "Rejected / Cancelled" },
 ] as const;
@@ -236,9 +244,31 @@ export default function AdminOrdersPage() {
         setSelectedOrder((prev) => prev ? ({ ...prev, ...res.order } as AdminOrder) : prev);
       }
       if (closeDrawer) setSelectedOrder(null);
-      showSuccess("Payment confirmed — order dispatched to trading desk.");
+      showSuccess(order.side === "sell" ? "Holdings verified — order dispatched to trading desk." : "Funds reserved — order dispatched to trading desk.");
     } catch (e: unknown) {
       setActionError((e as Error)?.message ?? "Failed to confirm payment.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleMarkAsPlaced = async (id: string, closeDrawer = false) => {
+    const order = orders.find((item) => item.id === id);
+    if (!order) return;
+    setProcessingId(id);
+    setActionError(null);
+    try {
+      const res = await adminApi.markOrderAsPlaced(id, order.asset_class);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? ({ ...o, ...res.order } as AdminOrder) : o)),
+      );
+      if (selectedOrder?.id === id && !closeDrawer) {
+        setSelectedOrder((prev) => prev ? ({ ...prev, ...res.order } as AdminOrder) : prev);
+      }
+      if (closeDrawer) setSelectedOrder(null);
+      showSuccess("Order placed on exchange — awaiting execution result.");
+    } catch (e: unknown) {
+      setActionError((e as Error)?.message ?? "Failed to mark order as placed.");
     } finally {
       setProcessingId(null);
     }
@@ -298,6 +328,8 @@ export default function AdminOrdersPage() {
             ? true
             : activeTab === "rejected"
             ? o.status === "rejected" || o.status === "cancelled"
+            : activeTab === "placed"
+            ? o.status === "placed"
             : o.status === activeTab;
         const q = search.toLowerCase();
         const searchMatch =
@@ -316,6 +348,7 @@ export default function AdminOrdersPage() {
     all: orders.length,
     pending_approval: orders.filter((o) => o.status === "pending_approval").length,
     processing: orders.filter((o) => o.status === "processing").length,
+    placed: orders.filter((o) => o.status === "placed").length,
     filled: orders.filter((o) => o.status === "filled").length,
     rejected: orders.filter(
       (o) => o.status === "rejected" || o.status === "cancelled",
@@ -379,7 +412,7 @@ export default function AdminOrdersPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Order Management</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Hybrid back-office workflow · Confirm payment → Upload result → Portfolio updated
+              Manual execution workflow · Verify funds or holdings → Place with market → Record fill → Portfolio updated
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -657,16 +690,28 @@ export default function AdminOrdersPage() {
                                 disabled={isProcessing}
                               >
                                 {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                Pay
+                                {order.side === "sell" ? "Verify" : "Pay"}
                               </Button>
                             )}
                             {order.status === "processing" && (
                               <Button
                                 size="sm"
+                                variant="outline"
+                                className="h-8 gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-900/50 dark:bg-violet-900/20 dark:text-violet-400"
+                                onClick={() => void handleMarkAsPlaced(order.id)}
+                                disabled={isProcessing}
+                              >
+                                {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                Place
+                              </Button>
+                            )}
+                            {order.status === "placed" && (
+                              <Button
+                                size="sm"
                                 className="h-8 gap-1 bg-brand-bronze hover:bg-brand-bronze/90 !text-white"
                                 onClick={() => openUploadResult(order)}
                               >
-                                <Upload className="h-3.5 w-3.5" />
+                                <CheckCircle2 className="h-3.5 w-3.5" />
                                 Result
                               </Button>
                             )}
@@ -767,13 +812,24 @@ export default function AdminOrdersPage() {
                       <div className="relative pl-6">
                         <div className={cn(
                           "absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-background",
-                          selectedOrder.paymentConfirmedAt || selectedOrder.status === "filled" ? "bg-emerald-500" : (selectedOrder.status === "pending_approval" ? "bg-amber-500" : (selectedOrder.status === "rejected" || selectedOrder.status === "cancelled" ? "bg-slate-300 dark:bg-slate-700" : "bg-blue-500"))
+                          selectedOrder.paymentConfirmedAt || selectedOrder.status !== "pending_approval" ? "bg-emerald-500" : "bg-amber-500"
                         )} />
-                        <p className={cn("text-sm font-medium", !selectedOrder.paymentConfirmedAt && selectedOrder.status === "pending_approval" && "text-amber-600 dark:text-amber-500")}>
-                          Payment Confirmation
+                        <p className="text-sm font-medium">Payment Confirmation</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {selectedOrder.paymentConfirmedAt ? fmtDate(selectedOrder.paymentConfirmedAt) : "Awaiting payment"}
+                        </p>
+                      </div>
+
+                      <div className="relative pl-6">
+                        <div className={cn(
+                          "absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-background",
+                          selectedOrder.placedAt || selectedOrder.status === "filled" ? "bg-emerald-500" : (selectedOrder.status === "rejected" || selectedOrder.status === "cancelled" ? "bg-slate-300 dark:bg-slate-700" : "bg-violet-500")
+                        )} />
+                        <p className={cn("text-sm font-medium", !selectedOrder.placedAt && selectedOrder.status === "processing" && "text-violet-600 dark:text-violet-400")}>
+                          Placed on Exchange
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {selectedOrder.paymentConfirmedAt ? fmtDate(selectedOrder.paymentConfirmedAt) : (selectedOrder.status === "pending_approval" ? "Awaiting payment" : "Skipped/NA")}
+                          {selectedOrder.placedAt ? fmtDate(selectedOrder.placedAt) : (selectedOrder.status === "rejected" || selectedOrder.status === "cancelled" ? "Skipped/NA" : "Awaiting placement")}
                         </p>
                       </div>
 
@@ -840,7 +896,7 @@ export default function AdminOrdersPage() {
                           disabled={isProcessing}
                         >
                           {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                          Confirm Payment Received
+                          {selectedOrder.side === "sell" ? "Verify Holdings" : "Confirm Funds Received"}
                         </Button>
                         <Button
                           variant="outline"
@@ -852,14 +908,35 @@ export default function AdminOrdersPage() {
                         </Button>
                       </>
                     )}
-                    
+
                     {selectedOrder.status === "processing" && (
+                      <>
+                        <Button
+                          className="w-full bg-violet-600 hover:bg-violet-700 !text-white"
+                          onClick={() => void handleMarkAsPlaced(selectedOrder.id, true)}
+                          disabled={isProcessing}
+                        >
+                          {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                          Mark as Placed
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
+                          onClick={() => void handleReject(selectedOrder.id, true)}
+                          disabled={isProcessing}
+                        >
+                          Reject Order
+                        </Button>
+                      </>
+                    )}
+
+                    {selectedOrder.status === "placed" && (
                       <>
                         <Button
                           className="w-full bg-brand-bronze hover:bg-brand-bronze/90 !text-white"
                           onClick={() => openUploadResult(selectedOrder)}
                         >
-                          <Upload className="mr-2 h-4 w-4" />
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
                           Upload Execution Result
                         </Button>
                         <Button
