@@ -439,6 +439,54 @@ export function KycWizardModal({
     try {
       setSubmitting(true);
       await flushDraft();
+
+      // Persist every structured section before finalising — the wizard can
+      // be resumed past earlier steps, so the submit path must not rely on
+      // Continue having been pressed on each step. All endpoints upsert.
+      const d1 = form["1"];
+      const d2 = form["2"];
+      const d3 = form["3"];
+      const isCorporate =
+        d3?.category === "Corporate Client" || d3?.category === "Institutional Customer";
+      await onboardingApi.saveStep(1, { type: isCorporate ? "CORPORATE" : "INDIVIDUAL" });
+      if (!isCorporate && d1?.dateOfBirth) {
+        await onboardingApi.saveStep(2, {
+          dateOfBirth: d1.dateOfBirth,
+          nationality: d1.countryOfOrigin || "Ghana",
+          occupation: d2?.occupation || "N/A",
+          sourceOfFunds: d3?.sourceOfFunds || "N/A",
+          address: d1.countryOfResidence || "Ghana",
+        });
+        await onboardingApi.saveStep(4, {
+          tinNumber: d1.tin || "N/A",
+          taxResidency: d1.countryOfResidence || "Ghana",
+        });
+      }
+      if (d2?.employer || d2?.bankName || d2?.accountNumber) {
+        await onboardingApi.saveStep(3, {
+          employmentStatus: d2.employmentStatus || "N/A",
+          jobTitle: d2.profession || d2.occupation || "N/A",
+          employerName: d2.employer?.name || "N/A",
+          industry: d2.employer?.natureOfBusiness || "N/A",
+          duration: d2.yearsEmployed || "N/A",
+        });
+        if (d2.bankName || d2.accountNumber) {
+          await onboardingApi.saveStep(6, {
+            bankName: d2.bankName || "N/A",
+            branch: d2.branch || "",
+            accountName: d2.accountName || `${d1?.firstName || ""} ${d1?.surname || ""}`.trim() || "N/A",
+            accountNumber: d2.accountNumber || "N/A",
+          });
+        }
+      }
+      if (d3) {
+        await onboardingApi.saveStep(5, {
+          annualIncome: d2?.monthlyIncomeRange || "N/A",
+          netWorth: d3.initialInvestment || "N/A",
+          investmentObjectives: d3.investmentObjectives || "N/A",
+        });
+      }
+
       const data = form["6"];
       await onboardingApi.submit({
         accuracyDeclaration: data?.accuracy ?? false,
