@@ -106,13 +106,134 @@ const ProfilePage = () => {
               )}
             </div>
           </div>
-          {!kycApproved && (
-            <Button asChild variant="premium" size="sm" className="shrink-0">
-              <Link href="?kyc=true">
-                Continue application <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          )}
+          <Button
+            asChild
+            variant={kycApproved ? "outline" : "premium"}
+            size="sm"
+            className="shrink-0"
+          >
+            <Link href="?kyc=true">
+              {kycApproved ? "Review & update KYC" : "Continue application"}{" "}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* KYC details */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-bold">
+            <ShieldCheck className="h-4 w-4 text-brand-bronze" /> KYC details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {(() => {
+            const rec = (v: unknown) =>
+              (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+            const field = (o: Record<string, unknown>, key: string): string | null => {
+              const v = o[key];
+              return typeof v === "string" && v.trim() ? v : null;
+            };
+            const ind = rec(kyc?.data?.individualProfile);
+            const corp = rec(kyc?.data?.corporateProfile);
+            const emp = rec(kyc?.data?.employmentDetails);
+            const tax = rec(kyc?.data?.taxDetails);
+            const fin = rec(kyc?.data?.financialInfo);
+            const bank = rec(kyc?.data?.bankDetails);
+            const docs = Array.isArray(kyc?.data?.documents)
+              ? (kyc!.data!.documents as { id: string; type: string; status: string; fileName?: string }[])
+              : [];
+            const hasAny =
+              Object.keys(ind).length ||
+              Object.keys(corp).length ||
+              Object.keys(emp).length ||
+              Object.keys(tax).length ||
+              Object.keys(fin).length ||
+              Object.keys(bank).length ||
+              docs.length;
+
+            const Item = ({ label, value }: { label: string; value?: string | null }) =>
+              value ? (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+                  <p className="mt-0.5 text-sm font-medium text-card-foreground">{value}</p>
+                </div>
+              ) : null;
+
+            const mask = (v?: string | null) => (v ? `••••${v.slice(-4)}` : null);
+            const dobRaw = field(ind, "dateOfBirth");
+            const dob = dobRaw
+              ? new Date(dobRaw).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+              : null;
+            const idNumber =
+              field(ind, "idDocumentType") === "PASSPORT"
+                ? field(ind, "passportNumber")
+                : field(ind, "ghanaCardNumber");
+
+            if (!kyc) {
+              return <p className="text-sm text-muted-foreground">Loading KYC details…</p>;
+            }
+            if (!hasAny) {
+              return (
+                <p className="text-sm text-muted-foreground">
+                  No KYC details saved yet — open the wizard to complete your profile.
+                </p>
+              );
+            }
+
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {field(corp, "companyName") && <Item label="Company" value={field(corp, "companyName")} />}
+                  {field(corp, "registrationNumber") && <Item label="Registration No." value={field(corp, "registrationNumber")} />}
+                  <Item label="ID document" value={field(ind, "idDocumentType")?.replace(/_/g, " ")} />
+                  <Item label="ID number" value={idNumber} />
+                  <Item label="Date of birth" value={dob} />
+                  <Item label="Nationality" value={field(ind, "nationality")} />
+                  <Item label="Occupation" value={field(ind, "occupation")} />
+                  <Item label="Employer" value={field(emp, "employerName")} />
+                  <Item label="Source of funds" value={field(ind, "sourceOfFunds")?.replace(/_/g, " ")} />
+                  <Item label="TIN" value={mask(field(tax, "tinNumber"))} />
+                  <Item label="Bank" value={field(bank, "bankName")} />
+                  <Item label="Account" value={mask(field(bank, "accountNumber"))} />
+                  <Item label="Investment objectives" value={field(fin, "investmentObjectives")?.replace(/_/g, " ")} />
+                  {field(ind, "residentialAddress") && <Item label="Residential address" value={field(ind, "residentialAddress")} />}
+                </div>
+
+                {docs.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      Documents on file
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {docs.map((d) => (
+                        <Badge
+                          key={d.id}
+                          className={
+                            d.status === "APPROVED"
+                              ? "bg-success/10 text-success"
+                              : d.status === "REJECTED"
+                                ? "bg-danger/10 text-danger"
+                                : "bg-brand-bronze/15 text-brand-bronze"
+                          }
+                        >
+                          {d.type.replace(/_/g, " ")} · {d.status.toLowerCase()}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {kycApproved && (
+                  <p className="text-xs text-muted-foreground">
+                    Need to change something? Reopen the wizard — resubmitted details go back to
+                    compliance for re-verification.
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 

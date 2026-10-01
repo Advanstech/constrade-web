@@ -1,8 +1,8 @@
-import { Check, Upload } from "lucide-react";
+import { Check, ChevronDown, Upload, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { type ReactNode, useState, useEffect } from "react";
+import { type ReactNode, useState, useEffect, useRef, useMemo } from "react";
 
 // ---------- types ----------
 export interface EmergencyContact {
@@ -19,6 +19,7 @@ export interface IdentityDoc {
   expiryDate: string;
   fileName: string;
   file?: File;
+  fileUrl?: string;
 }
 
 export interface EmployerInfo {
@@ -93,6 +94,7 @@ export interface Step3Data {
 export interface Step4Data {
   passportPhoto: string;
   passportFile?: File | null;
+  passportPhotoUrl?: string;
   identityDocs: IdentityDoc[];
 }
 
@@ -100,6 +102,7 @@ export interface Step5Data {
   signature: string;
   signatureFile?: File | null;
   signatureFileName?: string;
+  signatureUrl?: string;
 }
 
 export interface Step6Data {
@@ -251,6 +254,237 @@ export function MultiChips({
   );
 }
 
+/** Searchable dropdown / combobox with free-text fallback. */
+export function SearchableSelect({
+  options,
+  value,
+  onChange,
+  placeholder = "Search or type...",
+}: {
+  options: readonly string[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!query) return options;
+    const lc = query.toLowerCase();
+    return options.filter((o) => o.toLowerCase().includes(lc));
+  }, [options, query]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen(!open); setQuery(""); }}
+        className={cn(
+          "flex w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm transition-colors",
+          open ? "border-brand-bronze ring-1 ring-brand-bronze/30" : "border-input hover:border-brand-bronze/40",
+        )}
+      >
+        <span className={value ? "text-foreground" : "text-muted-foreground"}>
+          {value || placeholder}
+        </span>
+        <span className="flex items-center gap-1">
+          {value && (
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => { e.stopPropagation(); onChange(""); }}
+              className="rounded-sm p-0.5 hover:bg-muted"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </span>
+          )}
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg animate-in fade-in-0 zoom-in-95">
+          <div className="p-2">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Type to search…"
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-1 focus-visible:ring-brand-bronze/40"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => { onChange(query); setOpen(false); }}
+                className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+              >
+                Use &ldquo;{query}&rdquo;
+              </button>
+            ) : (
+              filtered.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => { onChange(opt); setOpen(false); }}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                    opt === value && "bg-brand-bronze-soft text-brand-bronze-dark font-medium",
+                  )}
+                >
+                  {opt === value && <Check className="h-3.5 w-3.5 shrink-0" />}
+                  {opt}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Three-dropdown date picker (Day / Month / Year) — much easier to use than native date inputs. */
+export function DateSelect({
+  value,
+  onChange,
+  yearRange,
+}: {
+  value: string; // "YYYY-MM-DD" or ""
+  onChange: (iso: string) => void;
+  /** [startYear, endYear] inclusive. Defaults to [1950, currentYear + 10]. */
+  yearRange?: [number, number];
+}) {
+  const now = new Date();
+  const [startY, endY] = yearRange ?? [1950, now.getFullYear() + 10];
+
+  // Parse existing value into local state so partial selections persist
+  const parts = value ? value.split("-") : [];
+  const [localDay, setLocalDay] = useState(parts[2] ?? "");
+  const [localMonth, setLocalMonth] = useState(parts[1] ?? "");
+  const [localYear, setLocalYear] = useState(parts[0] ?? "");
+
+  // Sync from parent when value changes externally
+  useEffect(() => {
+    const p = value ? value.split("-") : [];
+    setLocalYear(p[0] ?? "");
+    setLocalMonth(p[1] ?? "");
+    setLocalDay(p[2] ?? "");
+  }, [value]);
+
+  const tryEmit = (y: string, m: string, d: string) => {
+    if (y && m && d) {
+      onChange(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`);
+    }
+  };
+
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+
+  // Days depend on month+year
+  const daysInMonth = localYear && localMonth
+    ? new Date(Number(localYear), Number(localMonth), 0).getDate()
+    : 31;
+
+  const years: number[] = [];
+  for (let y = endY; y >= startY; y--) years.push(y);
+
+  const selectClass =
+    "rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none transition-colors focus:border-brand-bronze focus:ring-1 focus:ring-brand-bronze/30 hover:border-brand-bronze/40 appearance-none cursor-pointer";
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {/* Day */}
+      <select
+        value={localDay}
+        onChange={(e) => {
+          setLocalDay(e.target.value);
+          tryEmit(localYear, localMonth, e.target.value);
+        }}
+        className={selectClass}
+      >
+        <option value="">Day</option>
+        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => (
+          <option key={d} value={String(d).padStart(2, "0")}>
+            {d}
+          </option>
+        ))}
+      </select>
+
+      {/* Month */}
+      <select
+        value={localMonth ? String(Number(localMonth)) : ""}
+        onChange={(e) => {
+          const m = e.target.value ? String(Number(e.target.value)).padStart(2, "0") : "";
+          setLocalMonth(m);
+          tryEmit(localYear, m, localDay);
+        }}
+        className={selectClass}
+      >
+        <option value="">Month</option>
+        {months.map((name, i) => (
+          <option key={i} value={String(i + 1)}>
+            {name}
+          </option>
+        ))}
+      </select>
+
+      {/* Year */}
+      <select
+        value={localYear}
+        onChange={(e) => {
+          setLocalYear(e.target.value);
+          tryEmit(e.target.value, localMonth, localDay);
+        }}
+        className={selectClass}
+      >
+        <option value="">Year</option>
+        {years.map((y) => (
+          <option key={y} value={String(y)}>
+            {y}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** Quick-pick suggestion chips for a textarea. Clicking appends the text. */
+export function SuggestionChips({
+  suggestions,
+  onPick,
+}: {
+  suggestions: readonly string[];
+  onPick: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-1">
+      {suggestions.map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onPick(s)}
+          className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-brand-bronze/40 hover:bg-brand-bronze-soft hover:text-brand-bronze-dark"
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** File upload component with image preview. */
 export function FileUpload({
   label,
@@ -258,12 +492,14 @@ export function FileUpload({
   file,
   onChange,
   onFile,
+  uploadedUrl,
 }: {
   label: string;
   fileName: string;
   file?: File | null;
   onChange: (name: string) => void;
   onFile?: (file: File | null) => void;
+  uploadedUrl?: string;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -273,9 +509,9 @@ export function FileUpload({
       setPreview(url);
       return () => URL.revokeObjectURL(url);
     } else {
-      setPreview(null);
+      setPreview(uploadedUrl ?? null);
     }
-  }, [file]);
+  }, [file, uploadedUrl]);
 
   return (
     <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3.5 transition-colors hover:border-brand-bronze/50 hover:bg-brand-bronze-soft/30">

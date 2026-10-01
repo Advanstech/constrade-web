@@ -151,6 +151,8 @@ export interface OnboardingStatus {
 
 export interface KycProgress {
   completedSteps: number;
+  currentStep: number;
+  completionPercentage: number;
   totalSteps: number;
   status: "in_progress" | "submitted" | "approved";
   data: Record<string, unknown>;

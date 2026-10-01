@@ -272,13 +272,18 @@ function toOnboardingStatus(raw: any): OnboardingStatus {
 }
 
 function toKycProgress(raw: any): KycProgress {
-  const completedSteps = raw.onboardingStep ?? 0;
+  const totalSteps = 6;
+  const completedSteps = Math.min(Math.max(Number(raw.completedSteps ?? raw.onboardingStep ?? 0), 0), totalSteps);
 
   return {
     completedSteps,
-    totalSteps: 6,
-    status: raw.kycStatus === "APPROVED" ? "approved" : "in_progress",
+    currentStep: Math.min(Math.max(Number(raw.currentStep ?? completedSteps + 1), 1), totalSteps),
+    completionPercentage: Number(raw.completionPercentage ?? Math.round((completedSteps / totalSteps) * 100)),
+    totalSteps,
+    status: raw.kycStatus === "APPROVED" ? "approved" : raw.kycStep === "ALL_STEPS_COMPLETE" ? "submitted" : "in_progress",
     data: {
+      draft: raw.kycDraft ?? null,
+      documents: raw.documents ?? [],
       individualProfile: raw.individualProfile ?? null,
       corporateProfile: raw.corporateProfile ?? null,
       employmentDetails: raw.employmentDetails ?? null,
@@ -723,6 +728,11 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
       const s = await request<any>("GET", "/onboarding/status");
       return { progress: toKycProgress(s) };
     }
+    case "saveDraft": {
+      const data = (body.data as Record<string, unknown>) ?? {};
+      await request("PATCH", "/onboarding/draft", { data });
+      return { saved: true };
+    }
     case "saveStep": {
       const step = Number(body.step);
       const data = (body.data as Record<string, unknown>) ?? {};
@@ -995,6 +1005,8 @@ export const onboardingApi = {
     call<{ progress: KycProgress }>("onboarding", { action: "progress" }).then(
       (d) => d.progress,
     ),
+  saveDraft: (data: Record<string, unknown>) =>
+    call<{ saved: boolean }>("onboarding", { action: "saveDraft", data }),
   saveStep: (step: number, data: Record<string, unknown>) =>
     call<{ progress: Pick<KycProgress, "completedSteps" | "totalSteps"> }>("onboarding", {
       action: "saveStep",

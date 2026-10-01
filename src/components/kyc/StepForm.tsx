@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useRef, useEffect, useState } from "react";
+import SignatureCanvas from "react-signature-canvas";
 import { X } from "lucide-react";
 import {
   ChoiceChips,
@@ -13,14 +15,54 @@ import {
   Field,
   FileUpload,
   MultiChips,
+  SearchableSelect,
+  SuggestionChips,
+  DateSelect,
   type KycFormData,
 } from "./steps";
 import { GHANA_BANKS, GHANA_BANK_NAMES } from "./ghana-banks";
+import {
+  COUNTRIES,
+  GHANA_CITIES,
+  OCCUPATIONS,
+  PROFESSIONS,
+  INDUSTRIES,
+  RELATIONSHIPS,
+  INVESTMENT_OBJECTIVE_SUGGESTIONS,
+} from "./kyc-options";
 import {
   normalizeIdDocument,
   normalizePassportPhoto,
   normalizeSignatureImage,
 } from "@/lib/kyc-image-processing";
+
+/** Investment objectives textarea that reveals suggestion chips only on focus. */
+function InvestmentObjectivesField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        // Don't close if clicking a chip inside this container
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setFocused(false);
+      }}
+    >
+      <Textarea
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Tell us more about your investment goals, experience..."
+      />
+      {focused && (
+        <SuggestionChips
+          suggestions={INVESTMENT_OBJECTIVE_SUGGESTIONS}
+          onPick={(s) => onChange(value ? `${value}. ${s}` : s)}
+        />
+      )}
+    </div>
+  );
+}
 
 type StepKey = keyof KycFormData;
 
@@ -85,10 +127,10 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       </div>
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Date of birth">
-          <Input type="date" value={d.dateOfBirth} onChange={(e) => p({ dateOfBirth: e.target.value })} />
+          <DateSelect value={d.dateOfBirth} onChange={(v) => p({ dateOfBirth: v })} yearRange={[1930, new Date().getFullYear() - 16]} />
         </Field>
         <Field label="Place of birth">
-          <Input value={d.placeOfBirth} onChange={(e) => p({ placeOfBirth: e.target.value })} placeholder="Accra" />
+          <SearchableSelect options={GHANA_CITIES} value={d.placeOfBirth} onChange={(placeOfBirth) => p({ placeOfBirth })} placeholder="e.g. Accra" />
         </Field>
       </div>
       <div className="grid gap-6 sm:grid-cols-2">
@@ -104,10 +146,10 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       </Field>
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Country of origin">
-          <Input value={d.countryOfOrigin} onChange={(e) => p({ countryOfOrigin: e.target.value })} placeholder="Ghana" />
+          <SearchableSelect options={COUNTRIES} value={d.countryOfOrigin} onChange={(countryOfOrigin) => p({ countryOfOrigin })} placeholder="Select country" />
         </Field>
         <Field label="Country of residence">
-          <Input value={d.countryOfResidence} onChange={(e) => p({ countryOfResidence: e.target.value })} placeholder="Ghana" />
+          <SearchableSelect options={COUNTRIES} value={d.countryOfResidence} onChange={(countryOfResidence) => p({ countryOfResidence })} placeholder="Select country" />
         </Field>
       </div>
       {isForeign && (
@@ -118,8 +160,8 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           </p>
           <div className="grid gap-6 sm:grid-cols-3">
             <Field label="Resident permit number"><Input value={d.permitNumber} onChange={(e) => p({ permitNumber: e.target.value })} /></Field>
-            <Field label="Permit issue date"><Input type="date" value={d.permitIssueDate} onChange={(e) => p({ permitIssueDate: e.target.value })} /></Field>
-            <Field label="Permit expiring date"><Input type="date" value={d.permitExpiryDate} onChange={(e) => p({ permitExpiryDate: e.target.value })} /></Field>
+            <Field label="Permit issue date"><DateSelect value={d.permitIssueDate} onChange={(v) => p({ permitIssueDate: v })} yearRange={[2000, new Date().getFullYear()]} /></Field>
+            <Field label="Permit expiring date"><DateSelect value={d.permitExpiryDate} onChange={(v) => p({ permitExpiryDate: v })} yearRange={[new Date().getFullYear(), new Date().getFullYear() + 15]} /></Field>
           </div>
         </div>
       )}
@@ -172,10 +214,32 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       </Field>
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Nearest landmark"><Input value={d.nearestLandmark} onChange={(ev) => p({ nearestLandmark: ev.target.value })} /></Field>
-        <Field label="City/Town"><Input value={d.cityTown} onChange={(ev) => p({ cityTown: ev.target.value })} placeholder="Accra" /></Field>
+        <Field label="City/Town"><SearchableSelect options={GHANA_CITIES} value={d.cityTown} onChange={(cityTown) => p({ cityTown })} placeholder="e.g. Accra" /></Field>
       </div>
       <div className="grid gap-6 sm:grid-cols-2">
-        <Field label="Digital address (GhanaPost GPS)"><Input value={d.digitalAddress} onChange={(ev) => p({ digitalAddress: ev.target.value })} placeholder="GA-123-4567" /></Field>
+        <Field label="Digital address (GhanaPost GPS)">
+          <Input
+            value={d.digitalAddress}
+            placeholder="GA-123-4567"
+            maxLength={12}
+            onChange={(ev) => {
+              // Auto-format GhanaPost GPS: XX-XXXX-XXXX (e.g. GA-052-7331)
+              const raw = ev.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+              let formatted = "";
+              // First 2 chars are the region code (letters)
+              const letters = raw.slice(0, 2).replace(/[^A-Z]/g, "");
+              const rest = raw.slice(letters.length).replace(/[^0-9]/g, "");
+              formatted = letters;
+              if (letters.length === 2 && rest.length > 0) {
+                formatted += "-" + rest.slice(0, 4);
+                if (rest.length > 4) {
+                  formatted += "-" + rest.slice(4, 8);
+                }
+              }
+              p({ digitalAddress: formatted });
+            }}
+          />
+        </Field>
         <Field label="Postal address"><Input value={d.postalAddress} onChange={(ev) => p({ postalAddress: ev.target.value })} placeholder="P.O. Box ..." /></Field>
       </div>
 
@@ -184,7 +248,7 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Emergency contact {i + 1}</p>
           <div className="grid gap-6 sm:grid-cols-3">
             <Field label="Contact name"><Input value={c.name} onChange={(ev) => p({ emergencyContacts: d.emergencyContacts.map((x: any, j: number) => (j === i ? { ...x, name: ev.target.value } : x)) })} /></Field>
-            <Field label="Relationship"><Input value={c.relationship} onChange={(ev) => p({ emergencyContacts: d.emergencyContacts.map((x: any, j: number) => (j === i ? { ...x, relationship: ev.target.value } : x)) })} /></Field>
+            <Field label="Relationship"><SearchableSelect options={RELATIONSHIPS} value={c.relationship} onChange={(relationship) => p({ emergencyContacts: d.emergencyContacts.map((x: any, j: number) => (j === i ? { ...x, relationship } : x)) })} placeholder="Select relationship" /></Field>
             <Field label="Contact number"><Input value={c.number} onChange={(ev) => p({ emergencyContacts: d.emergencyContacts.map((x: any, j: number) => (j === i ? { ...x, number: ev.target.value } : x)) })} /></Field>
           </div>
         </div>
@@ -193,8 +257,8 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4 mt-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Employment Information</p>
         <div className="grid gap-6 sm:grid-cols-2">
-          <Field label="Occupation"><Input value={d.occupation} onChange={(ev) => p({ occupation: ev.target.value })} /></Field>
-          <Field label="Profession"><Input value={d.profession} onChange={(ev) => p({ profession: ev.target.value })} /></Field>
+          <Field label="Occupation"><SearchableSelect options={OCCUPATIONS} value={d.occupation} onChange={(occupation) => p({ occupation })} placeholder="Select or type occupation" /></Field>
+          <Field label="Profession"><SearchableSelect options={PROFESSIONS} value={d.profession} onChange={(profession) => p({ profession })} placeholder="Select or type profession" /></Field>
         </div>
         <Field label="Employment status">
           <ChoiceChips options={["Employed", "Self-employed", "Retired", "Student", "Unemployed"]} value={d.employmentStatus} onChange={(employmentStatus) => p({ employmentStatus })} />
@@ -210,7 +274,7 @@ function Step2({ form, patchStep }: { form: KycFormData; patchStep: any }) {
 
         <div className="grid gap-6 sm:grid-cols-2 mt-4">
           <Field label="Employer Name"><Input value={e.name} onChange={(ev) => p({ employer: { ...e, name: ev.target.value } })} /></Field>
-          <Field label="Nature of business (Industry)"><Input value={e.natureOfBusiness} onChange={(ev) => p({ employer: { ...e, natureOfBusiness: ev.target.value } })} /></Field>
+          <Field label="Nature of business (Industry)"><SearchableSelect options={INDUSTRIES} value={e.natureOfBusiness} onChange={(natureOfBusiness) => p({ employer: { ...e, natureOfBusiness } })} placeholder="Select or type industry" /></Field>
         </div>
       </div>
 
@@ -313,7 +377,7 @@ function Step3({ form, patchStep }: { form: KycFormData; patchStep: any }) {
         />
       </Field>
       <Field label="Additional Information (Investment Objectives)">
-        <Textarea rows={3} value={d.investmentObjectives} onChange={(e) => p({ investmentObjectives: e.target.value })} placeholder="Tell us more about your investment goals, experience..." />
+        <InvestmentObjectivesField value={d.investmentObjectives} onChange={(v) => p({ investmentObjectives: v })} />
       </Field>
       <div className="grid gap-6 sm:grid-cols-3">
         <Field label="Risk tolerance">
@@ -327,7 +391,7 @@ function Step3({ form, patchStep }: { form: KycFormData; patchStep: any }) {
         </Field>
       </div>
       <Field label="Source of funds">
-        <ChoiceChips options={["Salary", "Personal Savings", "Proceeds from Business", "Inheritance/Gift", "Others"]} value={d.sourceOfFunds} onChange={(sourceOfFunds) => p({ sourceOfFunds })} />
+        <ChoiceChips columns={3} options={["Salary", "Business Income", "Personal Savings", "Investments", "Inheritance/Gift", "Pension / Retirement", "Others"]} value={d.sourceOfFunds} onChange={(sourceOfFunds) => p({ sourceOfFunds })} />
       </Field>
       <Field label="Initial investment amount (GHS)">
         <Input type="number" min="0" value={d.initialInvestment} onChange={(e) => p({ initialInvestment: e.target.value })} placeholder="e.g. 10000" />
@@ -357,8 +421,8 @@ function Step6({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   );
 }
 
-import SignatureCanvas from 'react-signature-canvas';
-import { useRef, useEffect, useState } from 'react';
+
+
 
 function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
   const d = { ...EMPTY_FORM["4"], ...(form["4"] ?? {}) };
@@ -372,10 +436,11 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
             label="Upload or take passport photo"
             fileName={d.passportPhoto}
             file={d.passportFile}
+            uploadedUrl={d.passportPhotoUrl && !d.passportPhoto.toLowerCase().endsWith(".pdf") ? d.passportPhotoUrl : undefined}
             onChange={(passportPhoto) => p({ passportPhoto })}
             onFile={async (passportFile) => {
               const processed = passportFile ? await normalizePassportPhoto(passportFile) : null;
-              p({ passportFile: processed });
+              p({ passportFile: processed, passportPhotoUrl: undefined });
             }}
           />
         </Field>
@@ -402,10 +467,43 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
                     <ChoiceChips options={["Ghana Card", "Passport"]} value={doc.type} onChange={(type) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, type } : x)) })} />
                   </Field>
                   <div className="grid gap-6 sm:grid-cols-2">
-                    <Field label="ID number"><Input value={doc.number} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, number: e.target.value } : x)) })} /></Field>
+                    <Field label="ID number">
+                      {doc.type === "Ghana Card" ? (
+                        <Input
+                          value={doc.number}
+                          placeholder="GHA-123456789-0"
+                          maxLength={16}
+                          onChange={(e) => {
+                            // Auto-format Ghana Card: GHA-XXXXXXXXX-X
+                            let raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                            // Ensure GHA prefix
+                            if (!raw.startsWith("GHA") && raw.length <= 3) {
+                              const prefix = "GHA".slice(0, Math.max(raw.length, 0));
+                              if (raw === prefix.slice(0, raw.length)) raw = raw; // typing GHA
+                              else raw = "GHA" + raw.replace(/[A-Z]/g, "");
+                            }
+                            // Strip prefix for digit portion
+                            const digits = raw.startsWith("GHA") ? raw.slice(3) : raw.replace(/[A-Z]/g, "");
+                            let formatted = "GHA-";
+                            if (digits.length <= 9) {
+                              formatted += digits;
+                            } else {
+                              formatted += digits.slice(0, 9) + "-" + digits.slice(9, 10);
+                            }
+                            p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, number: formatted } : x)) });
+                          }}
+                        />
+                      ) : (
+                        <Input
+                          value={doc.number}
+                          placeholder="Passport number"
+                          onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, number: e.target.value } : x)) })}
+                        />
+                      )}
+                    </Field>
                     <Field label="Place of issue"><Input value={doc.placeOfIssue} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, placeOfIssue: e.target.value } : x)) })} /></Field>
-                    <Field label="Issue date"><Input type="date" value={doc.issueDate} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, issueDate: e.target.value } : x)) })} /></Field>
-                    <Field label="Expiring date"><Input type="date" value={doc.expiryDate} onChange={(e) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, expiryDate: e.target.value } : x)) })} /></Field>
+                    <Field label="Issue date"><DateSelect value={doc.issueDate} onChange={(v) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, issueDate: v } : x)) })} yearRange={[2005, new Date().getFullYear()]} /></Field>
+                    <Field label="Expiring date"><DateSelect value={doc.expiryDate} onChange={(v) => p({ identityDocs: d.identityDocs.map((x: any, j: number) => (j === i ? { ...x, expiryDate: v } : x)) })} yearRange={[new Date().getFullYear(), new Date().getFullYear() + 15]} /></Field>
                   </div>
                 </>
               )}
@@ -413,6 +511,7 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
                 label={`Upload ${isBack ? (frontDoc.type || "ID") : (doc.type || "ID")} ${isBack ? "Back" : "Front"} copy`} 
                 fileName={doc.fileName} 
                 file={doc.file}
+                uploadedUrl={doc.fileUrl && !doc.fileName.toLowerCase().endsWith(".pdf") ? doc.fileUrl : undefined}
                 onChange={(fileName) => {
                   p({ 
                     identityDocs: d.identityDocs.map((x: any, j: number) => {
@@ -431,8 +530,8 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
                     identityDocs: d.identityDocs.map((x: any, j: number) => {
                       if (j === i) {
                         return isBack 
-                          ? { ...x, file: processed, fileName: processed?.name ?? "", type: frontDoc.type, number: frontDoc.number, placeOfIssue: frontDoc.placeOfIssue, issueDate: frontDoc.issueDate, expiryDate: frontDoc.expiryDate } 
-                          : { ...x, file: processed, fileName: processed?.name ?? "" };
+                          ? { ...x, file: processed, fileName: processed?.name ?? "", fileUrl: undefined, type: frontDoc.type, number: frontDoc.number, placeOfIssue: frontDoc.placeOfIssue, issueDate: frontDoc.issueDate, expiryDate: frontDoc.expiryDate } 
+                          : { ...x, file: processed, fileName: processed?.name ?? "", fileUrl: undefined };
                       }
                       return x;
                     }) 
@@ -467,6 +566,7 @@ function Step5({ form, patchStep }: { form: KycFormData; patchStep: any }) {
         signature: sigCanvas.current.toDataURL(),
         signatureFile: null,
         signatureFileName: "",
+        signatureUrl: undefined,
       });
     }
   };
@@ -475,7 +575,7 @@ function Step5({ form, patchStep }: { form: KycFormData; patchStep: any }) {
     if (sigCanvas.current) {
       sigCanvas.current.clear();
     }
-    p({ signature: "", signatureFile: null, signatureFileName: "" });
+    p({ signature: "", signatureFile: null, signatureFileName: "", signatureUrl: undefined });
   };
 
   const switchMode = (next: "draw" | "upload") => {
@@ -523,6 +623,9 @@ function Step5({ form, patchStep }: { form: KycFormData; patchStep: any }) {
 
         {mode === "draw" ? (
           <>
+            {d.signatureUrl && !d.signature && !d.signatureFile && (
+              <img src={d.signatureUrl} alt="Saved signature" className="max-h-24 rounded border border-border bg-white p-2" />
+            )}
             <div className="border border-dashed border-brand-bronze/50 rounded-lg bg-background overflow-hidden">
               <SignatureCanvas
                 ref={sigCanvas}
@@ -546,7 +649,7 @@ function Step5({ form, patchStep }: { form: KycFormData; patchStep: any }) {
               onChange={() => {}}
               onFile={async (file) => {
                 const processed = file ? await normalizeSignatureImage(file) : null;
-                p({ signatureFile: processed, signatureFileName: processed?.name ?? "" });
+                p({ signatureFile: processed, signatureFileName: processed?.name ?? "", signatureUrl: undefined });
               }}
             />
             <p className="text-xs text-muted-foreground">

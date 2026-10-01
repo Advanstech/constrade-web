@@ -8,6 +8,7 @@ import { Check, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { onboardingApi } from "@/lib/api";
+import type { KycProgress } from "@/lib/api.types";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,115 @@ import { cn } from "@/lib/utils";
 import { type KycFormData, EMPTY_FORM, STEP_LABELS } from "./steps";
 import { StepForm } from "./StepForm";
 
-export function KycWizardModal({
+function serializeKycDraft(form: KycFormData): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(form, (key, value) => {
+    if (typeof File !== "undefined" && value instanceof File) return undefined;
+    if (["fileUrl", "passportPhotoUrl", "signatureUrl"].includes(key)) return undefined;
+    return value;
+  }));
+}
+
+function toDateInput(value?: string | Date | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+function hydrateKycForm(progress: KycProgress, profile: any): KycFormData {
+  const data = progress.data as any;
+  const draft = (data.draft ?? {}) as Partial<KycFormData>;
+  const individual = data.individualProfile ?? {};
+  const employment = data.employmentDetails ?? {};
+  const tax = data.taxDetails ?? {};
+  const financial = data.financialInfo ?? {};
+  const bank = data.bankDetails ?? {};
+  const documents: any[] = Array.isArray(data.documents) ? data.documents : [];
+  const profileName = String(profile?.full_name ?? "").trim().split(/\s+/);
+  const firstName = profileName[0] ?? "";
+  const surname = profileName.slice(1).join(" ");
+  const saved1 = { ...EMPTY_FORM["1"]!, ...draft["1"] };
+  const saved2 = { ...EMPTY_FORM["2"]!, ...draft["2"] };
+  const saved3 = { ...EMPTY_FORM["3"]!, ...draft["3"] };
+  const saved4 = draft["4"] ?? EMPTY_FORM["4"]!;
+  const saved5 = { ...EMPTY_FORM["5"]!, ...draft["5"] };
+  const saved6 = { ...EMPTY_FORM["6"]!, ...draft["6"] };
+  const identityType = individual.idDocumentType === "PASSPORT" ? "Passport" : "Ghana Card";
+  const persistedIds = documents
+    .filter((doc) => doc.type === "GHANA_CARD" || doc.type === "PASSPORT")
+    .slice(-2);
+  const selfie = [...documents].reverse().find((doc) => doc.type === "SELFIE");
+  const signature = [...documents].reverse().find((doc) => doc.type === "SIGNATURE");
+  const identityDocs = EMPTY_FORM["4"]!.identityDocs.map((emptyDoc, index) => {
+    const savedDoc = (saved4.identityDocs?.[index] ?? {}) as any;
+    const persisted = persistedIds[index];
+    return {
+      ...emptyDoc,
+      ...savedDoc,
+      type: savedDoc.type || (persisted?.type === "PASSPORT" ? "Passport" : identityType),
+      number: savedDoc.number || (identityType === "Passport" ? individual.passportNumber : individual.ghanaCardNumber) || "",
+      fileName: savedDoc.fileName || persisted?.fileName || "",
+      file: null,
+      fileUrl: persisted?.fileUrl,
+    };
+  });
+
+  return {
+    "1": {
+      ...saved1,
+      firstName: saved1.firstName || firstName,
+      surname: saved1.surname || surname,
+      dateOfBirth: saved1.dateOfBirth || toDateInput(individual.dateOfBirth),
+      countryOfOrigin: saved1.countryOfOrigin || individual.nationality || "",
+      countryOfResidence: saved1.countryOfResidence || individual.nationality || "",
+      tin: saved1.tin || tax.tinNumber || "",
+      hasExistingCsd: saved1.hasExistingCsd || Boolean(data.csdAccount?.csdNumber),
+      csdNumber: saved1.csdNumber || data.csdAccount?.csdNumber || "",
+    },
+    "2": {
+      ...saved2,
+      email: saved2.email || profile?.email || "",
+      mobile1: saved2.mobile1 || profile?.phone || "",
+      residentialAddress: saved2.residentialAddress || individual.residentialAddress || individual.address || "",
+      occupation: saved2.occupation || individual.occupation || "",
+      profession: saved2.profession || employment.jobTitle || "",
+      employmentStatus: saved2.employmentStatus || "",
+      employer: {
+        ...EMPTY_FORM["2"]!.employer,
+        ...saved2.employer,
+        name: saved2.employer?.name || employment.employerName || "",
+        natureOfBusiness: saved2.employer?.natureOfBusiness || employment.industry || "",
+      },
+      bankName: saved2.bankName || bank.bankName || "",
+      branch: saved2.branch || bank.branch || "",
+      accountName: saved2.accountName || bank.accountName || "",
+      accountNumber: saved2.accountNumber || bank.accountNumber || "",
+    },
+    "3": {
+      ...saved3,
+      category: saved3.category || (data.corporateProfile || progress.data.corporateProfile ? "Corporate Client" : "Individual Client"),
+      investmentObjectives: saved3.investmentObjectives || financial.investmentObjectives || "",
+      sourceOfFunds: saved3.sourceOfFunds || individual.sourceOfFunds || "",
+      initialInvestment: saved3.initialInvestment || financial.netWorth || "",
+    },
+    "4": {
+      ...EMPTY_FORM["4"]!,
+      ...saved4,
+      passportPhoto: saved4.passportPhoto || selfie?.fileName || "",
+      passportFile: null,
+      passportPhotoUrl: selfie?.fileUrl,
+      identityDocs,
+    },
+    "5": {
+      ...saved5,
+      signatureFile: null,
+      signatureFileName: saved5.signatureFileName || signature?.fileName || "",
+      signatureUrl: signature?.fileUrl,
+    },
+    "6": saved6,
+  };
+}
+
+export function KycWizardModal({ 
   open,
   onOpenChange,
 }: {
@@ -43,56 +152,88 @@ export function KycWizardModal({
   // when the user presses Next without making any changes.
   const snapshots = useRef<Record<number, KycFormData[keyof KycFormData]>>({});
 
-  // Derive simple percentage
-  const pct = Math.round((step / STEP_LABELS.length) * 100);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftQueue = useRef<Promise<void>>(Promise.resolve());
+  const lastSavedDraft = useRef("");
+  const draftErrorShown = useRef(false);
+  const pct = Math.round((completedSteps / STEP_LABELS.length) * 100);
 
   const fetchStatus = useCallback(async () => {
     if (!profile) return;
     try {
       setLoading(true);
       const res = await onboardingApi.progress();
-      if (res) {
-        const clamped = Math.min(res.completedSteps, STEP_LABELS.length);
-        setCompletedSteps(clamped);
-        setStep(Math.min(Math.max(1, clamped + 1), STEP_LABELS.length));
-      }
-    } catch (err: any) {
-      if (err?.response?.status !== 404) {
-        console.error("Failed to fetch onboarding status", err);
-      }
+      const hydrated = hydrateKycForm(res, profile);
+      setForm(hydrated);
+      lastSavedDraft.current = JSON.stringify(serializeKycDraft(hydrated));
+      snapshots.current = Object.fromEntries(
+        STEP_LABELS.map((_, index) => [index + 1, JSON.parse(JSON.stringify(hydrated[String(index + 1) as keyof KycFormData]))]),
+      );
+      setCompletedSteps(Math.min(res.completedSteps, STEP_LABELS.length));
+      setStep(Math.min(Math.max(1, res.currentStep), STEP_LABELS.length));
+    } catch (err) {
+      console.error("Failed to load saved KYC application", err);
+      toast.error("Could not load your saved KYC application", { description: "Please try again or contact support." });
     } finally {
       setLoading(false);
     }
   }, [profile]);
 
   useEffect(() => {
-    if (open) {
-      void fetchStatus();
-      if (profile) {
-        const parts = profile.full_name.split(" ");
-        const firstName = parts[0] || "";
-        const surname = parts.length > 1 ? parts.slice(1).join(" ") : "";
-        
-        setForm(prev => {
-          const s1 = prev["1"] || EMPTY_FORM["1"]!;
-          const s2 = prev["2"] || EMPTY_FORM["2"]!;
-          
-          return {
-            ...prev,
-            "1": {
-              ...s1,
-              firstName: s1.firstName || firstName,
-              surname: s1.surname || surname,
-            },
-            "2": {
-              ...s2,
-              email: s2.email || profile.email,
-            }
-          };
+    if (open) void fetchStatus();
+  }, [open, fetchStatus]);
+
+  const queueDraftSave = useCallback((draftForm: KycFormData) => {
+    const serialized = JSON.stringify(serializeKycDraft(draftForm));
+    if (serialized === lastSavedDraft.current) return draftQueue.current;
+    draftQueue.current = draftQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (serialized === lastSavedDraft.current) return;
+        await onboardingApi.saveDraft(JSON.parse(serialized));
+        lastSavedDraft.current = serialized;
+        draftErrorShown.current = false;
+      });
+    return draftQueue.current;
+  }, []);
+
+  useEffect(() => {
+    if (!open || loading) return;
+    const serialized = JSON.stringify(serializeKycDraft(form));
+    if (serialized === lastSavedDraft.current) return;
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      void queueDraftSave(form).catch((err) => {
+        console.error("Failed to sync KYC draft", err);
+        if (!draftErrorShown.current) {
+          toast.error("KYC changes could not sync", { description: "We’ll retry when you continue. Check your connection if this persists." });
+          draftErrorShown.current = true;
+        }
+      });
+    }, 600);
+    return () => {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+    };
+  }, [form, open, loading, queueDraftSave]);
+
+  const flushDraft = async () => {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    await queueDraftSave(form);
+    await draftQueue.current;
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (open && !nextOpen) {
+      void flushDraft()
+        .then(() => onOpenChange(false))
+        .catch((err) => {
+          console.error("Failed to save KYC draft before closing", err);
+          toast.error("Your latest KYC changes could not be saved", { description: "Please retry before closing." });
         });
-      }
+      return;
     }
-  }, [open, fetchStatus, profile]);
+    onOpenChange(nextOpen);
+  };
 
   const cloneStep = (stepNum: number): KycFormData[keyof KycFormData] | undefined => {
     const data = form[String(stepNum) as keyof KycFormData];
@@ -132,44 +273,33 @@ export function KycWizardModal({
     if (step === STEP_LABELS.length) return;
     const data = form[String(step) as keyof KycFormData];
     if (!data) {
-      setStep((s) => s + 1);
-      return;
-    }
-
-    // If nothing changed on this step, just move forward without touching the server.
-    if (!isStepDirty(step)) {
-      setCompletedSteps((c) => Math.max(c, step));
-      setStep((s) => s + 1);
+      setStep((current) => current + 1);
       return;
     }
 
     try {
       setSaving(true);
-      // The UI steps map to multiple backend endpoints via saveOnboardingStep:
-      //   saveStep(1) = investor type,  saveStep(2) = individual profile,
-      //   saveStep(3) = employment,     saveStep(4) = tax,
-      //   saveStep(5) = financial,      saveStep(6) = bank,
-      //   saveStep(7) = document ref,   uploadDocument() = file upload
+      await flushDraft();
+      if (!isStepDirty(step)) {
+        setStep((current) => current + 1);
+        return;
+      }
 
       switch (step) {
         case 1: {
           const d = data as NonNullable<KycFormData["1"]>;
-          // Set investor type first (backend requires INDIVIDUAL before individual-profile)
           await onboardingApi.saveStep(1, { type: "INDIVIDUAL" });
-          // Save individual profile
           await onboardingApi.saveStep(2, {
             dateOfBirth: d.dateOfBirth,
             nationality: d.countryOfOrigin || "Ghana",
-            occupation: "N/A",
-            sourceOfFunds: "N/A",
+            occupation: form["2"]?.occupation || "N/A",
+            sourceOfFunds: form["3"]?.sourceOfFunds || "N/A",
             address: d.countryOfResidence || "Ghana",
           });
-          // Save tax details (TIN)
           await onboardingApi.saveStep(4, {
             tinNumber: d.tin || "N/A",
             taxResidency: d.countryOfResidence || "Ghana",
           });
-          // Save CSD Number if existing
           if (d.hasExistingCsd && d.csdNumber) {
             await onboardingApi.setCsdAccount(d.csdNumber);
           }
@@ -177,15 +307,13 @@ export function KycWizardModal({
         }
         case 2: {
           const d = data as NonNullable<KycFormData["2"]>;
-          // Save employment details
           await onboardingApi.saveStep(3, {
             employmentStatus: d.employmentStatus || "N/A",
-            jobTitle: d.profession || "N/A",
+            jobTitle: d.profession || d.occupation || "N/A",
             employerName: d.employer?.name || "N/A",
             industry: d.employer?.natureOfBusiness || "N/A",
             duration: d.yearsEmployed || "N/A",
           });
-          // Save bank details
           if (d.bankName || d.accountNumber) {
             await onboardingApi.saveStep(6, {
               bankName: d.bankName || "N/A",
@@ -198,21 +326,18 @@ export function KycWizardModal({
         }
         case 3: {
           const d = data as NonNullable<KycFormData["3"]>;
-          // Update individual profile with sourceOfFunds from Step 3 (while type is still INDIVIDUAL)
           const s1 = form["1"];
-          if (s1) {
+          const isCorporate = d.category === "Corporate Client" || d.category === "Institutional Customer";
+          await onboardingApi.saveStep(1, { type: isCorporate ? "CORPORATE" : "INDIVIDUAL" });
+          if (!isCorporate && s1) {
             await onboardingApi.saveStep(2, {
               dateOfBirth: s1.dateOfBirth,
               nationality: s1.countryOfOrigin || "Ghana",
-              occupation: "N/A",
+              occupation: form["2"]?.occupation || "N/A",
               sourceOfFunds: d.sourceOfFunds || "N/A",
               address: s1.countryOfResidence || "Ghana",
             });
           }
-          // Update investor type if corporate
-          const isCorporate = d.category === "Corporate Client" || d.category === "Institutional Customer";
-          await onboardingApi.saveStep(1, { type: isCorporate ? "CORPORATE" : "INDIVIDUAL" });
-          // Save financial info
           await onboardingApi.saveStep(5, {
             annualIncome: form["2"]?.monthlyIncomeRange || "N/A",
             netWorth: d.initialInvestment || "N/A",
@@ -222,54 +347,89 @@ export function KycWizardModal({
         }
         case 4: {
           const d = data as NonNullable<KycFormData["4"]>;
-          // Save the ID details back to individual profile
           const firstDoc = d.identityDocs[0];
-          if (firstDoc) {
+          if (firstDoc?.number && form["1"]?.dateOfBirth) {
             await onboardingApi.saveStep(2, {
-              dateOfBirth: form["1"]?.dateOfBirth || "1990-01-01",
-              nationality: form["1"]?.countryOfOrigin || "Ghana",
-              occupation: "N/A",
+              dateOfBirth: form["1"].dateOfBirth,
+              nationality: form["1"].countryOfOrigin || "Ghana",
+              occupation: form["2"]?.occupation || "N/A",
               sourceOfFunds: form["3"]?.sourceOfFunds || "N/A",
-              address: form["1"]?.countryOfResidence || "Ghana",
+              address: form["1"].countryOfResidence || "Ghana",
               idDocumentType: firstDoc.type === "Passport" ? "PASSPORT" : "GHANA_CARD",
-              ghanaCardNumber: firstDoc.type === "National ID" || firstDoc.type === "Ghana Card" ? firstDoc.number : undefined,
+              ghanaCardNumber: firstDoc.type === "Ghana Card" ? firstDoc.number : undefined,
               passportNumber: firstDoc.type === "Passport" ? firstDoc.number : undefined,
             });
           }
-          if (d.passportFile) {
-            await onboardingApi.uploadDocument(d.passportFile, "SELFIE").catch(() => {});
+
+          const updatedStep = {
+            ...d,
+            passportFile: null as File | null,
+            identityDocs: d.identityDocs.map((doc) => ({ ...doc })),
+          };
+          const persistUploadedDocuments = async () => {
+            const nextForm = { ...form, "4": { ...updatedStep } };
+            setForm(nextForm);
+            const serialized = JSON.stringify(serializeKycDraft(nextForm));
+            await onboardingApi.saveDraft(JSON.parse(serialized));
+            lastSavedDraft.current = serialized;
+            snapshots.current[4] = JSON.parse(JSON.stringify(serializeKycDraft(nextForm)["4"]));
+          };
+          if (d.passportFile && !d.passportPhotoUrl) {
+            const uploaded = await onboardingApi.uploadDocument(d.passportFile, "SELFIE");
+            updatedStep.passportPhotoUrl = uploaded.fileUrl;
+            updatedStep.passportPhoto = d.passportFile.name;
+            await persistUploadedDocuments();
           }
-          for (const doc of d.identityDocs) {
-            if (doc.file) {
-              const docType = doc.type === "Passport" ? "PASSPORT" : "GHANA_CARD";
-              await onboardingApi.uploadDocument(doc.file, docType).catch(() => {});
+          for (let i = 0; i < updatedStep.identityDocs.length; i += 1) {
+            const doc = updatedStep.identityDocs[i];
+            if (doc.file && !doc.fileUrl) {
+              const uploaded = await onboardingApi.uploadDocument(doc.file, doc.type === "Passport" ? "PASSPORT" : "GHANA_CARD");
+              updatedStep.identityDocs[i] = { ...doc, fileName: doc.file.name, file: undefined, fileUrl: uploaded.fileUrl };
+              await persistUploadedDocuments();
             }
           }
+          if (!updatedStep.identityDocs.some((doc) => doc.fileUrl) || !updatedStep.passportPhotoUrl) {
+            throw new Error("Upload the identity document and passport photo before continuing.");
+          }
+          await persistUploadedDocuments();
           break;
         }
         case 5: {
           const d = data as NonNullable<KycFormData["5"]>;
+          let uploadedUrl = d.signatureUrl;
+          let fileName = d.signatureFileName;
           if (d.signatureFile) {
-            await onboardingApi.uploadDocument(d.signatureFile, "SIGNATURE").catch(() => {});
-          } else if (d.signature) {
-            const res = await fetch(d.signature);
-            const blob = await res.blob();
+            const uploaded = await onboardingApi.uploadDocument(d.signatureFile, "SIGNATURE");
+            uploadedUrl = uploaded.fileUrl;
+            fileName = d.signatureFile.name;
+          } else if (d.signature && !d.signatureUrl) {
+            const response = await fetch(d.signature);
+            if (!response.ok) throw new Error("Could not prepare the signature upload");
+            const blob = await response.blob();
             const file = new File([blob], "signature.png", { type: "image/png" });
-            await onboardingApi.uploadDocument(file, "SIGNATURE").catch(() => {});
+            const uploaded = await onboardingApi.uploadDocument(file, "SIGNATURE");
+            uploadedUrl = uploaded.fileUrl;
+            fileName = file.name;
           }
+          if (!uploadedUrl) throw new Error("Provide and save your digital signature before continuing.");
+          const nextForm = { ...form, "5": { ...d, signatureFile: null, signatureFileName: fileName, signatureUrl: uploadedUrl } };
+          setForm(nextForm);
+          const serialized = JSON.stringify(serializeKycDraft(nextForm));
+          await onboardingApi.saveDraft(JSON.parse(serialized));
+          lastSavedDraft.current = serialized;
+          snapshots.current[5] = JSON.parse(JSON.stringify(serializeKycDraft(nextForm)["5"]));
           break;
         }
-        case 6: {
-          // Just move to submit
+        case 6:
           break;
-        }
       }
 
-      updateSnapshot(step);
-      setCompletedSteps((c) => Math.max(c, step));
-      setStep((s) => s + 1);
+      if (step !== 4 && step !== 5) updateSnapshot(step);
+      const progress = await onboardingApi.progress();
+      setCompletedSteps(progress.completedSteps);
+      setStep((current) => Math.min(current + 1, STEP_LABELS.length));
     } catch (err) {
-      toast.error("An error occurred", { description: err instanceof Error ? err.message : String(err) });
+      toast.error("KYC step could not be saved", { description: err instanceof Error ? err.message : String(err) });
     } finally {
       setSaving(false);
     }
@@ -278,6 +438,7 @@ export function KycWizardModal({
   const submit = async () => {
     try {
       setSubmitting(true);
+      await flushDraft();
       const data = form["6"];
       await onboardingApi.submit({
         accuracyDeclaration: data?.accuracy ?? false,
@@ -323,7 +484,7 @@ export function KycWizardModal({
   }, [form]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-none w-screen h-[100dvh] max-h-screen !rounded-none m-0 p-0 border-0 flex flex-col bg-background/95 backdrop-blur-xl">
         <div className="flex-none border-b border-border/40 bg-background/80 px-6 py-6 sm:px-12 lg:px-20 backdrop-blur-md">
           <div className="mx-auto max-w-4xl w-full flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -432,7 +593,7 @@ export function KycWizardModal({
               <Button
                 variant="ghost"
                 size="lg"
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleOpenChange(false)}
                 className="text-muted-foreground hover:text-foreground font-medium hidden sm:flex"
               >
                 Save & Exit

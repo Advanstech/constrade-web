@@ -19,6 +19,7 @@ import {
   PieChart,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   User as UserIcon,
   Users,
   Wallet,
@@ -59,6 +60,7 @@ const CLIENT_NAV = [
   { label: "Funding", href: "/app/funding", icon: Wallet },
   { label: "Profile", href: "/app/profile", icon: UserIcon },
   { label: "Settings", href: "/app/settings", icon: Settings },
+  { label: "Ako Assistant", href: "/app/ako", icon: Sparkles },
 ];
 
 const COLLAPSE_KEY = "cc-sidebar-collapsed";
