@@ -1251,8 +1251,13 @@ function toNotification(raw: any): AppNotification {
 
 export const notificationsApi = {
   list: async (limit = 50): Promise<AppNotification[]> => {
-    const raw = await request<any[]>("GET", `/notifications?limit=${limit}`).catch(() => []);
-    return (Array.isArray(raw) ? raw : []).map(toNotification);
+    const raw = await request<unknown>("GET", `/notifications?limit=${limit}`).catch(() => []);
+    const rows = Array.isArray(raw)
+      ? raw
+      : Array.isArray((raw as { data?: unknown[] } | null)?.data)
+        ? (raw as { data: unknown[] }).data
+        : [];
+    return rows.map(toNotification);
   },
   markRead: (id: string) =>
     request<any>("POST", `/notifications/${id}/read`).then(toNotification),

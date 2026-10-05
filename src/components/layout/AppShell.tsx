@@ -6,7 +6,6 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   ArrowLeftRight,
   BarChart3,
-  Bell,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
@@ -28,6 +27,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { PriceTicker } from "@/components/market/PriceTicker";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -238,12 +238,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-                <Bell className="h-5 w-5" />
-                {admin && (
-                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-bronze animate-pulse-ring" />
-                )}
-              </Button>
+              <NotificationCenter />
               <ThemeToggle />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -527,12 +527,12 @@ export function FileUpload({
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-foreground">{label}</span>
         <span className="block truncate text-xs text-muted-foreground">
-          {fileName || "Click to choose a file (JPG, PNG or PDF)"}
+          {fileName || "Click to choose a file (JPG, PNG, WEBP, HEIC, AVIF or PDF)"}
         </span>
       </span>
       <input
         type="file"
-        accept="image/*,.pdf"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,application/pdf"
         className="hidden"
         onChange={(e) => {
           const selectedFile = e.target.files?.[0];
