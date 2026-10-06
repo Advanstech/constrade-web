@@ -295,6 +295,11 @@ export interface AdminOrder extends Order {
   traderNotes?: string | null;
   paymentConfirmedAt?: string | null;
   placedAt?: string | null;
+  contractNotePath?: string | null;
+  contractNoteName?: string | null;
+  contractNoteMime?: string | null;
+  contractNoteScanConfidence?: number | null;
+  contractNoteScannedAt?: string | null;
 }
 
 export interface ExecutionResultScan {
@@ -307,6 +312,10 @@ export interface ExecutionResultScan {
   confidence: number;
   extractedTextPreview: string;
   requiresReview: boolean;
+  contractNotePath: string;
+  contractNoteBucket: string;
+  contractNoteName: string;
+  contractNoteMime: string;
 }
 
 export type NotificationType =

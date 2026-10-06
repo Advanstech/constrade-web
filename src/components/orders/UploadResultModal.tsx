@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AdminOrder } from "@/lib/api.types";
+import type { AdminOrder, ExecutionResultScan } from "@/lib/api.types";
 import { adminApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,10 @@ interface UploadResultModalProps {
     settlementDate: string;
     executionNote: string;
     traderNotes: string;
+    contractNotePath?: string;
+    contractNoteName?: string;
+    contractNoteMime?: string;
+    contractNoteScanConfidence?: number;
   }) => Promise<void>;
 }
 
@@ -34,6 +38,7 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
   );
   const [traderNotes, setTraderNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [scannedNote, setScannedNote] = useState<ExecutionResultScan | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanConfidence, setScanConfidence] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -61,16 +66,18 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
       return;
     }
     setFile(selected);
+    setScannedNote(null);
     setScanConfidence(null);
     setError("");
   };
 
-  const scanDocument = async () => {
-    if (!file) return;
+  const scanDocument = async (): Promise<ExecutionResultScan | null> => {
+    if (!file) return null;
     setScanning(true);
     setError("");
     try {
-      const result = await adminApi.scanOrderResult(file);
+      const result = await adminApi.scanOrderResult(file, order.id, order.asset_class);
+      setScannedNote(result);
       if (result.filledPrice != null) setFilledPrice(String(result.filledPrice));
       const extractedQuantity = isFixedIncome
         ? result.filledFaceValue ?? result.filledQty
@@ -82,8 +89,11 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
       if (result.requiresReview) {
         setError("Some fields could not be extracted. Review and complete the highlighted form before confirming.");
       }
+      return result;
     } catch (err: unknown) {
+      setScannedNote(null);
       setError((err as Error)?.message ?? "The document could not be scanned.");
+      return null;
     } finally {
       setScanning(false);
     }
@@ -111,12 +121,30 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
 
     setLoading(true);
     try {
+      // An attached contract note must be scanned and stored before the
+      // execution is posted — the confirmed order keeps the evidence path.
+      let note = scannedNote;
+      if (file && !note) {
+        note = await scanDocument();
+        if (!note) {
+          setLoading(false);
+          return;
+        }
+      }
       await onSubmit({
         filledPrice: price,
         ...(isFixedIncome ? { filledFaceValue: qty } : { filledQty: qty }),
         settlementDate,
         executionNote,
         traderNotes,
+        ...(note
+          ? {
+              contractNotePath: note.contractNotePath,
+              contractNoteName: note.contractNoteName,
+              contractNoteMime: note.contractNoteMime,
+              contractNoteScanConfidence: note.confidence,
+            }
+          : {}),
       });
       onClose();
     } catch (err: unknown) {

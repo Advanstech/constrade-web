@@ -177,6 +177,11 @@ function toEquityOrder(raw: any): Order {
     traderNotes: raw.traderNotes ?? null,
     paymentConfirmedAt: raw.paymentConfirmedAt ?? null,
     placedAt: raw.placedAt ?? null,
+    contractNotePath: raw.contractNotePath ?? null,
+    contractNoteName: raw.contractNoteName ?? null,
+    contractNoteMime: raw.contractNoteMime ?? null,
+    contractNoteScanConfidence: raw.contractNoteScanConfidence ?? null,
+    contractNoteScannedAt: raw.contractNoteScannedAt ?? null,
   } as any;
 }
 
@@ -208,6 +213,11 @@ function toFixedIncomeOrder(raw: any): Order {
     traderNotes: raw.traderNotes ?? null,
     paymentConfirmedAt: raw.paymentConfirmedAt ?? null,
     placedAt: raw.placedAt ?? null,
+    contractNotePath: raw.contractNotePath ?? null,
+    contractNoteName: raw.contractNoteName ?? null,
+    contractNoteMime: raw.contractNoteMime ?? null,
+    contractNoteScanConfidence: raw.contractNoteScanConfidence ?? null,
+    contractNoteScannedAt: raw.contractNoteScannedAt ?? null,
   } as any;
 }
 
@@ -1182,9 +1192,11 @@ export const adminApi = {
     call<{ orders: AdminOrder[] }>("admin", { action: "orders" }).then((d) => d.orders),
   transactions: () =>
     call<{ transactions: any[] }>("admin", { action: "transactions" }).then((d) => d.transactions),
-  scanOrderResult: (file: File) => {
+  scanOrderResult: (file: File, orderId: string, assetClass: "equity" | "fixed_income") => {
     const form = new FormData();
     form.append("file", file);
+    form.append("orderId", orderId);
+    form.append("assetClass", assetClass);
     return request<ExecutionResultScan>("POST", "/tender-results/scan-execution-result", form);
   },
   confirmOrderPayment: (id: string, assetClass: "equity" | "fixed_income") =>
@@ -1198,6 +1210,10 @@ export const adminApi = {
     settlementDate?: string;
     executionNote?: string;
     traderNotes?: string;
+    contractNotePath?: string;
+    contractNoteName?: string;
+    contractNoteMime?: string;
+    contractNoteScanConfidence?: number;
   }) =>
     call<{ order: Order; message: string }>("admin", { action: "uploadResult", id, assetClass, result }),
   approveOrder: (id: string) =>
