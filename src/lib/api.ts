@@ -227,20 +227,23 @@ function toOrder(raw: any): Order {
 }
 
 function toPosition(raw: any): Position {
-  const quantity = Number(raw.quantity) || Number(raw.amount) || 0;
-  const price = Number(raw.price) || Number(raw.rate) || (raw.amount && raw.quantity ? Number(raw.amount) / Number(raw.quantity) : 1);
-  const marketValue = Number(raw.amount) || quantity * price || 0;
+  const quantity = Number(raw.quantity) || 0;
+  const avgPrice = Number(raw.price) || Number(raw.rate) || 0;
+  const marketValue = Number(raw.amount) || quantity * avgPrice || 0;
+  // Backend supplies accreted value for FI and costBasis when available.
+  const cost = Number(raw.costBasis) || quantity * avgPrice || marketValue;
+  const pl = marketValue - cost;
   return {
     instrument: raw.instrumentName ?? raw.bidId ?? raw.id ?? "",
     name: raw.instrumentName ?? raw.bidId ?? raw.id ?? "",
     assetClass: raw.assetClass === "equity" ? "equity" : "fixed_income",
     quantity,
-    avgPrice: price,
-    marketPrice: price,
+    avgPrice,
+    marketPrice: quantity > 0 ? marketValue / quantity : avgPrice,
     marketValue,
-    cost: marketValue,
-    pl: 0,
-    plPct: 0,
+    cost,
+    pl,
+    plPct: cost > 0 ? (pl / cost) * 100 : 0,
     dayChangePct: 0,
   };
 }
@@ -727,6 +730,12 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
   }
 }
 
+function notifyKycProgressChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("kyc-progress-changed"));
+  }
+}
+
 async function handleOnboarding(body: Record<string, unknown>): Promise<unknown> {
   const action = String(body.action);
   switch (action) {
@@ -741,6 +750,7 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
     case "saveDraft": {
       const data = (body.data as Record<string, unknown>) ?? {};
       await request("PATCH", "/onboarding/draft", { data });
+      notifyKycProgressChanged();
       return { saved: true };
     }
     case "saveStep": {
@@ -748,6 +758,7 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
       const data = (body.data as Record<string, unknown>) ?? {};
       await saveOnboardingStep(step, data);
       const s = await request<any>("GET", "/onboarding/status");
+      notifyKycProgressChanged();
       return { progress: toKycProgress(s) };
     }
     case "uploadDocument": {
@@ -760,6 +771,7 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
         fileName: file.name,
         mimeType: file.type,
       });
+      notifyKycProgressChanged();
       return { document: result };
     }
     case "submit": {
@@ -782,11 +794,13 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
           onboarded: status.kycStatus === "APPROVED",
         },
       };
+      notifyKycProgressChanged();
       return result;
     }
     case "setCsdAccount": {
       const csdNumber = String(body.csdNumber ?? "");
       await request("PATCH", "/onboarding/csd", { csdNumber });
+      notifyKycProgressChanged();
       return { success: true };
     }
     default:
@@ -963,7 +977,30 @@ export const marketsApi = {
 };
 
 // ---------- trading ----------
+export interface FeeScheduleComponent {
+  key: string;
+  label: string;
+  ratePct: number;
+}
+
+export interface FeeSchedule {
+  equities: {
+    components: FeeScheduleComponent[];
+    totalRatePct: number;
+    commissionBandPct?: { min: number; max: number };
+    minFeeGhs?: number;
+    note?: string;
+  };
+  fixedIncome: {
+    components: FeeScheduleComponent[];
+    totalRatePct: number;
+    minFeeGhs?: number;
+    note?: string;
+  };
+}
+
 export const tradingApi = {
+  feeSchedule: () => request<FeeSchedule>("GET", "/equities/fee-schedule"),
   placeOrder: (input: {
     instrument: string;
     side: "buy" | "sell";

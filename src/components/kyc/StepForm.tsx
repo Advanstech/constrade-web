@@ -414,7 +414,9 @@ function Step6({ form, patchStep }: { form: KycFormData; patchStep: any }) {
         and that I am not acting on behalf of any undisclosed third party.
       </DeclarationRow>
       <DeclarationRow checked={d.terms} onChange={(terms) => p({ terms })}>
-        I have read and agree to the Constant Capital client agreement, terms &amp; conditions
+        I have read and agree to the Constant Capital{" "}
+        <a href="/legal/terms" target="_blank" rel="noreferrer" className="font-medium text-brand-bronze underline underline-offset-2">client agreement, terms &amp; conditions</a>{" "}
+        and <a href="/legal/privacy" target="_blank" rel="noreferrer" className="font-medium text-brand-bronze underline underline-offset-2">privacy policy</a>,
         and the SEC-Ghana investor rights and obligations.
       </DeclarationRow>
     </div>

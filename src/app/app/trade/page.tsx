@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { accountApi, marketsApi, tradingApi } from "@/lib/api";
+import { accountApi, marketsApi, tradingApi, type FeeSchedule } from "@/lib/api";
 import { useAuth } from "@/auth/AuthProvider";
 import type { Order, Quote } from "@/lib/api.types";
 import { changeBgClass, formatGHS, formatPercent } from "@/lib/format";
@@ -33,6 +33,7 @@ const Trade = () => {
   const [limitPrice, setLimitPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [placed, setPlaced] = useState<Order | null>(null);
+  const [feeSchedule, setFeeSchedule] = useState<FeeSchedule | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -53,6 +54,19 @@ const Trade = () => {
     };
   }, [params]);
 
+  useEffect(() => {
+    let alive = true;
+    tradingApi
+      .feeSchedule()
+      .then((s) => {
+        if (alive) setFeeSchedule(s);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return quotes.filter(
@@ -65,7 +79,17 @@ const Trade = () => {
   const refPrice = selected?.price ?? 0;
   const effectivePrice = orderType === "limit" ? (limit > 0 ? limit : refPrice) : refPrice;
   const estimate = qty > 0 ? qty * effectivePrice : 0;
-  const sufficient = side === "buy" ? estimate <= cash : true;
+  const feeComponents = feeSchedule?.equities.components ?? [];
+  const feeRows = feeComponents.map((c) => ({
+    label: `${c.label} (${c.ratePct}%)`,
+    amount: estimate * (c.ratePct / 100),
+  }));
+  const minFee = feeSchedule?.equities.minFeeGhs ?? 0;
+  const rawFees = feeRows.reduce((s, r) => s + r.amount, 0);
+  const feesTotal = estimate > 0 ? Math.max(rawFees, minFee) : 0;
+  const totalDebit = estimate + feesTotal;
+  const netProceeds = estimate - feesTotal;
+  const sufficient = side === "buy" ? totalDebit <= cash : true;
 
   const submit = async () => {
     if (!selected) return;
@@ -295,8 +319,25 @@ const Trade = () => {
 
                 <div className="mt-5 space-y-2 rounded-xl border border-border bg-muted/40 p-4 text-sm">
                   <Row label="Reference price" value={formatGHS(refPrice)} />
-                  <Row label="Estimated cost" value={formatGHS(estimate)} strong />
-                  <Row label="Available cash" value={formatGHS(cash)} />
+                  <Row label="Principal" value={formatGHS(estimate)} />
+                  {feeRows.map((r) => (
+                    <Row
+                      key={r.label}
+                      label={r.label}
+                      value={formatGHS(r.amount)}
+                      muted
+                    />
+                  ))}
+                  <Row
+                    label="Fees & levies"
+                    value={`${side === "buy" ? "+" : "−"} ${formatGHS(feesTotal)}`}
+                  />
+                  <Row
+                    label={side === "buy" ? "Total cost" : "Est. net proceeds"}
+                    value={formatGHS(side === "buy" ? totalDebit : netProceeds)}
+                    strong
+                  />
+                  {side === "buy" && <Row label="Available cash" value={formatGHS(cash)} />}
                 </div>
 
                 {side === "buy" && !sufficient && (
@@ -338,11 +379,11 @@ const Trade = () => {
   );
 };
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Row({ label, value, strong, muted }: { label: string; value: string; strong?: boolean; muted?: boolean }) {
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-medium", strong ? "font-bold text-foreground" : "text-foreground")}>
+      <span className={muted ? "text-xs text-muted-foreground/70" : "text-muted-foreground"}>{label}</span>
+      <span className={cn("font-medium", strong ? "font-bold text-foreground" : muted ? "text-xs text-muted-foreground/80" : "text-foreground")}>
         {value}
       </span>
     </div>

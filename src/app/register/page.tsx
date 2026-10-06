@@ -120,6 +120,12 @@ const Register = () => {
           Sign in
         </Link>
       </p>
+      <p className="mt-6 text-center text-xs text-muted-foreground/70">
+        By creating an account you agree to our{" "}
+        <Link href="/legal/terms" className="hover:underline">Terms of Service</Link>
+        {" "}and{" "}
+        <Link href="/legal/privacy" className="hover:underline">Privacy Policy</Link>.
+      </p>
     </AuthShell>
   );
 };

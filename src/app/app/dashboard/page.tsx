@@ -45,13 +45,21 @@ const ClientDashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (!kycApproved) {
+    if (kycApproved) return;
+    const refresh = () => {
       onboardingApi.progress().then(res => {
-        if (res && typeof res.completedSteps === 'number') {
-           setKycProgress(Math.round((res.completedSteps / 6) * 100));
+        if (res && typeof res.completionPercentage === 'number') {
+          setKycProgress(Math.round(res.completionPercentage));
         }
       }).catch(() => {});
-    }
+    };
+    refresh();
+    window.addEventListener("kyc-progress-changed", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("kyc-progress-changed", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, [kycApproved]);
 
   useEffect(() => {

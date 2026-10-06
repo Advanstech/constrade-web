@@ -106,15 +106,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [kycProgress, setKycProgress] = useState<number>(0);
 
   useEffect(() => {
-    if (profile && !kycApproved) {
+    if (!profile || kycApproved) return;
+    const refresh = () => {
       onboardingApi.progress().then(res => {
-        if (res && typeof res.completedSteps === 'number') {
-           setKycProgress(Math.round((res.completedSteps / 6) * 100));
+        if (res && typeof res.completionPercentage === 'number') {
+          setKycProgress(Math.round(res.completionPercentage));
         }
-      }).catch(err => {
-         // ignore error or log it if needed
-      });
-    }
+      }).catch(() => {});
+    };
+    refresh();
+    window.addEventListener("kyc-progress-changed", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("kyc-progress-changed", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, [profile, kycApproved]);
 
   const toggleCollapsed = () => {

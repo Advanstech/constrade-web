@@ -263,6 +263,11 @@ const Login = () => {
           Open an account
         </Link>
       </p>
+      <p className="mt-6 text-center text-xs text-muted-foreground/70">
+        <Link href="/legal/terms" className="hover:underline">Terms of Service</Link>
+        {" · "}
+        <Link href="/legal/privacy" className="hover:underline">Privacy Policy</Link>
+      </p>
     </AuthShell>
   );
 };
