@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { notificationsApi } from "@/lib/api";
+import { subscribeEvents } from "@/lib/realtime";
+import { toast } from "sonner";
 import type { AppNotification, NotificationType } from "@/lib/api.types";
 
 const TYPE_ICON: Record<NotificationType, string> = {
@@ -68,11 +70,22 @@ export function NotificationCenter() {
     }
   }, []);
 
-  // Initial load + polling while mounted (every 45s, silent).
+  // Initial load + realtime stream for instant delivery, with a slow
+  // poll as fallback in case the SSE connection is unavailable.
   useEffect(() => {
     void load();
-    const t = setInterval(() => void load(true), 45_000);
-    return () => clearInterval(t);
+    const t = setInterval(() => void load(true), 5 * 60_000);
+    const unsubscribe = subscribeEvents((e) => {
+      if (e.event === "notification") {
+        void load(true);
+        const d = e.data as { title?: string; message?: string } | undefined;
+        if (d?.title) toast(d.title, { description: d.message });
+      }
+    });
+    return () => {
+      clearInterval(t);
+      unsubscribe();
+    };
   }, [load]);
 
   // Refresh whenever the panel is opened.

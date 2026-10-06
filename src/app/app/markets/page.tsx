@@ -2,60 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowLeftRight, Search, TrendingUp, Star, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Sparkline } from "@/components/market/Sparkline";
+import { PriceChart } from "@/components/market/PriceChart";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthProvider";
 import { marketsApi } from "@/lib/api";
+import { subscribeEvents, type MarketTick } from "@/lib/realtime";
 import type { Quote } from "@/lib/api.types";
 import { changeBgClass, formatGHS, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const Chart = ({ ticker, points }: { ticker: string; points: number[] }) => {
-  const data = points.map((v, i) => ({ i, v }));
-  const first = points[0] ?? 0;
-  const last = points[points.length - 1] ?? 0;
-  const positive = last >= first;
-  const color = positive ? "hsl(var(--success))" : "hsl(var(--danger))";
-  return (
-    <div className="h-56">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-          <defs>
-            <linearGradient id={`chart-${ticker}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis dataKey="i" hide />
-          <YAxis domain={["auto", "auto"]} hide />
-          <Tooltip
-            formatter={(v) => formatGHS(Number(v))}
-            labelFormatter={() => ""}
-            contentStyle={{
-              background: "hsl(var(--popover))",
-              border: "1px solid hsl(var(--border))",
-              borderRadius: 8,
-              fontSize: 12,
-            }}
-          />
-          <Area
-            type="monotone"
-            dataKey="v"
-            stroke={color}
-            strokeWidth={2}
-            fill={`url(#chart-${ticker})`}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
 
 const AppMarkets = () => {
   const { profile, updateProfile } = useAuth();
@@ -76,9 +36,16 @@ const AppMarkets = () => {
         setQuotes(all);
         const first = all.find((q) => q.assetClass === "equity") ?? all[0];
         setSelected(first ?? null);
-        if (first) {
-          void marketsApi.sparkline(first.ticker, 30).then((p) => {
-            if (alive) setSparks((s) => ({ ...s, [first.ticker]: p }));
+        // One batched call fills every row's real 1-week trend sparkline.
+        const tickers = all.map((q) => q.ticker);
+        if (tickers.length) {
+          void marketsApi.historyBatch(tickers, "1W").then((h) => {
+            if (!alive) return;
+            setSparks(
+              Object.fromEntries(
+                Object.entries(h).map(([t, pts]) => [t, pts.map((p) => p.value)]),
+              ),
+            );
           });
         }
       })
@@ -88,11 +55,37 @@ const AppMarkets = () => {
     };
   }, []);
 
+  // Live GSE price ticks pushed over SSE — update quotes in place.
+  useEffect(() => {
+    const unsubscribe = subscribeEvents((e) => {
+      if (e.event !== "market" || !Array.isArray(e.data)) return;
+      const ticks = e.data as MarketTick[];
+      const applyTick = (q: Quote): Quote => {
+        const t = ticks.find((x) => x.ticker === q.ticker);
+        if (!t) return q;
+        const prevClose = t.previousClose ?? q.price;
+        return {
+          ...q,
+          price: t.price,
+          volume: t.volume,
+          changePct: prevClose
+            ? ((t.price - prevClose) / prevClose) * 100
+            : q.changePct,
+        };
+      };
+      setQuotes((prev) => prev.map(applyTick));
+      setSelected((prev) => (prev ? applyTick(prev) : prev));
+    });
+    return unsubscribe;
+  }, []);
+
   const select = (q: Quote) => {
     setSelected(q);
-    void marketsApi.sparkline(q.ticker, 30).then((p) =>
-      setSparks((s) => ({ ...s, [q.ticker]: p })),
-    );
+    if (!sparks[q.ticker]?.length) {
+      void marketsApi.sparkline(q.ticker, 30).then((p) =>
+        setSparks((s) => ({ ...s, [q.ticker]: p })),
+      );
+    }
   };
 
   const list = useMemo(() => {
@@ -275,7 +268,14 @@ const AppMarkets = () => {
             </div>
 
             <div className="p-5">
-              <Chart ticker={selected.ticker} points={sparks[selected.ticker] ?? []} />
+              <PriceChart
+                ticker={selected.ticker}
+                instruments={
+                  selected.assetClass === "equity"
+                    ? quotes.filter((q) => q.assetClass === "equity")
+                    : undefined
+                }
+              />
 
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <KeyStat

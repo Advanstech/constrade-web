@@ -940,6 +940,22 @@ export const marketsApi = {
   sparkline: (ticker: string, points = 30) =>
     call<{ points: number[] }>("markets", { action: "sparkline", ticker, points })
       .then((d) => d.points),
+  history: (ticker: string, range = "1M") =>
+    request<{
+      ticker: string;
+      range: string;
+      points: Array<{ date: string; value: number; volume?: number }>;
+      currentPrice: number | null;
+      change: number | null;
+      changePercent: number | null;
+      unit: string | null;
+      asOf: string | null;
+    }>("GET", `/market-data/history/${encodeURIComponent(ticker)}?range=${range}`),
+  historyBatch: (tickers: string[], range = "1W") =>
+    request<Record<string, Array<{ date: string; value: number }>>>(
+      "GET",
+      `/market-data/history-batch?tickers=${encodeURIComponent(tickers.join(","))}&range=${range}`,
+    ).catch(() => ({}) as Record<string, Array<{ date: string; value: number }>>),
   feed: (limit = 8) =>
     call<{ feed: FeedItem[] }>("markets", { action: "feed", limit }).then((d) => d.feed),
   performance: (points = 30) =>

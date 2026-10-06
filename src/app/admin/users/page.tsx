@@ -1571,6 +1571,7 @@ export default function AdminUsersPage() {
                       fields={[
                         { key: "csdNumber", label: "CSD Number", value: recordValue(selected.csdAccount, "csdNumber") },
                         { key: "brokerCode", label: "Broker Code", value: recordValue(selected.csdAccount, "brokerCode") },
+                        { key: "status", label: "CSD Status", value: recordValue(selected.csdAccount, "status"), readOnly: true },
                       ]}
                       missingLabel="CSD account not yet assigned."
                     />
