@@ -121,7 +121,7 @@ const Trade = () => {
             </p>
             <div className="mx-auto mt-6 flex max-w-xs flex-col gap-3 sm:flex-row sm:justify-center">
               <Button asChild variant="premium" size="lg">
-                <Link href="/register/onboarding">
+                <Link href="?kyc=true">
                   Continue application <ArrowLeftRight className="h-4 w-4" />
                 </Link>
               </Button>
