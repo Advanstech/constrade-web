@@ -228,6 +228,34 @@ export interface AdminUserDetail {
   csdAccount?: Record<string, unknown> | null;
   subscription?: { tier?: string; status?: string } | null;
   kycDocuments: AdminKycDocument[];
+  kycDraft?: Record<string, unknown> | null;
+  bids?: AdminBid[];
+  equityOrders?: AdminUserOrder[];
+  fixedIncomeOrders?: AdminUserOrder[];
+  wallet?: { transactions?: AdminWalletTransaction[] } | null;
+}
+
+export interface AdminUserOrder {
+  id: string;
+  side?: string;
+  quantity?: number | null;
+  faceValue?: number | null;
+  price?: number | null;
+  totalAmount?: number | null;
+  status: string;
+  createdAt: string;
+  equitySecurity?: { ticker?: string | null; name?: string | null } | null;
+  fixedIncomeSecurity?: { name?: string | null; type?: string | null } | null;
+}
+
+export interface AdminWalletTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  status: string;
+  reference?: string | null;
+  description?: string | null;
+  createdAt: string;
 }
 
 export interface AdminStats {

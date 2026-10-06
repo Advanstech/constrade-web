@@ -643,10 +643,84 @@ export default function AdminUsersPage() {
     ])
       .then(([detail, bids]) => {
         if (detail) setSelected(detail);
-        setUserBids(bids ?? []);
+        const detailBids = detail?.bids ?? [];
+        const merged = [...(bids ?? [])];
+        for (const bid of detailBids) {
+          if (!merged.some((b) => b.id === bid.id)) merged.push(bid);
+        }
+        setUserBids(merged);
       })
       .finally(() => setDetailLoading(false));
   };
+
+  // Unified investor activity feed: auction bids, equity & fixed-income
+  // orders, and wallet movements — merged chronologically.
+  type ActivityItem = {
+    id: string;
+    kind: "bid" | "equity" | "fixed" | "wallet";
+    title: string;
+    detail: string;
+    amount: number | null;
+    amountSigned?: boolean;
+    status: string;
+    at: string;
+  };
+
+  const activityItems = useMemo<ActivityItem[]>(() => {
+    const items: ActivityItem[] = [];
+    for (const b of userBids) {
+      items.push({
+        id: `bid-${b.id}`,
+        kind: "bid",
+        title:
+          b.auction?.instrumentName ||
+          b.auction?.securityType?.replace(/_/g, " ") ||
+          "Auction bid",
+        detail: `${Number(b.rate || 0).toFixed(2)}% yield bid`,
+        amount: Number(b.amount || 0),
+        status: b.status,
+        at: b.createdAt,
+      });
+    }
+    for (const o of selected?.equityOrders ?? []) {
+      items.push({
+        id: `eq-${o.id}`,
+        kind: "equity",
+        title: `${o.side === "SELL" || o.side === "sell" ? "Sell" : "Buy"} ${o.equitySecurity?.ticker ?? "equity"}`,
+        detail: `${o.quantity ?? 0} shares${o.price ? ` @ GHS ${Number(o.price).toFixed(2)}` : ""}`,
+        amount: o.totalAmount ?? null,
+        status: o.status,
+        at: o.createdAt,
+      });
+    }
+    for (const o of selected?.fixedIncomeOrders ?? []) {
+      items.push({
+        id: `fi-${o.id}`,
+        kind: "fixed",
+        title: `${o.side === "SELL" || o.side === "sell" ? "Sell" : "Buy"} ${o.fixedIncomeSecurity?.name ?? "fixed income"}`,
+        detail: `Face value GHS ${Number(o.faceValue ?? 0).toLocaleString()}`,
+        amount: o.totalAmount ?? null,
+        status: o.status,
+        at: o.createdAt,
+      });
+    }
+    for (const t of selected?.wallet?.transactions ?? []) {
+      const credit = String(t.type).toUpperCase().includes("DEPOSIT") || String(t.type).toUpperCase().includes("CREDIT");
+      items.push({
+        id: `tx-${t.id}`,
+        kind: "wallet",
+        title: `${t.type.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}${credit ? "" : ""}`,
+        detail: t.description ?? t.reference ?? "",
+        amount: Math.abs(Number(t.amount || 0)) * (credit ? 1 : -1),
+        amountSigned: true,
+        status: t.status,
+        at: t.createdAt,
+      });
+    }
+    return items.sort(
+      (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+    );
+  }, [userBids, selected]);
 
   const saveSection = async (
     _section: string,
@@ -1221,7 +1295,7 @@ export default function AdminUsersPage() {
                 {(
                   [
                     ["profile", "Profile"],
-                    ["activity", `Activity (${userBids.length})`],
+                    ["activity", `Activity (${activityItems.length})`],
                     ["documents", `KYC Docs (${selected.kycDocuments?.length ?? 0})`],
                   ] as const
                 ).map(([tab, label]) => (
@@ -1507,16 +1581,28 @@ export default function AdminUsersPage() {
                   <div>
                     <div className="mb-4 grid grid-cols-3 gap-3">
                       {[
-                        { label: "Total Bids", value: String(userBids.length) },
+                        { label: "Total Entries", value: String(activityItems.length) },
                         {
-                          label: "Accepted",
-                          value: String(userBids.filter((b) => b.status === "ACCEPTED").length),
+                          label: "Orders",
+                          value: String(
+                            (selected?.equityOrders?.length ?? 0) +
+                              (selected?.fixedIncomeOrders?.length ?? 0),
+                          ),
                         },
                         {
-                          label: "Total Volume",
+                          label: "Wallet Movements",
                           value: `GHS ${(
-                            userBids.reduce((s, b) => s + Number(b.amount || 0), 0) / 1e6
-                          ).toFixed(2)}M`,
+                            (selected?.wallet?.transactions ?? []).reduce(
+                              (s, t) =>
+                                s +
+                                Math.abs(Number(t.amount || 0)) *
+                                  (String(t.type).toUpperCase().includes("DEPOSIT") ||
+                                  String(t.type).toUpperCase().includes("CREDIT")
+                                    ? 1
+                                    : 0),
+                              0,
+                            ) / 1e3
+                          ).toFixed(1)}K`,
                         },
                       ].map((item) => (
                         <div
@@ -1532,42 +1618,65 @@ export default function AdminUsersPage() {
                         </div>
                       ))}
                     </div>
-                    {userBids.length > 0 ? (
+                    {activityItems.length > 0 ? (
                       <div className="space-y-2">
-                        {userBids.map((bid) => (
+                        {activityItems.map((item) => (
                           <div
-                            key={bid.id}
+                            key={item.id}
                             className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-4"
                           >
-                            <div className="min-w-0">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-bronze/10 text-brand-bronze">
+                              {item.kind === "bid" ? (
+                                <Gavel className="h-4 w-4" />
+                              ) : item.kind === "equity" ? (
+                                <Briefcase className="h-4 w-4" />
+                              ) : item.kind === "fixed" ? (
+                                <Landmark className="h-4 w-4" />
+                              ) : (
+                                <WalletCards className="h-4 w-4" />
+                              )}
+                            </span>
+                            <div className="min-w-0 flex-1">
                               <p className="truncate text-xs font-semibold text-foreground">
-                                {bid.auction?.instrumentName ||
-                                  bid.auction?.securityType?.replace(/_/g, " ") ||
-                                  "Treasury Security"}
+                                {item.title}
                               </p>
                               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                {formatDate(bid.createdAt)}
+                                {formatDate(item.at)}
+                                {item.detail ? ` · ${item.detail}` : ""}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-mono text-sm font-bold text-foreground">
-                                GHS {Number(bid.amount || 0).toLocaleString()}
-                              </p>
-                              <p className="text-[10px] font-bold text-brand-bronze">
-                                {Number(bid.rate).toFixed(2)}%
-                              </p>
+                              {item.amount != null && (
+                                <p
+                                  className={cn(
+                                    "font-mono text-sm font-bold",
+                                    item.amountSigned && item.amount < 0
+                                      ? "text-danger"
+                                      : item.amountSigned
+                                        ? "text-success"
+                                        : "text-foreground",
+                                  )}
+                                >
+                                  {item.amountSigned && item.amount >= 0 ? "+" : ""}
+                                  GHS {Math.abs(item.amount).toLocaleString()}
+                                </p>
+                              )}
                             </div>
                             <Badge
                               className={cn(
                                 "shrink-0 text-[10px]",
-                                bid.status === "ACCEPTED"
+                                ["ACCEPTED", "COMPLETED", "EXECUTED", "FILLED", "SUCCESS"].includes(
+                                  item.status.toUpperCase(),
+                                )
                                   ? "bg-success/10 text-success"
-                                  : bid.status === "REJECTED"
+                                  : ["REJECTED", "FAILED", "CANCELLED"].includes(
+                                        item.status.toUpperCase(),
+                                      )
                                     ? "bg-danger/10 text-danger"
                                     : "bg-brand-bronze/15 text-brand-bronze",
                               )}
                             >
-                              {bid.status}
+                              {item.status}
                             </Badge>
                           </div>
                         ))}
@@ -1576,7 +1685,7 @@ export default function AdminUsersPage() {
                       <div className="rounded-2xl border-2 border-dashed border-border py-12 text-center">
                         <Gavel className="mx-auto mb-2 h-7 w-7 text-muted-foreground/30" />
                         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          No auction activity found for this investor
+                          No activity found for this investor
                         </p>
                       </div>
                     )}
@@ -1619,6 +1728,53 @@ export default function AdminUsersPage() {
                       )}
                       Download CSD Account Form (PDF)
                     </Button>
+                    {(() => {
+                      // Uploaded files can also live in the KYC draft (saved
+                      // before submission) without a KycDocument row — surface
+                      // those so reviewers don't miss them.
+                      const draftDocs: { label: string; url: string }[] = [];
+                      interface DraftStep4 {
+                        identityDocs?: { type?: string; fileUrl?: string }[];
+                        passportPhotoUrl?: string;
+                      }
+                      interface DraftStep5 {
+                        signatureUrl?: string;
+                      }
+                      const draft = selected.kycDraft as
+                        | { "4"?: DraftStep4; "5"?: DraftStep5 }
+                        | null
+                        | undefined;
+                      const step4 = draft?.["4"];
+                      if (Array.isArray(step4?.identityDocs)) {
+                        for (const d of step4.identityDocs) {
+                          if (d?.fileUrl) draftDocs.push({ label: d.type || "Identity document", url: d.fileUrl });
+                        }
+                      }
+                      if (step4?.passportPhotoUrl) draftDocs.push({ label: "Passport photo", url: step4.passportPhotoUrl });
+                      const step5 = draft?.["5"];
+                      if (step5?.signatureUrl) draftDocs.push({ label: "Signature", url: step5.signatureUrl });
+                      if ((selected.kycDocuments?.length ?? 0) > 0 || draftDocs.length === 0) return null;
+                      return (
+                        <div className="rounded-xl border border-dashed border-brand-bronze/40 bg-brand-bronze/5 p-3">
+                          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-brand-bronze">
+                            Draft uploads (not yet submitted)
+                          </p>
+                          <div className="space-y-1.5">
+                            {draftDocs.map((d, i) => (
+                              <a
+                                key={i}
+                                href={d.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 text-xs font-medium text-foreground hover:text-brand-bronze"
+                              >
+                                <FileText className="h-3.5 w-3.5" /> {d.label}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {(selected.kycDocuments ?? []).length > 0 ? (
                       (selected.kycDocuments ?? []).map((doc) => (
                         <DocCard

@@ -110,6 +110,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // KYC status can change server-side mid-session (admin approve/reject).
+  // Re-fetch the profile on an interval and when the tab regains focus so
+  // badges and trading gates reflect the live record, not login-time state.
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
+    let active = true;
+
+    const sync = async () => {
+      const fresh = await fetchProfile(userId);
+      if (active && fresh) setProfile(fresh);
+    };
+
+    const interval = setInterval(sync, 60_000);
+    const onFocus = () => void sync();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [user?.id]);
+
   const value: AuthContextValue = {
     user,
     session,
