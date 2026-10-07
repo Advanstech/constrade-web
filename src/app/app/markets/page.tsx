@@ -151,7 +151,7 @@ const AppMarkets = () => {
               />
             </div>
             <Tabs value={tab} onValueChange={setTab} className="mt-3">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
                 <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="equity">Equities</TabsTrigger>

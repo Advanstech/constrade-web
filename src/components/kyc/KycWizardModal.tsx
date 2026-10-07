@@ -626,8 +626,8 @@ export function KycWizardModal({
           </div>
         </div>
 
-        <div className="flex-none border-t border-border/40 bg-background/80 px-6 py-5 sm:px-12 lg:px-20 backdrop-blur-md">
-          <div className="mx-auto max-w-4xl w-full flex items-center justify-between gap-4">
+        <div className="flex-none border-t border-border/40 bg-background/80 px-4 py-4 backdrop-blur-md sm:px-12 sm:py-5 lg:px-20">
+          <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -649,12 +649,12 @@ export function KycWizardModal({
             </div>
             
             {step < STEP_LABELS.length ? (
-              <Button size="lg" className="min-w-[140px] shadow-md font-semibold" variant="premium" onClick={() => void next()} disabled={saving || loading}>
+              <Button size="lg" className="min-w-0 flex-1 shadow-md font-semibold sm:min-w-[140px] sm:flex-none" variant="premium" onClick={() => void next()} disabled={saving || loading}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {saving ? "Saving…" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button size="lg" className="min-w-[200px] shadow-md font-semibold" variant="premium" onClick={() => void submit()} disabled={submitting || loading}>
+              <Button size="lg" className="min-w-0 flex-1 shadow-md font-semibold sm:min-w-[200px] sm:flex-none" variant="premium" onClick={() => void submit()} disabled={submitting || loading}>
                 {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                 {submitting ? "Submitting…" : "Submit Application"}
               </Button>

@@ -138,11 +138,22 @@
 
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    min-width: 0;
+    overflow-x: hidden;
     font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+
+  img, svg, video, canvas {
+    max-width: 100%;
+  }
+
+  input, select, textarea, button {
+    min-width: 0;
   }
 
   h1, h2, h3, h4, h5, h6 {

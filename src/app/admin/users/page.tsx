@@ -930,7 +930,7 @@ export default function AdminUsersPage() {
         title="Investor Governance"
         subtitle="Compliance, CSD account-opening and access management for every investor on the platform."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={load}>
               <RotateCcw className="h-3.5 w-3.5" /> Refresh
             </Button>
@@ -994,7 +994,7 @@ export default function AdminUsersPage() {
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value as KycFilter)}
             >
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger className="h-9 min-w-0 flex-1 sm:w-[150px] sm:flex-none">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1009,7 +1009,7 @@ export default function AdminUsersPage() {
               value={roleFilter}
               onValueChange={(value) => setRoleFilter(value as RoleFilter)}
             >
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger className="h-9 min-w-0 flex-1 sm:w-[150px] sm:flex-none">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -1320,7 +1320,7 @@ export default function AdminUsersPage() {
                 {drawerTab === "profile" && (
                   <>
                     {/* Summary */}
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       {[
                         {
                           label: "Profile Type",
@@ -1580,7 +1580,7 @@ export default function AdminUsersPage() {
 
                 {drawerTab === "activity" && (
                   <div>
-                    <div className="mb-4 grid grid-cols-3 gap-3">
+                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                       {[
                         { label: "Total Entries", value: String(activityItems.length) },
                         {

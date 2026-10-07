@@ -161,18 +161,18 @@ const Login = () => {
                   onComplete={(code) => void verifyPin(code)}
                   autoFocus
                   inputMode="numeric"
-                  containerClassName="justify-center"
+                  containerClassName="justify-center gap-1 sm:gap-2"
                 >
                   <InputOTPGroup>
-                    <InputOTPSlot index={0} className="h-12 w-11 text-lg font-semibold" />
-                    <InputOTPSlot index={1} className="h-12 w-11 text-lg font-semibold" />
-                    <InputOTPSlot index={2} className="h-12 w-11 text-lg font-semibold" />
+                    <InputOTPSlot index={0} className="h-11 w-9 text-base font-semibold sm:h-12 sm:w-11 sm:text-lg" />
+                    <InputOTPSlot index={1} className="h-11 w-9 text-base font-semibold sm:h-12 sm:w-11 sm:text-lg" />
+                    <InputOTPSlot index={2} className="h-11 w-9 text-base font-semibold sm:h-12 sm:w-11 sm:text-lg" />
                   </InputOTPGroup>
                   <InputOTPSeparator />
                   <InputOTPGroup>
-                    <InputOTPSlot index={3} className="h-12 w-11 text-lg font-semibold" />
-                    <InputOTPSlot index={4} className="h-12 w-11 text-lg font-semibold" />
-                    <InputOTPSlot index={5} className="h-12 w-11 text-lg font-semibold" />
+                    <InputOTPSlot index={3} className="h-11 w-9 text-base font-semibold sm:h-12 sm:w-11 sm:text-lg" />
+                    <InputOTPSlot index={4} className="h-11 w-9 text-base font-semibold sm:h-12 sm:w-11 sm:text-lg" />
+                    <InputOTPSlot index={5} className="h-11 w-9 text-base font-semibold sm:h-12 sm:w-11 sm:text-lg" />
                   </InputOTPGroup>
                 </InputOTP>
                 <p className="text-xs text-muted-foreground">

@@ -132,7 +132,7 @@ const Trade = () => {
 
       {!kycApproved ? (
         <Card className="mx-auto mt-4 max-w-xl border-brand-bronze/30 shadow-card">
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-5 text-center sm:p-8">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-bronze/15">
               <ShieldCheck className="h-7 w-7 text-brand-bronze" />
             </span>

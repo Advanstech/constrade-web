@@ -29,7 +29,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
   useAreaTheme("light");
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-dvh min-w-0 lg:grid-cols-2">
       {/* Brand panel */}
       <div className="bg-gradient-navy relative hidden flex-col justify-between overflow-hidden p-10 lg:flex">
         <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-brand-bronze/20 blur-3xl" />
@@ -66,8 +66,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* Form panel */}
-      <div className="flex items-center justify-center bg-background px-4 py-12 sm:px-8">
-        <div className="w-full max-w-md">
+      <div className="flex min-w-0 items-center justify-center bg-background px-4 py-8 sm:px-8 sm:py-12">
+        <div className="min-w-0 w-full max-w-md">
           <div className="mb-8 lg:hidden">
             <Logo tone="navy" className="scale-75" />
           </div>
