@@ -62,9 +62,20 @@ export function MarketPerformance() {
     load();
   }, []);
 
+  // Only offer tabs for asset classes that actually have recorded data —
+  // an empty tab reads as broken, not honest. When nothing has been
+  // recorded yet the whole chart area shows one clear empty state.
+  const visibleGroups = useMemo(
+    () => GROUPS.filter((g) => (data?.series[g.key]?.length ?? 0) > 0),
+    [data],
+  );
+  const activeGroup = visibleGroups.some((g) => g.key === group)
+    ? group
+    : (visibleGroups[0]?.key ?? group);
+
   const chartData = useMemo(() => {
     if (!data) return [];
-    const series = data.series[group] ?? [];
+    const series = data.series[activeGroup] ?? [];
     return data.labels.map((label, i) => {
       const row: Record<string, string | number | null> = { label };
       for (const s of series) {
@@ -72,9 +83,9 @@ export function MarketPerformance() {
       }
       return row;
     });
-  }, [data, group]);
+  }, [data, activeGroup]);
 
-  const activeSeries: PerformanceSeries[] = data?.series[group] ?? [];
+  const activeSeries: PerformanceSeries[] = data?.series[activeGroup] ?? [];
   const lastUpdated = data
     ? new Date(data.updatedAt).toLocaleDateString("en-GB", {
         day: "numeric",
@@ -105,15 +116,16 @@ export function MarketPerformance() {
       </div>
 
       {/* Asset-class tabs */}
+      {visibleGroups.length > 0 && (
       <div className="overflow-x-auto border-b border-border p-4 sm:p-5">
         <div className="inline-flex min-w-max gap-1 rounded-full bg-muted/70 p-1">
-          {GROUPS.map((g) => (
+          {visibleGroups.map((g) => (
             <button
               key={g.key}
               onClick={() => setGroup(g.key)}
               className={cn(
                 "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
-                group === g.key
+                activeGroup === g.key
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
@@ -123,11 +135,22 @@ export function MarketPerformance() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Chart */}
       <div className="p-4 sm:p-5">
         {loading || !data ? (
           <Skeleton className="h-72 w-full" />
+        ) : activeSeries.length === 0 ? (
+          <div className="flex h-72 flex-col items-center justify-center gap-2 text-center">
+            <p className="text-sm font-medium text-muted-foreground">
+              No recorded market data yet
+            </p>
+            <p className="max-w-xs text-xs text-muted-foreground/70">
+              Series appear here once real observations are recorded — no
+              synthetic data is shown.
+            </p>
+          </div>
         ) : (
           <>
             <div className="h-72">
@@ -155,13 +178,13 @@ export function MarketPerformance() {
                     axisLine={false}
                     width={52}
                     domain={["auto", "auto"]}
-                    tickFormatter={(v: number) => (group === "fx" ? v.toFixed(3) : group === "fixed" || group === "eurobonds" ? `${v.toFixed(1)}%` : formatGHS(v, { cents: v < 100 }))}
+                    tickFormatter={(v: number) => (activeGroup === "fx" ? v.toFixed(3) : activeGroup === "fixed" || activeGroup === "eurobonds" ? `${v.toFixed(1)}%` : formatGHS(v, { cents: v < 100 }))}
                   />
                   <Tooltip
                     contentStyle={tooltipStyle}
                     labelStyle={{ fontWeight: 700, marginBottom: 4 }}
                     formatter={(value, name) => [
-                      value == null ? "—" : formatValue(group, Number(value)),
+                      value == null ? "—" : formatValue(activeGroup, Number(value)),
                       name,
                     ]}
                   />
@@ -181,38 +204,32 @@ export function MarketPerformance() {
             </div>
 
             {/* Legend */}
-            {activeSeries.length === 0 ? (
-              <p className="mt-4 text-xs text-muted-foreground">
-                No recorded data available for this asset class yet.
-              </p>
-            ) : (
-              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                {activeSeries.map((s) => {
-                  const observed = s.points.filter((p): p is number => p != null);
-                  const last = observed[observed.length - 1];
-                  const first = observed[0];
-                  const change =
-                    first != null && last != null && first !== 0
-                      ? ((last - first) / first) * 100
-                      : null;
-                  return (
-                    <span key={s.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                      {s.label}
-                      <span className="font-semibold text-foreground">
-                        {last != null ? formatValue(group, last) : "—"}
-                      </span>
-                      {change != null && (
-                        <span className={change >= 0 ? "text-success" : "text-danger"}>
-                          {change >= 0 ? "+" : ""}
-                          {change.toFixed(1)}%
-                        </span>
-                      )}
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              {activeSeries.map((s) => {
+                const observed = s.points.filter((p): p is number => p != null);
+                const last = observed[observed.length - 1];
+                const first = observed[0];
+                const change =
+                  first != null && last != null && first !== 0
+                    ? ((last - first) / first) * 100
+                    : null;
+                return (
+                  <span key={s.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                    {s.label}
+                    <span className="font-semibold text-foreground">
+                      {last != null ? formatValue(activeGroup, last) : "—"}
                     </span>
-                  );
-                })}
-              </div>
-            )}
+                    {change != null && (
+                      <span className={change >= 0 ? "text-success" : "text-danger"}>
+                        {change >= 0 ? "+" : ""}
+                        {change.toFixed(1)}%
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
           </>
         )}
       </div>
