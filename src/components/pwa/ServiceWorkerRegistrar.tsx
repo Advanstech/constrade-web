@@ -6,10 +6,16 @@ export function ServiceWorkerRegistrar() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
-    const register = () => {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
+    const register = async () => {
+      try {
+        const registration = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+          updateViaCache: "none",
+        });
+        await registration.update();
+      } catch (err) {
         console.error("Service worker registration failed:", err);
-      });
+      }
     };
 
     if (document.readyState === "complete") {

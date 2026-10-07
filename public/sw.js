@@ -1,19 +1,22 @@
 // Constrade+ service worker.
 // Strategy:
-//   - App shell navigations: network-first, cached copy as offline fallback.
+//   - App navigations: network-only with a generic offline fallback. Authenticated
+//     HTML is never cached, preventing account data from surviving sign-out.
 //   - Static build assets (/_next/static, /icons, favicons): cache-first.
 //   - API and cross-origin requests: never cached — market data and account
 //     information must always be live and must never leak between sessions.
 
-const VERSION = "cc-pwa-v1";
+const VERSION = "cc-pwa-v2";
 const STATIC_CACHE = `${VERSION}-static`;
-const RUNTIME_CACHE = `${VERSION}-runtime`;
 
 const PRECACHE = [
   "/offline",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/maskable-192.png",
+  "/icons/maskable-512.png",
+  "/icons/apple-touch-icon.png",
   "/favicon.svg",
 ];
 
@@ -35,7 +38,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => !key.startsWith(VERSION))
+            .filter((key) => key.startsWith("cc-pwa-") && key !== STATIC_CACHE)
             .map((key) => caches.delete(key)),
         ),
       )
@@ -53,29 +56,19 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
 
-  // Navigations: network-first so clients always see fresh state, with a
-  // cached shell or the offline page as fallback.
+  // Navigations: never persist potentially authenticated HTML.
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() =>
-          caches
-            .match(request)
-            .then((cached) => cached || caches.match("/offline")),
-        ),
-    );
+    event.respondWith(fetch(request).catch(() => caches.match("/offline")));
     return;
   }
 
   // Static assets: cache-first (hashed filenames are immutable).
-  if (STATIC_PATHS.test(url.pathname) || url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico" || url.pathname === "/manifest.webmanifest") {
+  if (
+    STATIC_PATHS.test(url.pathname) ||
+    url.pathname === "/favicon.svg" ||
+    url.pathname === "/favicon.ico" ||
+    url.pathname === "/manifest.webmanifest"
+  ) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
@@ -83,9 +76,7 @@ self.addEventListener("fetch", (event) => {
           fetch(request).then((response) => {
             if (response.ok) {
               const copy = response.clone();
-              caches
-                .open(RUNTIME_CACHE)
-                .then((cache) => cache.put(request, copy));
+              caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy));
             }
             return response;
           }),
