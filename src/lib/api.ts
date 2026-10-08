@@ -401,6 +401,15 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
   const action = String(body.action ?? "summary");
   switch (action) {
     case "summary": {
+      const summary = await request<any>("GET", "/market-data/summary").catch(() => null);
+      if (summary) {
+        return {
+          ...summary,
+          updatedAt: new Date().toISOString(),
+        } as MarketSummary;
+      }
+      
+      // Fallback
       const [intel, gse] = await Promise.all([
         request<any>("GET", "/market-data/intelligence").catch(() => null),
         request<any>("GET", "/market-data/gse").catch(() => null),
@@ -1226,7 +1235,14 @@ export const adminApi = {
     return request<AdminUserDetail[]>("GET", `/admin/users${qs ? `?${qs}` : ""}`);
   },
   userDetail: (userId: string) => request<AdminUserDetail>("GET", `/admin/users/${userId}`),
-  confirmDeposit: (depositId: string) => request<any>("POST", `/admin/wallet/deposits/${depositId}/confirm`),
+  confirmDeposit: (depositId: string, proofUrl?: string) => request<any>("POST", `/admin/wallet/deposits/${depositId}/confirm`, { proofUrl }),
+  uploadReceiptFile: (file: File, fileBase64: string) => 
+    request<any>("POST", "/onboarding/upload", {
+        type: "RECEIPT",
+        fileBase64,
+        fileName: file.name,
+        mimeType: file.type,
+    }),
   rejectDeposit: (depositId: string, rejectionReason?: string) => 
     request<any>("POST", `/admin/wallet/deposits/${depositId}/reject`, { rejectionReason }),
   bids: (search?: string) =>

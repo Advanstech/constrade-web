@@ -38,7 +38,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { adminApi } from "@/lib/api";
 import type { AdminDashboardData } from "@/lib/api.types";
-import { changeBgClass, formatDateTime, formatGHS, shortId, statusClass, statusLabel } from "@/lib/format";
+import { changeBgClass, formatDateTime, shortId, statusClass, statusLabel } from "@/lib/format";
+import { useRouter } from "next/navigation";
 
 const tooltipStyle = {
   background: "hsl(var(--popover))",
@@ -48,6 +49,7 @@ const tooltipStyle = {
 };
 
 const AdminDashboard = () => {
+  const router = useRouter();
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -116,6 +118,10 @@ const AdminDashboard = () => {
         <StatCard label="Total clients" numericValue={m.totalClients} isCurrency={false} hint={`+${m.newClients30d} this month`} icon={<Users className="h-4 w-4 text-brand-bronze" />} />
         <StatCard label="Pending approvals" numericValue={m.pendingApprovals} isCurrency={false} icon={<ClipboardCheck className="h-4 w-4 text-brand-bronze" />} />
         <StatCard label="Est. revenue (fees)" numericValue={m.revenue} icon={<Coins className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Total Turnover" numericValue={m.turnover} icon={<TrendingUp className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Client Wallet Balances" numericValue={m.cashReserves} icon={<Wallet className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Total Orders" numericValue={m.totalOrders} isCurrency={false} icon={<RefreshCw className="h-4 w-4 text-brand-bronze" />} />
+        <StatCard label="Executed Orders" numericValue={m.filledOrders} isCurrency={false} icon={<ClipboardCheck className="h-4 w-4 text-brand-bronze" />} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
@@ -238,7 +244,11 @@ const AdminDashboard = () => {
                 </thead>
                 <tbody>
                   {paginatedOrders.map((o) => (
-                    <tr key={o.id} className="border-b border-border/60 hover:bg-muted/40">
+                    <tr 
+                      key={o.id} 
+                      className="border-b border-border/60 hover:bg-muted/40 cursor-pointer"
+                      onClick={() => router.push(`/admin/orders?id=${o.id}`)}
+                    >
                       <td className="px-6 py-3 font-mono text-xs text-muted-foreground">#{shortId(o.id)}</td>
                       <td className="px-4 py-3 font-semibold">{o.instrument}</td>
                       <td className="px-4 py-3">

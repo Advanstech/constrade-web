@@ -72,6 +72,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/lib/api";
+import { useRouter } from "next/navigation";
 import type {
   AdminBid,
   AdminKycDocument,
@@ -556,7 +557,9 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [activityPage, setActivityPage] = useState(1);
 
+  const router = useRouter();
   const [me, setMe] = useState<{ role?: string } | null>(null);
   const [selected, setSelected] = useState<AdminUserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -631,6 +634,7 @@ export default function AdminUsersPage() {
     setEditDraft({});
     setCollapsedSections({});
     setUserBids([]);
+    setActivityPage(1);
     setPendingDelete(false);
     setPendingHardDelete(false);
 
@@ -1086,11 +1090,27 @@ export default function AdminUsersPage() {
                           </p>
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
-                          <Badge className={kycBadgeClass(user.kycStatus)}>
-                            {user.isPendingEmailConfirmation
-                              ? "Awaiting Email"
-                              : user.kycStatus}
-                          </Badge>
+                          <div className="flex flex-col items-start gap-1.5">
+                            <Badge className={kycBadgeClass(user.kycStatus)}>
+                              {user.isPendingEmailConfirmation
+                                ? "Awaiting Email"
+                                : user.kycStatus === "PENDING"
+                                  ? `PENDING (${
+                                      user.kycStep === "ALL_STEPS_COMPLETE" || Number(user.onboardingStep || 0) >= 6
+                                        ? "100%"
+                                        : `${Math.round((Math.max(0, Math.min(Number(user.onboardingStep || 0), 6)) / 6) * 100)}%`
+                                    })`
+                                  : user.kycStatus}
+                            </Badge>
+                            {user.kycStatus === "PENDING" && !user.isPendingEmailConfirmation && (
+                              <div className="h-1.5 w-full max-w-[80px] overflow-hidden rounded-full bg-muted">
+                                <div 
+                                  className={cn("h-full", user.kycStep === "ALL_STEPS_COMPLETE" || Number(user.onboardingStep || 0) >= 6 ? "bg-success/60" : "bg-brand-bronze/60")}
+                                  style={{ width: `${user.kycStep === "ALL_STEPS_COMPLETE" ? 100 : (Math.max(0, Math.min(Number(user.onboardingStep || 0), 6)) / 6) * 100}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="hidden px-4 py-3.5 font-mono text-xs md:table-cell">
                           {display(recordValue(user.csdAccount, "csdNumber"))}
@@ -1212,11 +1232,27 @@ export default function AdminUsersPage() {
                       </SheetDescription>
                     </div>
                   </div>
-                  <Badge className={kycBadgeClass(selected.kycStatus)}>
-                    {selected.isPendingEmailConfirmation
-                      ? "AWAITING EMAIL CONFIRMATION"
-                      : `KYC ${selected.kycStatus}`}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <Badge className={kycBadgeClass(selected.kycStatus)}>
+                      {selected.isPendingEmailConfirmation
+                        ? "AWAITING EMAIL CONFIRMATION"
+                        : selected.kycStatus === "PENDING"
+                          ? `KYC PENDING (${
+                              selected.kycStep === "ALL_STEPS_COMPLETE" || Number(selected.onboardingStep || 0) >= 6
+                                ? "100%"
+                                : `${Math.round((Math.max(0, Math.min(Number(selected.onboardingStep || 0), 6)) / 6) * 100)}%`
+                            })`
+                          : `KYC ${selected.kycStatus}`}
+                    </Badge>
+                    {selected.kycStatus === "PENDING" && !selected.isPendingEmailConfirmation && (
+                      <div className="h-1.5 w-full max-w-[80px] overflow-hidden rounded-full bg-muted">
+                        <div 
+                          className={cn("h-full", selected.kycStep === "ALL_STEPS_COMPLETE" || Number(selected.onboardingStep || 0) >= 6 ? "bg-success/60" : "bg-brand-bronze/60")}
+                          style={{ width: `${selected.kycStep === "ALL_STEPS_COMPLETE" ? 100 : (Math.max(0, Math.min(Number(selected.onboardingStep || 0), 6)) / 6) * 100}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {selected.isPendingEmailConfirmation && (
                   <p className="mt-3 rounded-lg bg-brand-bronze/10 px-3 py-2 text-xs text-brand-bronze">
@@ -1620,67 +1656,100 @@ export default function AdminUsersPage() {
                       ))}
                     </div>
                     {activityItems.length > 0 ? (
-                      <div className="space-y-2">
-                        {activityItems.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-4"
-                          >
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-bronze/10 text-brand-bronze">
-                              {item.kind === "bid" ? (
-                                <Gavel className="h-4 w-4" />
-                              ) : item.kind === "equity" ? (
-                                <Briefcase className="h-4 w-4" />
-                              ) : item.kind === "fixed" ? (
-                                <Landmark className="h-4 w-4" />
-                              ) : (
-                                <WalletCards className="h-4 w-4" />
-                              )}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-semibold text-foreground">
-                                {item.title}
-                              </p>
-                              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                {formatDate(item.at)}
-                                {item.detail ? ` · ${item.detail}` : ""}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              {item.amount != null && (
-                                <p
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          {activityItems
+                            .slice((activityPage - 1) * 10, activityPage * 10)
+                            .map((item) => (
+                              <div
+                                key={item.id}
+                                onClick={() => {
+                                  setSelected(null);
+                                  if (item.kind === "bid") router.push(`/admin/bids?id=${item.id.replace('bid-', '')}`);
+                                  else if (item.kind === "wallet") router.push(`/admin/transactions?id=${item.id.replace('tx-', '')}`);
+                                  else router.push(`/admin/orders?id=${item.id.replace('eq-', '').replace('fi-', '')}`);
+                                }}
+                                className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:bg-muted/40"
+                              >
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-bronze/10 text-brand-bronze">
+                                  {item.kind === "bid" ? (
+                                    <Gavel className="h-4 w-4" />
+                                  ) : item.kind === "equity" ? (
+                                    <Briefcase className="h-4 w-4" />
+                                  ) : item.kind === "fixed" ? (
+                                    <Landmark className="h-4 w-4" />
+                                  ) : (
+                                    <WalletCards className="h-4 w-4" />
+                                  )}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-semibold text-foreground">
+                                    {item.title}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    {formatDate(item.at)}
+                                    {item.detail ? ` · ${item.detail}` : ""}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  {item.amount != null && (
+                                    <p
+                                      className={cn(
+                                        "font-mono text-sm font-bold",
+                                        item.amountSigned && item.amount < 0
+                                          ? "text-danger"
+                                          : item.amountSigned
+                                            ? "text-success"
+                                            : "text-foreground",
+                                      )}
+                                    >
+                                      {item.amountSigned && item.amount >= 0 ? "+" : ""}
+                                      GHS {Math.abs(item.amount).toLocaleString()}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge
                                   className={cn(
-                                    "font-mono text-sm font-bold",
-                                    item.amountSigned && item.amount < 0
-                                      ? "text-danger"
-                                      : item.amountSigned
-                                        ? "text-success"
-                                        : "text-foreground",
+                                    "shrink-0 text-[10px]",
+                                    ["ACCEPTED", "COMPLETED", "EXECUTED", "FILLED", "SUCCESS"].includes(
+                                      item.status.toUpperCase(),
+                                    )
+                                      ? "bg-success/10 text-success"
+                                      : ["REJECTED", "FAILED", "CANCELLED"].includes(
+                                            item.status.toUpperCase(),
+                                          )
+                                        ? "bg-danger/10 text-danger"
+                                        : "bg-brand-bronze/15 text-brand-bronze",
                                   )}
                                 >
-                                  {item.amountSigned && item.amount >= 0 ? "+" : ""}
-                                  GHS {Math.abs(item.amount).toLocaleString()}
-                                </p>
-                              )}
-                            </div>
-                            <Badge
-                              className={cn(
-                                "shrink-0 text-[10px]",
-                                ["ACCEPTED", "COMPLETED", "EXECUTED", "FILLED", "SUCCESS"].includes(
-                                  item.status.toUpperCase(),
-                                )
-                                  ? "bg-success/10 text-success"
-                                  : ["REJECTED", "FAILED", "CANCELLED"].includes(
-                                        item.status.toUpperCase(),
-                                      )
-                                    ? "bg-danger/10 text-danger"
-                                    : "bg-brand-bronze/15 text-brand-bronze",
-                              )}
+                                  {item.status}
+                                </Badge>
+                              </div>
+                          ))}
+                        </div>
+                        {activityItems.length > 10 && (
+                          <div className="flex items-center justify-between border-t border-border pt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={activityPage === 1}
+                              onClick={() => setActivityPage((p) => p - 1)}
                             >
-                              {item.status}
-                            </Badge>
+                              <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+                            </Button>
+                            <span className="text-xs text-muted-foreground">
+                              Page {activityPage} of {Math.ceil(activityItems.length / 10)}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={activityPage >= Math.ceil(activityItems.length / 10)}
+                              onClick={() => setActivityPage((p) => p + 1)}
+                            >
+                              Next <ChevronRight className="ml-1 h-4 w-4" />
+                            </Button>
                           </div>
-                        ))}
+                        )}
                       </div>
                     ) : (
                       <div className="rounded-2xl border-2 border-dashed border-border py-12 text-center">

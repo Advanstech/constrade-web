@@ -236,6 +236,18 @@ export default function AdminOrdersPage() {
   }, [loadOrders]);
 
   useEffect(() => {
+    if (orders.length > 0 && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const idParam = params.get("id");
+      if (idParam) {
+        const order = orders.find((o) => o.id === idParam);
+        if (order) setSelectedOrder(order);
+        window.history.replaceState(null, "", "/admin/orders");
+      }
+    }
+  }, [orders]);
+
+  useEffect(() => {
     adminApi
       .me()
       .then((raw) => setIsSuperAdmin(raw.role === "SUPER_ADMIN"))

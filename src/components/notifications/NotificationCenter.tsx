@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { notificationsApi } from "@/lib/api";
 import { subscribeEvents } from "@/lib/realtime";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import type { AppNotification, NotificationType } from "@/lib/api.types";
 
 const TYPE_ICON: Record<NotificationType, string> = {
@@ -49,6 +50,7 @@ function timeAgo(iso: string): string {
 }
 
 export function NotificationCenter() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -216,7 +218,17 @@ export function NotificationCenter() {
                     className={cn(
                       "group relative px-4 py-3 transition-colors hover:bg-muted/50",
                       !n.read && "bg-accent/[0.04]",
+                      n.link && "cursor-pointer"
                     )}
+                    onClick={() => {
+                      if (!n.read) {
+                        void handleMarkRead(n.id);
+                      }
+                      if (n.link) {
+                        setOpen(false);
+                        router.push(n.link);
+                      }
+                    }}
                   >
                     <div className="flex gap-3">
                       <span className="mt-0.5 text-base leading-none">

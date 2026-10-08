@@ -29,6 +29,20 @@ export function ConfirmOrderPaymentModal({
   const [userDetails, setUserDetails] = useState<AdminUserDetail | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [confirmingOrder, setConfirmingOrder] = useState(false);
+  const [receiptFiles, setReceiptFiles] = useState<Record<string, File>>({});
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -52,8 +66,23 @@ export function ConfirmOrderPaymentModal({
   const handleClearDeposit = async (depositId: string) => {
     setProcessingId(depositId);
     try {
-      await adminApi.confirmDeposit(depositId);
+      let proofUrl: string | undefined = undefined;
+      const file = receiptFiles[depositId];
+      if (file) {
+        toast.info("Uploading receipt...");
+        const base64 = await fileToBase64(file);
+        const uploadRes = await adminApi.uploadReceiptFile(file, base64);
+        proofUrl = uploadRes?.url;
+      }
+      
+      await adminApi.confirmDeposit(depositId, proofUrl);
       toast.success("Deposit cleared successfully.");
+      
+      setReceiptFiles(prev => {
+        const next = { ...prev };
+        delete next[depositId];
+        return next;
+      });
       await loadData();
     } catch (e: unknown) {
       const err = e as Error;
@@ -198,15 +227,37 @@ export function ConfirmOrderPaymentModal({
                             {deposit.status}
                           </span>
                           {deposit.status === "PENDING" && (
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="h-7 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                              onClick={() => handleClearDeposit(deposit.id)}
-                              disabled={processingId === deposit.id}
-                            >
-                              {processingId === deposit.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : "Clear"}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <label className="cursor-pointer">
+                                <div className={cn(
+                                  "flex items-center h-7 px-2 text-xs font-medium rounded border hover:bg-muted transition-colors",
+                                  receiptFiles[deposit.id] ? "border-brand-bronze text-brand-bronze bg-brand-bronze/5" : "border-input text-muted-foreground"
+                                )}>
+                                  {receiptFiles[deposit.id] ? <Check className="h-3 w-3 mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
+                                  {receiptFiles[deposit.id] ? "Receipt Selected" : "Attach Receipt"}
+                                </div>
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*,.pdf"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setReceiptFiles(prev => ({ ...prev, [deposit.id]: file }));
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="h-7 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                                onClick={() => handleClearDeposit(deposit.id)}
+                                disabled={processingId === deposit.id}
+                              >
+                                {processingId === deposit.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : "Clear"}
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>
