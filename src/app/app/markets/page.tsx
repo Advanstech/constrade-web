@@ -175,10 +175,17 @@ const AppMarkets = () => {
                     )}
                   >
                     <div className="flex-1 overflow-hidden">
-                      <p className="truncate text-sm font-semibold text-card-foreground">
-                        {q.assetClass === "fixed_income" ? q.name : q.ticker}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground font-mono">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-card-foreground">
+                          {q.assetClass === "fixed_income" ? q.name : q.ticker}
+                        </p>
+                        {q.assetClass === "fixed_income" && (q.coupon === 0 || (q.name || "").toLowerCase().includes("bill")) && (
+                          <span className="rounded bg-brand-bronze/10 text-brand-bronze px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0">
+                            Discount
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground font-mono mt-0.5">
                         {q.assetClass === "fixed_income"
                           ? q.ticker?.startsWith("GH") ? `ISIN: ${q.ticker}` : q.ticker
                           : q.name}
@@ -221,13 +228,18 @@ const AppMarkets = () => {
                   <TrendingUp className="h-5 w-5" />
                 </span>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-display text-lg font-bold">
                       {selected.assetClass === "fixed_income" ? selected.name : selected.ticker}
                     </h2>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {selected.assetClass === "equity" ? "Equity" : "Fixed income"}
                     </span>
+                    {selected.assetClass === "fixed_income" && (selected.coupon === 0 || (selected.name || "").toLowerCase().includes("bill")) && (
+                      <span className="rounded bg-brand-bronze/10 text-brand-bronze px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                        Discount
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground font-mono">
                     {selected.assetClass === "fixed_income"

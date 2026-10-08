@@ -54,29 +54,12 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [loading, onClose]);
 
-  const selectFile = (selected: File | null) => {
-    if (!selected) return;
-    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-    if (!allowed.includes(selected.type)) {
-      setError("Upload a PDF, JPG, PNG, or WEBP file.");
-      return;
-    }
-    if (selected.size > 10 * 1024 * 1024) {
-      setError("The file must be 10 MB or smaller.");
-      return;
-    }
-    setFile(selected);
-    setScannedNote(null);
-    setScanConfidence(null);
-    setError("");
-  };
-
-  const scanDocument = async (): Promise<ExecutionResultScan | null> => {
-    if (!file) return null;
+  const scanDocument = async (fileToScan: File | null = file): Promise<ExecutionResultScan | null> => {
+    if (!fileToScan) return null;
     setScanning(true);
     setError("");
     try {
-      const result = await adminApi.scanOrderResult(file, order.id, order.asset_class);
+      const result = await adminApi.scanOrderResult(fileToScan, order.id, order.asset_class);
       setScannedNote(result);
       if (result.filledPrice != null) setFilledPrice(String(result.filledPrice));
       const extractedQuantity = isFixedIncome
@@ -97,6 +80,25 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
     } finally {
       setScanning(false);
     }
+  };
+
+  const selectFile = (selected: File | null) => {
+    if (!selected) return;
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(selected.type)) {
+      setError("Upload a PDF, JPG, PNG, or WEBP file.");
+      return;
+    }
+    if (selected.size > 10 * 1024 * 1024) {
+      setError("The file must be 10 MB or smaller.");
+      return;
+    }
+    setFile(selected);
+    setScannedNote(null);
+    setScanConfidence(null);
+    setError("");
+    // Automatically trigger scanning when file is selected
+    void scanDocument(selected);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -272,10 +274,12 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
               {file ? (
                 <>
                   <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-brand-bronze/10 text-brand-bronze">
-                    {file.type === "application/pdf" ? <FileText className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
+                    {scanning ? <Loader2 className="h-5 w-5 animate-spin" /> : file.type === "application/pdf" ? <FileText className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
                   </div>
                   <p className="max-w-full truncate text-sm font-semibold text-foreground">{file.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {scanning ? "Uploading & scanning…" : `${(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace`}
+                  </p>
                 </>
               ) : (
                 <>

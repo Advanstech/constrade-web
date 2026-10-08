@@ -52,7 +52,7 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-const PAGE_SIZES = [10, 25, 50];
+const PAGE_SIZES = [15, 30, 50];
 
 type AdminTx = Transaction & { clientName?: string, status?: string };
 
@@ -103,7 +103,7 @@ export default function AdminTransactionsPage() {
   const [search, setSearch] = useState("");
   const [selectedTx, setSelectedTx] = useState<AdminTx | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(15);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -420,28 +420,28 @@ export default function AdminTransactionsPage() {
           </SheetHeader>
           
           {selectedTx && (
-            <div className="p-6 sm:p-10 space-y-10">
+            <div className="p-4 sm:p-6 space-y-6">
               {/* Hero Banner */}
-              <div className="flex flex-col items-center justify-center p-8 bg-muted/20 rounded-2xl border border-border/60 shadow-sm">
+              <div className="flex flex-col items-center justify-center p-6 bg-muted/20 rounded-xl border border-border/60 shadow-sm">
                 <div className={cn(
-                  "flex h-16 w-16 items-center justify-center rounded-2xl shadow-sm mb-4",
+                  "flex h-12 w-12 items-center justify-center rounded-xl shadow-sm mb-3",
                   selectedTx.type === "deposit" ? "bg-emerald-500/10 text-emerald-500" : selectedTx.type === "withdraw" ? "bg-rose-500/10 text-rose-500" : "bg-blue-500/10 text-blue-500"
                 )}>
                   {selectedTx.type === "deposit" ? (
-                    <ArrowDownToLine className="h-8 w-8" />
+                    <ArrowDownToLine className="h-6 w-6" />
                   ) : selectedTx.type === "withdraw" ? (
-                    <ArrowUpFromLine className="h-8 w-8" />
+                    <ArrowUpFromLine className="h-6 w-6" />
                   ) : (
-                    <Banknote className="h-8 w-8" />
+                    <Banknote className="h-6 w-6" />
                   )}
                 </div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                   Amount {selectedTx.type === "deposit" ? "Received" : selectedTx.type === "withdraw" ? "Transferred" : "Processed"}
                 </p>
-                <h2 className="text-5xl font-display font-bold tracking-tight text-foreground">
+                <h2 className="text-3xl font-display font-bold tracking-tight text-foreground">
                   {formatGHS(Math.abs(selectedTx.amount))}
                 </h2>
-                <div className="mt-4">
+                <div className="mt-3">
                   <span className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider shadow-sm",
                     selectedTx.status === "completed" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :

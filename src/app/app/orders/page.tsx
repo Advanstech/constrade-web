@@ -22,6 +22,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { tradingApi } from "@/lib/api";
 import type { Order } from "@/lib/api.types";
 import {
@@ -277,16 +288,35 @@ const OrdersPage = () => {
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       {o.status === "pending_approval" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void cancel(o.id);
-                          }}
-                        >
-                          <Ban className="h-3.5 w-3.5 text-danger" /> Cancel
-                        </Button>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                              >
+                                <Ban className="h-3.5 w-3.5 text-danger" /> Cancel
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancel Order</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to cancel this order? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-danger text-danger-foreground hover:bg-danger/90"
+                                  onClick={() => void cancel(o.id)}
+                                >
+                                  Yes, cancel order
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -380,6 +410,7 @@ const OrdersPage = () => {
                   <dl className="divide-y divide-border text-sm">
                     {[
                       ["Order Reference", `#${shortId(selected.id)}`],
+                      ["Side", selected.side === "buy" ? "Buy" : "Sell"],
                       [
                         selected.asset_class === "equity" ? "Quantity" : "Face Value",
                         selected.asset_class === "equity"
@@ -387,9 +418,9 @@ const OrdersPage = () => {
                           : formatGHS(selected.quantity),
                       ],
                       ["Order Type", selected.order_type === "limit" ? "Limit" : "Market"],
-                      ["Requested Price", formatGHS(selected.price)],
+                      ["Requested Price", selected.price ? formatGHS(selected.price) : "Market"],
                       selected.totalAmount != null
-                        ? ["Estimated Total", formatGHS(selected.totalAmount)]
+                        ? ["Consideration", formatGHS(selected.totalAmount)]
                         : null,
                       selected.filled_price != null
                         ? ["Executed Price", formatGHS(selected.filled_price)]
@@ -402,7 +433,7 @@ const OrdersPage = () => {
                               : formatGHS(selected.filledFaceValue),
                           ]
                         : null,
-                      selected.fees != null && selected.status === "filled"
+                      selected.fees != null
                         ? ["Fees & Levies", formatGHS(selected.fees)]
                         : null,
                       selected.settlementDate
@@ -411,6 +442,7 @@ const OrdersPage = () => {
                       selected.executionNote
                         ? ["Execution Note", selected.executionNote]
                         : null,
+                      ["Broker", "Constant Capital"],
                       ["Placed", formatDateTime(selected.created_at)],
                     ]
                       .filter((r): r is [string, string] => r !== null)
@@ -429,15 +461,35 @@ const OrdersPage = () => {
                 </div>
 
                 {selected.status === "pending_approval" && (
-                  <Button
-                    variant="outline"
-                    className="w-full border-danger/30 text-danger hover:bg-danger/10 hover:text-danger"
-                    disabled={cancelling}
-                    onClick={() => void cancel(selected.id)}
-                  >
-                    <Ban className="h-4 w-4" />
-                    {cancelling ? "Cancelling…" : "Cancel Order"}
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full border-danger/30 text-danger hover:bg-danger/10 hover:text-danger"
+                        disabled={cancelling}
+                      >
+                        <Ban className="h-4 w-4" />
+                        {cancelling ? "Cancelling…" : "Cancel Order"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel Order</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to cancel this order? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-danger text-danger-foreground hover:bg-danger/90"
+                          onClick={() => void cancel(selected.id)}
+                        >
+                          Yes, cancel order
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             </>

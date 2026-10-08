@@ -345,6 +345,11 @@ const Trade = () => {
                     <Info className="h-3.5 w-3.5" /> Insufficient cash for this order.
                   </p>
                 )}
+                {!profile?.csd_account && (
+                  <p className="mt-3 flex items-center gap-2 text-xs text-danger">
+                    <Info className="h-3.5 w-3.5" /> You need a CSD account number to trade.
+                  </p>
+                )}
 
                 <Button
                   size="lg"
@@ -352,7 +357,7 @@ const Trade = () => {
                     "mt-5 w-full",
                     side === "buy" ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90",
                   )}
-                  disabled={submitting}
+                  disabled={submitting || (side === "buy" && !sufficient) || !profile?.csd_account}
                   onClick={submit}
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}

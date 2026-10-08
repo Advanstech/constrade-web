@@ -22,6 +22,17 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   RefreshCw,
   Download,
   CheckCircle2,
@@ -276,7 +287,7 @@ export default function AdminOrdersPage() {
 
   const handleReject = async (id: string, closeDrawer = false) => {
     const order = orders.find((item) => item.id === id);
-    if (!order || !window.confirm("Are you sure you want to reject this order?")) return;
+    if (!order) return;
     setProcessingId(id);
     setActionError(null);
     try {
@@ -864,16 +875,32 @@ export default function AdminOrdersPage() {
                         <p className="text-sm font-mono">{selectedOrder.user_id.slice(0, 12)}…</p>
                       </div>
                       <div>
+                        <p className="text-xs text-muted-foreground mb-1">Side</p>
+                        <p className="text-sm font-medium capitalize">{selectedOrder.side}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Order Type</p>
+                        <p className="text-sm font-medium capitalize">{selectedOrder.order_type}</p>
+                      </div>
+                      <div>
                         <p className="text-xs text-muted-foreground mb-1">{fi ? "Face Value" : "Quantity"}</p>
                         <p className="text-sm font-medium">{fi ? fmt(selectedOrder.quantity) : selectedOrder.quantity.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Limit Price</p>
+                        <p className="text-xs text-muted-foreground mb-1">Requested Price</p>
                         <p className="text-sm font-medium">{selectedOrder.price ? fmt(selectedOrder.price) : "Market"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Consideration</p>
+                        <p className="text-sm font-medium">{selectedOrder.totalAmount ? fmt(selectedOrder.totalAmount) : "—"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Filled Price</p>
                         <p className="text-sm font-medium">{selectedOrder.filledPrice || selectedOrder.filled_price ? fmt(selectedOrder.filledPrice || selectedOrder.filled_price) : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Fees & Levies</p>
+                        <p className="text-sm font-medium">{selectedOrder.fees != null ? fmt(selectedOrder.fees) : "—"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Current Status</p>
@@ -898,14 +925,34 @@ export default function AdminOrdersPage() {
                           {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                           {selectedOrder.side === "sell" ? "Verify Holdings" : "Confirm Funds Received"}
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
-                          onClick={() => void handleReject(selectedOrder.id, true)}
-                          disabled={isProcessing}
-                        >
-                          Reject Order
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
+                              disabled={isProcessing}
+                            >
+                              Reject Order
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Reject Order</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to reject this order? The client will be notified and this action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 text-white hover:bg-red-700"
+                                onClick={() => void handleReject(selectedOrder.id, true)}
+                              >
+                                Yes, reject order
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </>
                     )}
 
@@ -919,14 +966,34 @@ export default function AdminOrdersPage() {
                           {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                           Mark as Placed
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
-                          onClick={() => void handleReject(selectedOrder.id, true)}
-                          disabled={isProcessing}
-                        >
-                          Reject Order
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
+                              disabled={isProcessing}
+                            >
+                              Reject Order
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Reject Order</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to reject this order? The client will be notified and this action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 text-white hover:bg-red-700"
+                                onClick={() => void handleReject(selectedOrder.id, true)}
+                              >
+                                Yes, reject order
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </>
                     )}
 
@@ -939,14 +1006,34 @@ export default function AdminOrdersPage() {
                           <CheckCircle2 className="mr-2 h-4 w-4" />
                           Upload Execution Result
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
-                          onClick={() => void handleReject(selectedOrder.id, true)}
-                          disabled={isProcessing}
-                        >
-                          Reject Order
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
+                              disabled={isProcessing}
+                            >
+                              Reject Order
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Reject Order</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to reject this order? The client will be notified and this action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 text-white hover:bg-red-700"
+                                onClick={() => void handleReject(selectedOrder.id, true)}
+                              >
+                                Yes, reject order
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </>
                     )}
 
