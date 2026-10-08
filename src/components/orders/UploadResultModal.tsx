@@ -5,7 +5,7 @@ import type { AdminOrder, ExecutionResultScan } from "@/lib/api.types";
 import { adminApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, FileText, ImageIcon, Loader2, ScanLine, UploadCloud, X } from "lucide-react";
+import { CheckCircle2, FileText, ImageIcon, Loader2, ScanLine, UploadCloud, X, AlertCircle } from "lucide-react";
 
 interface UploadResultModalProps {
   order: AdminOrder;
@@ -70,7 +70,8 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
       if (result.executionNote) setExecutionNote(result.executionNote);
       setScanConfidence(result.confidence);
       if (result.requiresReview) {
-        setError("Some fields could not be extracted. Review and complete the highlighted form before confirming.");
+        // The inline banner at the top already indicates review is needed,
+        // so we don't need to show a red error box.
       }
       return result;
     } catch (err: unknown) {
@@ -278,7 +279,9 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
                   </div>
                   <p className="max-w-full truncate text-sm font-semibold text-foreground">{file.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {scanning ? "Uploading & scanning…" : `${(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace`}
+                    {scanning 
+                      ? "Uploading & scanning…" 
+                      : `${file.size < 1024 * 1024 ? (file.size / 1024).toFixed(1) + " KB" : (file.size / 1024 / 1024).toFixed(2) + " MB"} · Click to replace`}
                   </p>
                 </>
               ) : (
@@ -302,9 +305,16 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
             </Button>
 
             {scanConfidence != null && (
-              <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs">
-                <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4" /> Extraction complete
+              <div className={cn(
+                "flex items-center justify-between rounded-lg border px-3 py-2 text-xs",
+                scanConfidence === 0 ? "border-amber-500/20 bg-amber-500/5" : "border-emerald-500/20 bg-emerald-500/5"
+              )}>
+                <span className={cn(
+                  "flex items-center gap-1.5 font-medium",
+                  scanConfidence === 0 ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                )}>
+                  {scanConfidence === 0 ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />} 
+                  {scanConfidence === 0 ? "Manual entry required" : "Extraction complete"}
                 </span>
                 <span className="text-muted-foreground">{scanConfidence}% fields detected · Review before confirming</span>
               </div>

@@ -919,6 +919,15 @@ async function handleAdmin(body: Record<string, unknown>): Promise<unknown> {
       const order = await request<any>("POST", path, resultDto);
       return { order: toOrder(order.order ?? order), message: order.message ?? "Result uploaded" };
     }
+    case "voidExecution": {
+      const id = String(body.id ?? "");
+      const assetClass = String(body.assetClass ?? "");
+      const path = assetClass === "equity"
+        ? `/equities/admin/orders/${id}/void-execution`
+        : `/fixed-income/admin/orders/${id}/void-execution`;
+      const order = await request<any>("POST", path, { reason: String(body.reason ?? "") });
+      return { order: toOrder(order.order ?? order), message: order.message ?? "Execution voided" };
+    }
     case "approveOrder": {
       const id = String(body.id ?? "");
       const order =
@@ -1000,6 +1009,11 @@ export interface FeeSchedule {
 }
 
 export const tradingApi = {
+  getContractNoteUrl: (orderId: string, assetClass: "equity" | "fixed_income") =>
+    request<{ url: string; fileName: string; mimeType: string | null; expiresInSeconds: number }>(
+      "GET",
+      `/contract-notes/${orderId}?assetClass=${assetClass}`,
+    ),
   feeSchedule: () => request<FeeSchedule>("GET", "/equities/fee-schedule"),
   placeOrder: (input: {
     instrument: string;
@@ -1212,6 +1226,9 @@ export const adminApi = {
     return request<AdminUserDetail[]>("GET", `/admin/users${qs ? `?${qs}` : ""}`);
   },
   userDetail: (userId: string) => request<AdminUserDetail>("GET", `/admin/users/${userId}`),
+  confirmDeposit: (depositId: string) => request<any>("POST", `/admin/wallet/deposits/${depositId}/confirm`),
+  rejectDeposit: (depositId: string, rejectionReason?: string) => 
+    request<any>("POST", `/admin/wallet/deposits/${depositId}/reject`, { rejectionReason }),
   bids: (search?: string) =>
     request<AdminBid[]>("GET", `/admin/bids${search ? `?search=${encodeURIComponent(search)}` : ""}`).catch(() => []),
   updateUserProfile: (userId: string, payload: Record<string, unknown>) =>
@@ -1269,6 +1286,8 @@ export const adminApi = {
     contractNoteScanConfidence?: number;
   }) =>
     call<{ order: Order; message: string }>("admin", { action: "uploadResult", id, assetClass, result }),
+  voidOrderExecution: (id: string, assetClass: "equity" | "fixed_income", reason: string) =>
+    call<{ order: Order; message: string }>("admin", { action: "voidExecution", id, assetClass, reason }),
   approveOrder: (id: string) =>
     call<{ order: Order; message: string }>("admin", { action: "approveOrder", id }),
   rejectOrder: (id: string, assetClass: "equity" | "fixed_income") =>

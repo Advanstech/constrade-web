@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Ban,
+  Download,
   CheckCircle2,
   Circle,
   Clock3,
@@ -155,6 +156,7 @@ const OrdersPage = () => {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [downloadingNote, setDownloadingNote] = useState(false);
   const itemsPerPage = 10;
 
   const load = useCallback(() => {
@@ -459,6 +461,33 @@ const OrdersPage = () => {
                       ))}
                   </dl>
                 </div>
+
+                {selected.contractNotePath && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={downloadingNote}
+                    onClick={async () => {
+                      setDownloadingNote(true);
+                      try {
+                        const res = await tradingApi.getContractNoteUrl(
+                          selected.id,
+                          selected.asset_class === "equity" ? "equity" : "fixed_income",
+                        );
+                        window.open(res.url, "_blank", "noopener");
+                      } catch (e) {
+                        toast.error(
+                          e instanceof Error ? e.message : "Could not download contract note",
+                        );
+                      } finally {
+                        setDownloadingNote(false);
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    {downloadingNote ? "Preparing…" : "Download Contract Note"}
+                  </Button>
+                )}
 
                 {selected.status === "pending_approval" && (
                   <AlertDialog>

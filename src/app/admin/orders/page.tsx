@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { adminApi } from "@/lib/api";
 import { UploadResultModal } from "@/components/orders/UploadResultModal";
+import { ConfirmOrderPaymentModal } from "@/components/orders/ConfirmOrderPaymentModal";
 import type { AdminOrder } from "@/lib/api.types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -210,7 +211,10 @@ export default function AdminOrdersPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [uploadTarget, setUploadTarget] = useState<AdminOrder | null>(null);
+  const [paymentConfirmationTarget, setPaymentConfirmationTarget] = useState<AdminOrder | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -230,6 +234,13 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     void loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => {
+    adminApi
+      .me()
+      .then((raw) => setIsSuperAdmin(raw.role === "SUPER_ADMIN"))
+      .catch(() => setIsSuperAdmin(false));
+  }, []);
 
   // Reset to first page whenever filters change.
   useEffect(() => {
@@ -304,6 +315,27 @@ export default function AdminOrdersPage() {
       showSuccess("Order rejected.");
     } catch (e: unknown) {
       setActionError((e as Error)?.message ?? "Failed to reject order.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleVoidExecution = async (id: string) => {
+    const order = orders.find((item) => item.id === id);
+    if (!order) return;
+    setProcessingId(id);
+    setActionError(null);
+    try {
+      const res = await adminApi.voidOrderExecution(id, order.asset_class, voidReason.trim());
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? ({ ...o, ...res.order } as AdminOrder) : o)),
+      );
+      setSelectedOrder(null);
+      setVoidReason("");
+      showSuccess(res.message || "Execution voided — order returned to Placed.");
+      void loadOrders();
+    } catch (e: unknown) {
+      setActionError((e as Error)?.message ?? "Failed to void execution.");
     } finally {
       setProcessingId(null);
     }
@@ -697,7 +729,7 @@ export default function AdminOrdersPage() {
                                 size="sm"
                                 variant="outline"
                                 className="h-8 gap-1 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-400"
-                                onClick={() => void handleConfirmPayment(order.id)}
+                                onClick={() => setPaymentConfirmationTarget(order)}
                                 disabled={isProcessing}
                               >
                                 {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
@@ -779,6 +811,18 @@ export default function AdminOrdersPage() {
           order={uploadTarget}
           onClose={() => setUploadTarget(null)}
           onSubmit={(data) => handleUploadResult(uploadTarget.id, data)}
+        />
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {paymentConfirmationTarget && (
+        <ConfirmOrderPaymentModal
+          order={paymentConfirmationTarget}
+          onClose={() => setPaymentConfirmationTarget(null)}
+          onConfirm={async () => {
+            await handleConfirmPayment(paymentConfirmationTarget.id, paymentConfirmationTarget.id === selectedOrder?.id);
+            setPaymentConfirmationTarget(null);
+          }}
         />
       )}
 
@@ -919,7 +963,7 @@ export default function AdminOrdersPage() {
                       <>
                         <Button
                           className="w-full bg-blue-600 hover:bg-blue-700 !text-white"
-                          onClick={() => void handleConfirmPayment(selectedOrder.id, true)}
+                          onClick={() => setPaymentConfirmationTarget(selectedOrder)}
                           disabled={isProcessing}
                         >
                           {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
@@ -1035,6 +1079,48 @@ export default function AdminOrdersPage() {
                           </AlertDialogContent>
                         </AlertDialog>
                       </>
+                    )}
+
+                    {selectedOrder.status === "filled" && isSuperAdmin && (
+                      <AlertDialog onOpenChange={(open) => !open && setVoidReason("")}>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-900/20"
+                            disabled={isProcessing}
+                          >
+                            Void Execution
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Void Execution</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This reverses the execution: the client&apos;s wallet is restored
+                              through a ledger entry, their portfolio is updated, and the order
+                              returns to Placed so the correct result can be uploaded. The client
+                              is notified. This is recorded in the audit log.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <textarea
+                            value={voidReason}
+                            onChange={(e) => setVoidReason(e.target.value)}
+                            placeholder="Reason for voiding (required, min 5 characters)"
+                            rows={3}
+                            className="w-full rounded-md border border-border bg-background p-2 text-sm"
+                          />
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-red-600 text-white hover:bg-red-700"
+                              disabled={voidReason.trim().length < 5}
+                              onClick={() => void handleVoidExecution(selectedOrder.id)}
+                            >
+                              Yes, void execution
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
 
                     {(selectedOrder.status === "filled" || selectedOrder.status === "rejected" || selectedOrder.status === "cancelled") && (

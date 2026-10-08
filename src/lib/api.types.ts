@@ -95,6 +95,9 @@ export interface Order {
   updatedAt?: string | null;
   totalAmount?: number | null;
   fees?: number | null;
+  contractNotePath?: string | null;
+  contractNoteName?: string | null;
+  contractNoteMime?: string | null;
 }
 
 export interface Position {
@@ -232,7 +235,7 @@ export interface AdminUserDetail {
   bids?: AdminBid[];
   equityOrders?: AdminUserOrder[];
   fixedIncomeOrders?: AdminUserOrder[];
-  wallet?: { transactions?: AdminWalletTransaction[] } | null;
+  wallet?: { balance: number; transactions?: AdminWalletTransaction[] } | null;
 }
 
 export interface AdminUserOrder {
@@ -255,6 +258,8 @@ export interface AdminWalletTransaction {
   status: string;
   reference?: string | null;
   description?: string | null;
+  channel?: string | null;
+  proofUrl?: string | null;
   createdAt: string;
 }
 
