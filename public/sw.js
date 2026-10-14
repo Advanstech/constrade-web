@@ -6,7 +6,7 @@
 //   - API and cross-origin requests: never cached — market data and account
 //     information must always be live and must never leak between sessions.
 
-const VERSION = "cc-pwa-v2";
+const VERSION = "cc-pwa-v3";
 const STATIC_CACHE = `${VERSION}-static`;
 
 const PRECACHE = [
@@ -37,8 +37,11 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
+          // Wipe every cache except the current static bundle — earlier worker
+          // versions used differently-named runtime caches that can keep
+          // serving stale HTML if left behind.
           keys
-            .filter((key) => key.startsWith("cc-pwa-") && key !== STATIC_CACHE)
+            .filter((key) => key !== STATIC_CACHE)
             .map((key) => caches.delete(key)),
         ),
       )

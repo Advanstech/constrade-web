@@ -2,8 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BadgeCheck, CandlestickChart, Landmark, Lock, ShieldCheck } from "lucide-react";
-import { Logo } from "@/components/brand/Logo";
+import { ArrowLeft, BadgeCheck, CandlestickChart, Landmark, Lock, ShieldCheck } from "lucide-react";
 import { useAreaTheme } from "@/hooks/use-area-theme";
 import { marketsApi } from "@/lib/api";
 import type { MarketSummary } from "@/lib/api.types";
@@ -55,8 +54,11 @@ export function AuthShell({ children }: { children: ReactNode }) {
         <div className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-brand-bronze/10 blur-3xl" />
 
         <div className="relative flex items-center justify-between">
-          <Link href="/">
-            <Logo tone="white" className="scale-90" />
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-white/60 transition-colors hover:text-white"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to site
           </Link>
           <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-brand-bronze">
             Broker Code · CCL
@@ -122,9 +124,12 @@ export function AuthShell({ children }: { children: ReactNode }) {
       {/* Form panel */}
       <div className="flex min-w-0 items-center justify-center bg-background px-4 py-8 sm:px-8 sm:py-12">
         <div className="min-w-0 w-full max-w-md">
-          <div className="mb-8 lg:hidden">
-            <Logo tone="navy" className="scale-75" />
-          </div>
+          <Link
+            href="/"
+            className="mb-8 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground lg:hidden"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to site
+          </Link>
           {children}
         </div>
       </div>

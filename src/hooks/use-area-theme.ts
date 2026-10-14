@@ -15,11 +15,12 @@ export function useAreaTheme(defaultTheme: "light" | "dark" | "system") {
 
   useEffect(() => {
     const chosen = localStorage.getItem(THEME_KEY);
-    if (!chosen) {
-      setTheme(defaultTheme);
-      localStorage.setItem(THEME_KEY, defaultTheme);
-    } else if (chosen !== theme) {
-      setTheme(chosen);
+    // An area default is applied but never persisted — only an explicit user
+    // toggle (applyThemePreference) writes THEME_KEY. Otherwise the first
+    // page a visitor sees would lock in its theme and block the other area.
+    const target = chosen ?? defaultTheme;
+    if (target !== theme) {
+      setTheme(target);
     }
   }, [setTheme, theme, defaultTheme]);
 }
