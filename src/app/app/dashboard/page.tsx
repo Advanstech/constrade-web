@@ -80,17 +80,10 @@ const ClientDashboard = () => {
               const res = await marketsApi.sparkline(h.instrument, 30);
               if (res && res.length > 0) {
                 sparkMap[h.instrument] = res;
-                return;
               }
             } catch {
-              // Ignore errors and fall through to the generator
+              // Leave empty when no recorded price history exists — never fabricate points.
             }
-            // Generate a realistic sparkline for missing data (like Treasury Bills)
-            const base = h.marketPrice || 1;
-            const trend = h.pl >= 0 ? 0.002 : -0.002;
-            sparkMap[h.instrument] = Array.from({ length: 30 }, (_, i) => 
-              base * (1 + (i * trend) + (Math.random() * 0.005 - 0.0025))
-            );
           })
         );
         if (!alive) return;
@@ -123,7 +116,7 @@ const ClientDashboard = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {!kycApproved && (
+      {!kycApproved ? (
         <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-brand-bronze/30 bg-brand-bronze-soft/60 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-brand-bronze" />
@@ -133,7 +126,7 @@ const ClientDashboard = () => {
               </p>
               <p className="text-xs text-muted-foreground">
                 Finish the CSD account opening wizard to unlock order placement on the Ghana
-                Stock Exchange.
+                Stock Exchange and Ghana Fixed Income Market.
               </p>
             </div>
           </div>
@@ -143,7 +136,28 @@ const ClientDashboard = () => {
             </Link>
           </Button>
         </div>
-      )}
+      ) : !profile?.csd_account ? (
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                KYC Approved · CSD Securities Account Opening in Progress
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Our trading desk is registering your Central Securities Depository (CSD) account
+                number (Broker Code: CCL). You will be notified by email and in-app the moment it
+                is activated.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link href="/app/profile">
+              View CSD Status <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      ) : null}
       <PageHeader
         title={`Good day, ${profile?.full_name?.split(" ")[0] || "Investor"}`}
         subtitle="Here's how your portfolio is performing today."

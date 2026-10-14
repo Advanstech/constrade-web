@@ -100,6 +100,8 @@ function toProfile(raw: any): Profile {
   const first = raw.firstName ?? "";
   const last = raw.lastName ?? "";
   const full = `${first} ${last}`.trim();
+  const csdNumber = raw.csdAccount?.csdNumber ?? null;
+  const csdStatus = raw.csdAccount?.status ?? (csdNumber ? "ACTIVE" : null);
   return {
     user_id: raw.id ?? "",
     full_name: full || raw.email || "",
@@ -107,7 +109,9 @@ function toProfile(raw: any): Profile {
     phone: raw.phone ?? null,
     role: mapRole(raw.role ?? ""),
     kyc_status: mapKycStatus(raw.kycStatus ?? "PENDING"),
-    csd_account: raw.csdAccount?.csdNumber ?? null,
+    csd_account: csdNumber,
+    csd_status: csdStatus,
+    csd_broker_code: raw.csdAccount?.brokerCode ?? "CCL",
     onboarded: raw.kycStatus === "APPROVED" || raw.onboardingStep === 4,
     created_at: raw.createdAt ?? new Date().toISOString(),
     updated_at: raw.updatedAt ?? new Date().toISOString(),
@@ -120,13 +124,21 @@ function toAdminUser(raw: any): AdminUser {
 }
 
 function toEquityQuote(raw: any): Quote {
+  const price = Number(raw.price) || 0;
+  const prev = raw.previousClose != null ? Number(raw.previousClose) : null;
+  const computedChangePct =
+    prev != null && prev > 0
+      ? ((price - prev) / prev) * 100
+      : Number(raw.changePercent ?? raw.changePct ?? 0) || 0;
   return {
+    id: raw.id,
     ticker: raw.ticker ?? raw.id,
     name: raw.name ?? raw.ticker ?? "",
     assetClass: "equity",
     currency: "GHS",
-    price: Number(raw.price) || 0,
-    changePct: 0,
+    price,
+    previousClose: prev ?? undefined,
+    changePct: computedChangePct,
     volume: Number(raw.volume) || 0,
     sector: raw.sector,
     marketCap: raw.marketCap,
@@ -137,18 +149,20 @@ function toFixedIncomeQuote(raw: any): Quote {
   const isin = raw.isin ?? "";
   const name = raw.name ?? "Government Security";
   const ticker = isin || (raw.type ? `GOG-${raw.type}` : name);
+  const isBill = /^\d+D$/i.test(String(raw.type ?? "")) || name.toLowerCase().includes("bill");
   return {
+    id: raw.id,
     ticker,
     name,
     assetClass: "fixed_income",
     currency: "GHS",
     price: Number(raw.price) || 1,
-    changePct: 0,
+    changePct: Number(raw.changePercent ?? raw.changePct ?? 0) || 0,
     volume: 0,
     coupon: raw.couponRate ?? raw.coupon,
     maturity: raw.maturityDate ? new Date(raw.maturityDate).toISOString().split("T")[0] : undefined,
     yieldToMaturity: raw.yield,
-    minInvestment: raw.faceValue ?? 1,
+    minInvestment: Number(raw.minimumInvestment ?? (isBill ? 5000 : 50000)),
   };
 }
 
@@ -405,11 +419,11 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
       if (summary) {
         return {
           ...summary,
-          updatedAt: new Date().toISOString(),
+          updatedAt: summary.updatedAt ?? new Date().toISOString(),
         } as MarketSummary;
       }
-      
-      // Fallback
+
+      // Honest fallback derived only from recorded intelligence + GSE endpoints
       const [intel, gse] = await Promise.all([
         request<any>("GET", "/market-data/intelligence").catch(() => null),
         request<any>("GET", "/market-data/gse").catch(() => null),
@@ -417,7 +431,9 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
       const yc = (intel?.yieldCurve ?? []) as any[];
       const find = (tenor: string) => yc.find((x: any) => x.tenor === tenor);
       const tb91 = find("91D");
-      const eb = find("GOG2029") ?? find("10Y");
+      const tb182 = find("182D");
+      const tb364 = find("364D");
+      const eb = find("GOG2029");
 
       const gseStocks = (Array.isArray(gse) ? gse : (gse?.stocks ?? gse?.data ?? [])) as any[];
       const advancers = gseStocks.filter((s: any) => (s.changePercent ?? s.change ?? s.changePct ?? 0) > 0).length;
@@ -425,19 +441,24 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
       const activeStocks = gseStocks.length;
 
       return {
-        gseComposite: gse?.compositeIndex ?? 4321.5,
-        gseChangePct: gse?.changePct ?? 0.85,
-        usdGhs: gse?.usdGhs ?? 15.85,
-        usdGhsChangePct: gse?.usdGhsChangePct ?? -0.12,
-        ghsMarketCap: gse?.marketCap ?? 78_500_000_000,
-        dailyTurnover: gse?.dailyTurnover ?? 4_250_000,
-        tbill91: tb91 != null ? Number(tb91.rate) : 4.8856,
-        tbill91ChangePct: tb91 != null ? Number(tb91.change) : -0.13,
-        eurobond2029: eb != null ? Number(eb.rate) : 9.45,
-        eurobond2029ChangePct: eb != null ? Number(eb.change) : 0.05,
-        activeStocks: activeStocks > 0 ? activeStocks : 38,
-        advancers: advancers > 0 ? advancers : 14,
-        decliners: decliners > 0 ? decliners : 6,
+        gseComposite: gse?.compositeIndex ?? null,
+        gseChangePct: gse?.changePct ?? null,
+        usdGhs: gse?.usdGhs ?? null,
+        usdGhsChangePct: gse?.usdGhsChangePct ?? null,
+        ghsMarketCap: gse?.marketCap ?? null,
+        dailyTurnover: gse?.dailyTurnover ?? null,
+        tbill91: tb91 != null ? Number(tb91.rate) : null,
+        tbill91ChangePct: tb91 != null ? Number(tb91.change ?? 0) : null,
+        tbill182: tb182 != null ? Number(tb182.rate) : null,
+        tbill182ChangePct: tb182 != null ? Number(tb182.change ?? 0) : null,
+        tbill364: tb364 != null ? Number(tb364.rate) : null,
+        tbill364ChangePct: tb364 != null ? Number(tb364.change ?? 0) : null,
+        eurobond2029: eb != null ? Number(eb.rate) : null,
+        eurobond2029ChangePct: eb != null ? Number(eb.change ?? 0) : null,
+        activeStocks,
+        advancers,
+        decliners,
+        unchanged: Math.max(0, activeStocks - advancers - decliners),
         updatedAt: intel?.lastUpdated ?? new Date().toISOString(),
       } as MarketSummary;
     }
@@ -543,8 +564,25 @@ async function handleTrading(body: Record<string, unknown>): Promise<unknown> {
         instrument.toLowerCase().includes("bond");
 
       if (isFixedIncome) {
+        let fixedIncomeSecurityId = instrument;
+        if (!isUuid) {
+          const allFi = await request<any[]>("GET", "/fixed-income/securities").catch(() => []);
+          const matched = allFi.find(
+            (s) =>
+              s.id === instrument ||
+              s.isin === instrument ||
+              (s.type && `GOG-${s.type}` === instrument) ||
+              s.name === instrument,
+          );
+          if (matched?.id) {
+            fixedIncomeSecurityId = matched.id;
+          } else {
+            const single = await request<any>("GET", `/fixed-income/securities/${encodeURIComponent(instrument)}`).catch(() => null);
+            if (single?.id) fixedIncomeSecurityId = single.id;
+          }
+        }
         const dto = {
-          fixedIncomeSecurityId: instrument,
+          fixedIncomeSecurityId,
           side,
           faceValue: quantity,
           price: orderType === "LIMIT" && limitPrice && limitPrice > 0 ? limitPrice : undefined,

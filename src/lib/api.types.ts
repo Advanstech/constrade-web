@@ -21,11 +21,13 @@ export type Role = "client" | "trader" | "compliance" | "admin";
 export type KycStatus = "pending" | "submitted" | "approved" | "rejected";
 
 export interface Quote {
+  id?: string;
   ticker: string;
   name: string;
   assetClass: AssetClass;
   currency: string;
   price: number;
+  previousClose?: number;
   changePct: number;
   volume: number;
   marketCap?: number;
@@ -45,11 +47,16 @@ export interface MarketSummary {
   dailyTurnover: number | null;
   tbill91: number | null;
   tbill91ChangePct: number | null;
+  tbill182?: number | null;
+  tbill182ChangePct?: number | null;
+  tbill364?: number | null;
+  tbill364ChangePct?: number | null;
   eurobond2029: number | null;
   eurobond2029ChangePct: number | null;
   activeStocks: number;
   advancers: number;
   decliners: number;
+  unchanged?: number;
   updatedAt: string;
 }
 
@@ -179,6 +186,8 @@ export interface Profile {
   role: Role;
   kyc_status: KycStatus;
   csd_account: string | null;
+  csd_status?: string | null;
+  csd_broker_code?: string | null;
   onboarded: boolean;
   created_at: string;
   updated_at: string;
@@ -194,6 +203,7 @@ export interface AdminUser extends Profile {
 export interface AdminKycDocument {
   id: string;
   type: string;
+  side?: string | null;
   fileUrl: string;
   status: string;
   reviewNote?: string | null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { adminApi } from "@/lib/api";
+import { adminApi, tradingApi } from "@/lib/api";
 import { UploadResultModal } from "@/components/orders/UploadResultModal";
 import { ConfirmOrderPaymentModal } from "@/components/orders/ConfirmOrderPaymentModal";
 import type { AdminOrder } from "@/lib/api.types";
@@ -51,6 +51,7 @@ import {
   Search,
   Eye,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import {
   BarChart,
@@ -215,6 +216,7 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [voidReason, setVoidReason] = useState("");
+  const [downloadingNoteId, setDownloadingNoteId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -356,6 +358,21 @@ export default function AdminOrdersPage() {
   const openUploadResult = (order: AdminOrder) => {
     setSelectedOrder(null);
     window.setTimeout(() => setUploadTarget(order), 0);
+  };
+
+  const handleDownloadContractNote = async (order: AdminOrder) => {
+    setDownloadingNoteId(order.id);
+    try {
+      const res = await tradingApi.getContractNoteUrl(
+        order.id,
+        order.asset_class === "equity" ? "equity" : "fixed_income",
+      );
+      window.open(res.url, "_blank", "noopener");
+    } catch (e: unknown) {
+      setActionError((e as Error)?.message ?? "Could not open contract note.");
+    } finally {
+      setDownloadingNoteId(null);
+    }
   };
 
   const handleUploadResult = async (
@@ -749,16 +766,27 @@ export default function AdminOrdersPage() {
                               </Button>
                             )}
                             {order.status === "processing" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-900/50 dark:bg-violet-900/20 dark:text-violet-400"
-                                onClick={() => void handleMarkAsPlaced(order.id)}
-                                disabled={isProcessing}
-                              >
-                                {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                                Place
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800 dark:border-violet-900/50 dark:bg-violet-900/20 dark:text-violet-400"
+                                  onClick={() => void handleMarkAsPlaced(order.id)}
+                                  disabled={isProcessing}
+                                >
+                                  {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                  Place
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="h-8 gap-1 bg-brand-bronze hover:bg-brand-bronze/90 !text-white"
+                                  onClick={() => openUploadResult(order)}
+                                  disabled={isProcessing}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Result
+                                </Button>
+                              </>
                             )}
                             {order.status === "placed" && (
                               <Button
@@ -768,6 +796,23 @@ export default function AdminOrdersPage() {
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 Result
+                              </Button>
+                            )}
+                            {order.contractNotePath && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1 border-brand-bronze/40 text-brand-bronze hover:bg-brand-bronze/10"
+                                onClick={() => void handleDownloadContractNote(order)}
+                                disabled={downloadingNoteId === order.id}
+                                title="Open attached contract note"
+                              >
+                                {downloadingNoteId === order.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <FileText className="h-3.5 w-3.5" />
+                                )}
+                                Note
                               </Button>
                             )}
                             <Button
@@ -966,6 +1011,41 @@ export default function AdminOrdersPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Contract Note Card */}
+                  {selectedOrder.contractNotePath && (
+                    <div className="rounded-xl border border-brand-bronze/30 bg-brand-bronze/5 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-bronze/15 text-brand-bronze">
+                            <FileText className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground">
+                              Official Contract Note Attached
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground mt-0.5">
+                              {selectedOrder.contractNoteName || "Contract_Note.pdf"}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 gap-1.5 border-brand-bronze/40 text-brand-bronze hover:bg-brand-bronze/10"
+                          disabled={downloadingNoteId === selectedOrder.id}
+                          onClick={() => void handleDownloadContractNote(selectedOrder)}
+                        >
+                          {downloadingNoteId === selectedOrder.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5" />
+                          )}
+                          View / Download
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions Footer */}
@@ -1020,7 +1100,15 @@ export default function AdminOrdersPage() {
                           disabled={isProcessing}
                         >
                           {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                          Mark as Placed
+                          Mark as Placed on Exchange
+                        </Button>
+                        <Button
+                          className="w-full bg-brand-bronze hover:bg-brand-bronze/90 !text-white"
+                          onClick={() => openUploadResult(selectedOrder)}
+                          disabled={isProcessing}
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Upload Execution Result &amp; Contract Note
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

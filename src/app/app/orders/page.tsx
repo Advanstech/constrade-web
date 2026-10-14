@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Circle,
   Clock3,
+  FileText,
   RefreshCw,
   ShieldCheck,
   XCircle,
@@ -289,8 +290,34 @@ const OrdersPage = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      {o.status === "pending_approval" && (
-                        <div onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                        {o.contractNotePath && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 border-brand-bronze/35 text-xs text-brand-bronze hover:bg-brand-bronze/10"
+                            disabled={downloadingNote}
+                            onClick={async () => {
+                              setDownloadingNote(true);
+                              try {
+                                const res = await tradingApi.getContractNoteUrl(
+                                  o.id,
+                                  o.asset_class === "equity" ? "equity" : "fixed_income",
+                                );
+                                window.open(res.url, "_blank", "noopener");
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error ? err.message : "Could not download contract note",
+                                );
+                              } finally {
+                                setDownloadingNote(false);
+                              }
+                            }}
+                          >
+                            <FileText className="h-3.5 w-3.5" /> Contract Note
+                          </Button>
+                        )}
+                        {o.status === "pending_approval" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -318,8 +345,8 @@ const OrdersPage = () => {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -463,30 +490,45 @@ const OrdersPage = () => {
                 </div>
 
                 {selected.contractNotePath && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    disabled={downloadingNote}
-                    onClick={async () => {
-                      setDownloadingNote(true);
-                      try {
-                        const res = await tradingApi.getContractNoteUrl(
-                          selected.id,
-                          selected.asset_class === "equity" ? "equity" : "fixed_income",
-                        );
-                        window.open(res.url, "_blank", "noopener");
-                      } catch (e) {
-                        toast.error(
-                          e instanceof Error ? e.message : "Could not download contract note",
-                        );
-                      } finally {
-                        setDownloadingNote(false);
-                      }
-                    }}
-                  >
-                    <Download className="h-4 w-4" />
-                    {downloadingNote ? "Preparing…" : "Download Contract Note"}
-                  </Button>
+                  <div className="rounded-xl border border-brand-bronze/35 bg-brand-bronze/5 p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-bronze/15 text-brand-bronze">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">
+                          Official Broker Contract Note
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground mt-0.5">
+                          {selected.contractNoteName || "Contract_Note.pdf"} · Verified &amp; settled via CSD (Broker Code: CCL)
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="premium"
+                      className="w-full"
+                      disabled={downloadingNote}
+                      onClick={async () => {
+                        setDownloadingNote(true);
+                        try {
+                          const res = await tradingApi.getContractNoteUrl(
+                            selected.id,
+                            selected.asset_class === "equity" ? "equity" : "fixed_income",
+                          );
+                          window.open(res.url, "_blank", "noopener");
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error ? e.message : "Could not download contract note",
+                          );
+                        } finally {
+                          setDownloadingNote(false);
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4" />
+                      {downloadingNote ? "Preparing…" : "Download Official Contract Note"}
+                    </Button>
+                  </div>
                 )}
 
                 {selected.status === "pending_approval" && (

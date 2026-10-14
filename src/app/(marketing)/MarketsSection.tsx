@@ -2,16 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkline } from "@/components/market/Sparkline";
 import { MarketPerformance } from "@/components/market/MarketPerformance";
 import { marketsApi } from "@/lib/api";
-import type { Quote } from "@/lib/api.types";
+import type { MarketSummary, Quote } from "@/lib/api.types";
 import { changeBgClass, formatGHS, formatPercent } from "@/lib/format";
 
 export function MarketsSection() {
+  const [summary, setSummary] = useState<MarketSummary | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sparks, setSparks] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState(true);
@@ -24,19 +25,22 @@ export function MarketsSection() {
 
   const load = () => {
     setLoading(true);
-    void marketsApi
-      .instruments()
-      .then(async (all) => {
-        const sparkMap: Record<string, number[]> = {};
-        await Promise.all(
-          all.map((q) =>
-            marketsApi.sparkline(q.ticker, 12).then((p) => {
-              sparkMap[q.ticker] = p;
-            }),
-          ),
-        );
+    void Promise.all([
+      marketsApi.summary().catch(() => null),
+      marketsApi.instruments(),
+    ])
+      .then(async ([s, all]) => {
+        if (s) setSummary(s);
         setQuotes(all);
-        setSparks(sparkMap);
+        const eqTickers = all.filter((q) => q.assetClass === "equity").map((q) => q.ticker);
+        if (eqTickers.length) {
+          const batch = await marketsApi.historyBatch(eqTickers, "1M");
+          const sparkMap: Record<string, number[]> = {};
+          for (const [ticker, pts] of Object.entries(batch)) {
+            sparkMap[ticker] = pts.map((p) => p.value);
+          }
+          setSparks(sparkMap);
+        }
       })
       .finally(() => setLoading(false));
   };
@@ -66,12 +70,13 @@ export function MarketsSection() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3">Security</th>
+              <th className="px-4 py-3">Security (GSE)</th>
               <th className="px-4 py-3 text-right">Last Price</th>
-              <th className="px-4 py-3 text-right">Change</th>
+              <th className="px-4 py-3 text-right">Session Change</th>
               <th className="hidden px-4 py-3 text-right md:table-cell">Volume</th>
-              <th className="hidden px-4 py-3 text-right sm:table-cell">Market Cap</th>
-              <th className="hidden px-4 py-3 text-right lg:table-cell">Trend</th>
+              <th className="hidden px-4 py-3 text-right sm:table-cell">Sector</th>
+              <th className="hidden px-4 py-3 text-right lg:table-cell">Recorded Trend</th>
+              <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -81,7 +86,7 @@ export function MarketsSection() {
                   <p className="font-semibold text-card-foreground">{q.ticker}</p>
                   <p className="text-xs text-muted-foreground">{q.name}</p>
                 </td>
-                <td className="px-4 py-3 text-right font-semibold text-card-foreground">
+                <td className="px-4 py-3 text-right font-mono font-semibold text-card-foreground">
                   {formatGHS(q.price)}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -89,16 +94,23 @@ export function MarketsSection() {
                     {formatPercent(q.changePct)}
                   </span>
                 </td>
-                <td className="hidden px-4 py-3 text-right text-muted-foreground md:table-cell">
+                <td className="hidden px-4 py-3 text-right font-mono text-muted-foreground md:table-cell">
                   {q.volume.toLocaleString("en-GH")}
                 </td>
-                <td className="hidden px-4 py-3 text-right text-muted-foreground sm:table-cell">
-                  {formatGHS(q.marketCap ?? 0, { compact: true })}
+                <td className="hidden px-4 py-3 text-right text-xs text-muted-foreground sm:table-cell">
+                  {q.sector || "GSE Listed"}
                 </td>
                 <td className="hidden px-4 py-3 lg:table-cell">
                   <div className="flex justify-end">
                     <Sparkline points={sparks[q.ticker] ?? []} positive={q.changePct >= 0} />
                   </div>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Button asChild variant="ghost" size="sm" className="h-7 px-2.5 text-xs font-semibold text-brand-bronze hover:text-brand-bronze">
+                    <Link href={`/app/trade?ticker=${encodeURIComponent(q.ticker)}`}>
+                      Trade <ArrowUpRight className="ml-1 h-3 w-3" />
+                    </Link>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -158,11 +170,12 @@ export function MarketsSection() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3">Instrument</th>
+              <th className="px-4 py-3">Instrument (GFIM / BoG)</th>
               <th className="px-4 py-3 text-right">Yield</th>
               <th className="px-4 py-3 text-right">Coupon</th>
               <th className="hidden px-4 py-3 text-right md:table-cell">Maturity</th>
               <th className="hidden px-4 py-3 text-right sm:table-cell">Min. Investment</th>
+              <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -180,11 +193,18 @@ export function MarketsSection() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right text-card-foreground">
-                  {q.coupon && q.coupon > 0 ? `${q.coupon.toFixed(2)}%` : "—"}
+                  {q.coupon && q.coupon > 0 ? `${q.coupon.toFixed(2)}%` : "Discount"}
                 </td>
-                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{q.maturity}</td>
-                <td className="hidden px-4 py-3 text-right text-muted-foreground sm:table-cell">
-                  {formatGHS(q.minInvestment ?? 1, { cents: false })}
+                <td className="hidden px-4 py-3 text-right text-muted-foreground md:table-cell">{q.maturity ?? "—"}</td>
+                <td className="hidden px-4 py-3 text-right font-mono text-muted-foreground sm:table-cell">
+                  {formatGHS(q.minInvestment ?? 5000, { cents: false })}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Button asChild variant="ghost" size="sm" className="h-7 px-2.5 text-xs font-semibold text-brand-bronze hover:text-brand-bronze">
+                    <Link href={`/app/trade?ticker=${encodeURIComponent(q.ticker)}`}>
+                      Trade <ArrowUpRight className="ml-1 h-3 w-3" />
+                    </Link>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -266,6 +286,80 @@ export function MarketsSection() {
         </div>
 
         <div className="mt-10 space-y-6">
+          {/* Live GSE / BoG / GFIM Market Pulse Ribbon */}
+          {summary && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                {
+                  venue: "GSE",
+                  label: "GSE Composite Index",
+                  value:
+                    summary.gseComposite != null
+                      ? summary.gseComposite.toLocaleString("en-GH", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "—",
+                  sub:
+                    summary.gseChangePct != null
+                      ? formatPercent(summary.gseChangePct)
+                      : "Official index",
+                },
+                {
+                  venue: "GSE",
+                  label: "Market Breadth",
+                  value: `${summary.advancers}▲ · ${summary.decliners}▼`,
+                  sub: `${summary.unchanged ?? Math.max(0, summary.activeStocks - summary.advancers - summary.decliners)} unchanged (${summary.activeStocks} listed)`,
+                },
+                {
+                  venue: "BoG",
+                  label: "91-Day T-Bill",
+                  value: summary.tbill91 != null ? `${summary.tbill91.toFixed(2)}%` : "—",
+                  sub: "BoG primary tender",
+                },
+                {
+                  venue: "BoG",
+                  label: "182-Day T-Bill",
+                  value: summary.tbill182 != null ? `${summary.tbill182.toFixed(2)}%` : "—",
+                  sub: "BoG primary tender",
+                },
+                {
+                  venue: "BoG",
+                  label: "364-Day T-Bill",
+                  value: summary.tbill364 != null ? `${summary.tbill364.toFixed(2)}%` : "—",
+                  sub: "BoG primary tender",
+                },
+                {
+                  venue: "FX",
+                  label: "USD / GHS",
+                  value: summary.usdGhs != null ? `₵${summary.usdGhs.toFixed(4)}` : "—",
+                  sub:
+                    summary.usdGhsChangePct != null
+                      ? formatPercent(summary.usdGhsChangePct)
+                      : "Reference rate",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:border-brand-bronze/40"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {card.label}
+                    </span>
+                    <span className="rounded bg-brand-bronze/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-brand-bronze">
+                      {card.venue}
+                    </span>
+                  </div>
+                  <p className="mt-2 font-display text-xl font-extrabold text-foreground">
+                    {card.value}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{card.sub}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Market performance chart module */}
           <MarketPerformance />
 

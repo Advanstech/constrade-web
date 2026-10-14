@@ -18,19 +18,19 @@ import { cn } from "@/lib/utils";
 const SERVICES = [
   {
     icon: CandlestickChart,
-    title: "Securities Trading",
-    body: "Access the Ghana Stock Exchange and African markets with competitive rates. Execute trades instantly across our web, iOS, and Android platforms.",
+    title: "GSE Equities Desk",
+    body: "Direct dealing access to every listed security on the Ghana Stock Exchange — market and limit orders, transparent SEC/GSE/CSD fee breakdowns, and official contract notes on every fill.",
     className: "lg:col-span-2 lg:row-span-2 bg-gradient-to-br from-brand-navy via-brand-navy/95 to-brand-navy/90 text-white border-brand-navy/50",
     iconClassName: "bg-white/10 text-brand-bronze",
     titleClassName: "text-white",
-    bodyClassName: "text-white/70",
+    bodyClassName: "text-white/75",
     isLarge: true,
     href: "/app/trade",
   },
   {
     icon: LineChart,
-    title: "Fixed Income",
-    body: "Invest in Ghanaian treasury bills and government bonds with live yields and reinvestment guidance.",
+    title: "GFIM & BoG Fixed Income",
+    body: "Trade 91-Day, 182-Day, and 364-Day Bank of Ghana Treasury Bills alongside secondary Government of Ghana bonds on the Ghana Fixed Income Market.",
     className: "lg:col-span-1 bg-card",
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
@@ -39,18 +39,18 @@ const SERVICES = [
   },
   {
     icon: ArrowLeftRight,
-    title: "FX Trading",
-    body: "Licensed foreign exchange services with institutional hedging solutions for businesses.",
+    title: "CSD Account & Custody",
+    body: "Seamless Central Securities Depository (CSD) account opening (Broker Code: CCL) or instant linking of your existing CSD securities account.",
     className: "lg:col-span-1 bg-card",
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
     bodyClassName: "text-muted-foreground",
-    href: "/app/trade",
+    href: "/register",
   },
   {
     icon: FileSearch,
-    title: "Investment Research",
-    body: "Comprehensive market intelligence covering Ghana and emerging African opportunities.",
+    title: "Ghana Market Intelligence",
+    body: "Daily GSE session briefs, BoG tender auction outcomes, yield-curve tracking, and institutional research from our Accra desk.",
     className: "lg:col-span-1 bg-card",
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
@@ -59,18 +59,18 @@ const SERVICES = [
   },
   {
     icon: Briefcase,
-    title: "Capital Markets",
-    body: "International capital raising through debt and equity offerings, connecting Africa with global investors.",
+    title: "Primary & Secondary Execution",
+    body: "End-to-end order lifecycle tracking — from funds verification and exchange placement to OCR-verified contract notes and portfolio settlement.",
     className: "lg:col-span-1 bg-card",
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
     bodyClassName: "text-muted-foreground",
-    href: "/register",
+    href: "/app/orders",
   },
   {
     icon: Users,
-    title: "Investment Advisory",
-    body: "Tailored portfolio management for institutions, family offices, and high-net-worth clients.",
+    title: "Institutional & Retail Advisory",
+    body: "Dedicated brokerage coverage for Ghanaian individuals, diaspora investors, corporates, pension funds, and asset managers.",
     className: "lg:col-span-1 bg-card",
     iconClassName: "bg-brand-bronze/10 text-brand-bronze",
     titleClassName: "text-card-foreground",
@@ -190,7 +190,7 @@ export function Services() {
           viewport={{ once: true, margin: "-100px" }}
           className="mt-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {SERVICES.map((s, i) => (
+          {SERVICES.map((s) => (
             <motion.div
               key={s.title}
               variants={itemVariants}

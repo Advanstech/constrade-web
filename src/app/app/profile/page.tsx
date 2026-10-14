@@ -84,12 +84,16 @@ const ProfilePage = () => {
             <div className="min-w-0">
               <p className="font-display text-sm font-bold text-card-foreground">
                 {kycApproved
-                  ? "KYC complete — you're ready to trade"
+                  ? profile.csd_account
+                    ? "KYC complete & CSD active — you're ready to trade"
+                    : "KYC approved — CSD securities account registration in progress"
                   : `KYC ${kyc ? `${kyc.completedSteps} of ${kyc.totalSteps} steps` : ""} completed`}
               </p>
               {kycApproved ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Your identity has been verified and your CSD account is active.
+                  {profile.csd_account
+                    ? `Your identity is verified and CSD account ${profile.csd_account} (Broker Code: ${profile.csd_broker_code || "CCL"}) is active for GSE and GFIM trading.`
+                    : "Your KYC is verified. Our trading desk is registering your Central Securities Depository (CSD) account and will notify you the moment your CSD number is assigned."}
                 </p>
               ) : (
                 <>
@@ -304,13 +308,26 @@ const ProfilePage = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-xl bg-gradient-navy p-5 text-white">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60">
-                  CSD Account Number
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60">
+                    CSD Account Number
+                  </p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      profile.csd_account
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : "bg-amber-500/20 text-amber-300"
+                    }`}
+                  >
+                    {profile.csd_account ? profile.csd_status || "ACTIVE" : "PENDING ASSIGNMENT"}
+                  </span>
+                </div>
+                <p className="mt-1 font-display text-2xl font-extrabold tracking-wider font-mono">
+                  {profile.csd_account || "Awaiting assignment"}
                 </p>
-                <p className="mt-1 font-display text-2xl font-extrabold tracking-wider">
-                  {profile.csd_account || "—"}
+                <p className="mt-1 text-xs text-white/60">
+                  Central Securities Depository (Ghana) Ltd · Broker Code: {profile.csd_broker_code || "CCL"}
                 </p>
-                <p className="mt-1 text-xs text-white/60">Central Securities Depository (Ghana) Ltd</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className={kycBadge.cls}>{kycBadge.label}</Badge>

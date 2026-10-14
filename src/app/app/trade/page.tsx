@@ -345,10 +345,24 @@ const Trade = () => {
                     <Info className="h-3.5 w-3.5" /> Insufficient cash for this order.
                   </p>
                 )}
-                {!profile?.csd_account && (
-                  <p className="mt-3 flex items-center gap-2 text-xs text-danger">
-                    <Info className="h-3.5 w-3.5" /> You need a CSD account number to trade.
-                  </p>
+                {!profile?.csd_account ? (
+                  <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                    <p className="flex items-center gap-1.5 font-semibold">
+                      <Info className="h-3.5 w-3.5 shrink-0" /> CSD Securities Account Pending Assignment
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed opacity-90">
+                      Your KYC is approved. Our trading desk is registering your Central Securities
+                      Depository (CSD) account (Broker Code: CCL). You will be notified by email
+                      and in-app as soon as your CSD number is activated.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs">
+                    <span className="text-muted-foreground">Settlement CSD Account</span>
+                    <span className="font-mono font-semibold text-foreground">
+                      {profile.csd_account} · {profile.csd_broker_code || "CCL"} (ACTIVE)
+                    </span>
+                  </div>
                 )}
 
                 <Button

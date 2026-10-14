@@ -98,6 +98,77 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   SIGNATURE: "Digital Signature",
 };
 
+const ID_DOC_TYPES = new Set(["GHANA_CARD", "PASSPORT", "DRIVERS_LICENSE", "VOTER_ID"]);
+
+function organizeDocs(
+  docs: AdminKycDocument[],
+): { doc: AdminKycDocument; label: string; superseded: boolean }[] {
+  const byType = new Map<string, AdminKycDocument[]>();
+  for (const d of docs) {
+    const list = byType.get(d.type) ?? [];
+    list.push(d);
+    byType.set(d.type, list);
+  }
+
+  const out: { doc: AdminKycDocument; label: string; superseded: boolean }[] = [];
+  for (const [type, list] of byType) {
+    const base = DOC_TYPE_LABELS[type] ?? type.replace(/_/g, " ");
+    const asc = [...list].sort(
+      (a, b) => +new Date(a.createdAt) - +new Date(b.createdAt),
+    );
+    const currentIds = new Set<string>();
+    const inferredSide = new Map<string, string>();
+
+    if (ID_DOC_TYPES.has(type)) {
+      const labeled = asc.filter((d) => d.side);
+      for (const side of ["front", "back"]) {
+        const sameSide = labeled.filter(
+          (d) => String(d.side).toLowerCase() === side,
+        );
+        if (sameSide.length) currentIds.add(sameSide[sameSide.length - 1].id);
+      }
+
+      const unlabeled = asc.filter((d) => !d.side);
+      const missingSides = ["back", "front"].filter(
+        (s) =>
+          !labeled.some(
+            (d) => currentIds.has(d.id) && String(d.side).toLowerCase() === s,
+          ),
+      );
+      for (
+        let i = unlabeled.length - 1, j = 0;
+        i >= 0 && j < missingSides.length;
+        i--, j++
+      ) {
+        currentIds.add(unlabeled[i].id);
+        inferredSide.set(unlabeled[i].id, missingSides[j]);
+      }
+      if (unlabeled.length === 1 && labeled.length === 0) {
+        currentIds.add(unlabeled[0].id);
+      }
+    } else {
+      currentIds.add(asc[asc.length - 1].id);
+    }
+
+    for (const d of asc) {
+      const side = d.side
+        ? String(d.side).toLowerCase()
+        : inferredSide.get(d.id);
+      out.push({
+        doc: d,
+        label: side ? `${base} — ${side[0].toUpperCase()}${side.slice(1)}` : base,
+        superseded: !currentIds.has(d.id),
+      });
+    }
+  }
+
+  return out.sort(
+    (a, b) =>
+      Number(a.superseded) - Number(b.superseded) ||
+      +new Date(b.doc.createdAt) - +new Date(a.doc.createdAt),
+  );
+}
+
 type KycFilter = "ALL" | "PENDING" | "PARTIAL" | "APPROVED" | "REJECTED";
 type RoleFilter = "ALL" | "INVESTOR" | "ADMIN" | "SUPER_ADMIN";
 type DrawerTab = "profile" | "activity" | "documents";
@@ -365,9 +436,13 @@ function ProfileSection({
 
 function DocCard({
   doc,
+  label,
+  superseded,
   onStatusChange,
 }: {
   doc: AdminKycDocument;
+  label: string;
+  superseded: boolean;
   onStatusChange: (updated: AdminKycDocument) => void;
 }) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -375,7 +450,6 @@ function DocCard({
   const [previewing, setPreviewing] = useState(false);
   const [updating, setUpdating] = useState(false);
 
-  const label = DOC_TYPE_LABELS[doc.type] ?? doc.type.replace(/_/g, " ");
   const isImage = (url: string) => /\.(jpe?g|png|gif|webp)(\?|$)/i.test(url);
   const isPdf = (url: string) => /\.pdf(\?|$)/i.test(url);
 
@@ -428,7 +502,12 @@ function DocCard({
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border border-border bg-card",
+        superseded && "opacity-55",
+      )}
+    >
       {previewing && signedUrl && (
         <div className="relative border-b border-border bg-muted/30">
           <Button
@@ -459,6 +538,11 @@ function DocCard({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">{label}</p>
             <div className="mt-0.5 flex items-center gap-2">
+              {superseded && (
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                  Superseded
+                </Badge>
+              )}
               <Badge
                 className={cn(
                   "text-[10px]",
@@ -483,7 +567,7 @@ function DocCard({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {doc.status !== "APPROVED" && (
+          {!superseded && doc.status !== "APPROVED" && (
             <Button
               variant="outline"
               size="icon"
@@ -499,7 +583,7 @@ function DocCard({
               )}
             </Button>
           )}
-          {doc.status !== "REJECTED" && (
+          {!superseded && doc.status !== "REJECTED" && (
             <Button
               variant="outline"
               size="icon"
@@ -570,6 +654,7 @@ export default function AdminUsersPage() {
   const [editDraft, setEditDraft] = useState<Record<string, string>>({});
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [csdQuickNumber, setCsdQuickNumber] = useState("");
 
   const [pendingDelete, setPendingDelete] = useState(false);
   const [pendingHardDelete, setPendingHardDelete] = useState(false);
@@ -629,6 +714,7 @@ export default function AdminUsersPage() {
 
   const openUser = (user: AdminUserDetail) => {
     setSelected(user);
+    setCsdQuickNumber(String(recordValue(user.csdAccount, "csdNumber") ?? ""));
     setDrawerTab("profile");
     setEditingSection(null);
     setEditDraft({});
@@ -646,7 +732,10 @@ export default function AdminUsersPage() {
       adminApi.bids(user.email).catch(() => []),
     ])
       .then(([detail, bids]) => {
-        if (detail) setSelected(detail);
+        if (detail) {
+          setSelected(detail);
+          setCsdQuickNumber(String(recordValue(detail.csdAccount, "csdNumber") ?? ""));
+        }
         const detailBids = detail?.bids ?? [];
         const merged = [...(bids ?? [])];
         for (const bid of detailBids) {
@@ -760,6 +849,39 @@ export default function AdminUsersPage() {
       load();
     } catch (err) {
       toast.error("Could not update KYC status", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleApproveCsd = async () => {
+    if (!selected) return;
+    const trimmed = csdQuickNumber.trim();
+    if (!trimmed) {
+      toast.error("Enter a CSD Securities Account Number to activate.");
+      return;
+    }
+    setActionLoading("approveCsd");
+    try {
+      const updated = await adminApi.updateUserProfile(selected.id, {
+        csd: {
+          csdNumber: trimmed,
+          brokerCode:
+            String(recordValue(selected.csdAccount, "brokerCode") || "").trim() ||
+            "CCL",
+          status: "ACTIVE",
+        },
+      });
+      setSelected(updated);
+      setCsdQuickNumber(String(recordValue(updated.csdAccount, "csdNumber") ?? trimmed));
+      toast.success(
+        `CSD account ${trimmed} activated — investor notified by email and in-app.`,
+      );
+      load();
+    } catch (err) {
+      toast.error("Could not activate CSD account", {
         description: err instanceof Error ? err.message : undefined,
       });
     } finally {
@@ -1326,6 +1448,57 @@ export default function AdminUsersPage() {
                 </div>
               )}
 
+              {/* CSD Depository Registration & Approval bar */}
+              {!selected.isPendingEmailConfirmation && (
+                <div className="flex flex-col gap-2.5 border-b border-border bg-muted/25 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Landmark className="h-4 w-4 shrink-0 text-brand-bronze" />
+                    <span className="font-semibold text-foreground">
+                      CSD Depository Registration
+                    </span>
+                    <Badge
+                      className={cn(
+                        "text-[10px]",
+                        recordValue(selected.csdAccount, "csdNumber") &&
+                          String(recordValue(selected.csdAccount, "status") ?? "ACTIVE").toUpperCase() === "ACTIVE"
+                          ? "bg-success/10 text-success"
+                          : "bg-brand-bronze/15 text-brand-bronze",
+                      )}
+                    >
+                      {recordValue(selected.csdAccount, "csdNumber")
+                        ? `${String(recordValue(selected.csdAccount, "status") ?? "ACTIVE")} · ${String(recordValue(selected.csdAccount, "brokerCode") || "CCL")}`
+                        : "AWAITING CSD NUMBER"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={csdQuickNumber}
+                      onChange={(e) => setCsdQuickNumber(e.target.value)}
+                      placeholder="Enter CSD account no. (e.g. 10293847)"
+                      className="h-8 w-52 font-mono text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="premium"
+                      className="h-8 shrink-0"
+                      disabled={actionLoading !== null || !csdQuickNumber.trim()}
+                      onClick={() => void handleApproveCsd()}
+                    >
+                      {actionLoading === "approveCsd" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      )}
+                      {recordValue(selected.csdAccount, "csdNumber") &&
+                      String(recordValue(selected.csdAccount, "status") ?? "").toUpperCase() === "ACTIVE" &&
+                      csdQuickNumber.trim() === String(recordValue(selected.csdAccount, "csdNumber"))
+                        ? "Re-notify CSD"
+                        : "Approve & Activate CSD"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Drawer tabs */}
               <div className="flex gap-1 border-b border-border bg-card px-6 pt-3">
                 {(
@@ -1846,10 +2019,12 @@ export default function AdminUsersPage() {
                       );
                     })()}
                     {(selected.kycDocuments ?? []).length > 0 ? (
-                      (selected.kycDocuments ?? []).map((doc) => (
+                      organizeDocs(selected.kycDocuments ?? []).map(({ doc, label, superseded }) => (
                         <DocCard
                           key={doc.id}
                           doc={doc}
+                          label={label}
+                          superseded={superseded}
                           onStatusChange={(updated) =>
                             setSelected((prev) =>
                               prev
