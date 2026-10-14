@@ -166,11 +166,29 @@ function toFixedIncomeQuote(raw: any): Quote {
   };
 }
 
+function clientIdentity(raw: any) {
+  const u = raw?.user ?? {};
+  const name =
+    [u.firstName, u.lastName].filter(Boolean).join(" ").trim() ||
+    u.email ||
+    "";
+  return {
+    client: name,
+    clientEmail: u.email ?? "",
+    clientPhone: u.phone ?? null,
+    clientCsd: u.csdAccount?.csdNumber ?? null,
+    clientKycStatus: u.kycStatus ?? null,
+    desk: raw?.desk ?? undefined,
+    executionEmail: raw?.executionEmail ?? null,
+  };
+}
+
 function toEquityOrder(raw: any): Order {
   const sec = raw.equitySecurity ?? {};
   return {
     id: raw.id ?? "",
     user_id: raw.userId ?? "",
+    ...clientIdentity(raw),
     instrument: sec.ticker ?? raw.equitySecurityId ?? "",
     name: sec.name ?? raw.equitySecurityId ?? "",
     asset_class: "equity",
@@ -207,6 +225,7 @@ function toFixedIncomeOrder(raw: any): Order {
   return {
     id: raw.id ?? "",
     user_id: raw.userId ?? "",
+    ...clientIdentity(raw),
     instrument,
     name,
     asset_class: "fixed_income",
@@ -966,6 +985,14 @@ async function handleAdmin(body: Record<string, unknown>): Promise<unknown> {
       const order = await request<any>("POST", path, resultDto);
       return { order: toOrder(order.order ?? order), message: order.message ?? "Result uploaded" };
     }
+    case "resendExecutionEmail": {
+      const id = String(body.id ?? "");
+      const assetClass = String(body.assetClass ?? "");
+      const path = assetClass === "equity"
+        ? `/equities/admin/orders/${id}/resend-execution-email`
+        : `/fixed-income/admin/orders/${id}/resend-execution-email`;
+      return request<{ message: string }>("POST", path);
+    }
     case "voidExecution": {
       const id = String(body.id ?? "");
       const assetClass = String(body.assetClass ?? "");
@@ -1342,6 +1369,8 @@ export const adminApi = {
     call<{ order: Order; message: string }>("admin", { action: "uploadResult", id, assetClass, result }),
   voidOrderExecution: (id: string, assetClass: "equity" | "fixed_income", reason: string) =>
     call<{ order: Order; message: string }>("admin", { action: "voidExecution", id, assetClass, reason }),
+  resendExecutionEmail: (id: string, assetClass: "equity" | "fixed_income") =>
+    call<{ message: string }>("admin", { action: "resendExecutionEmail", id, assetClass }),
   approveOrder: (id: string) =>
     call<{ order: Order; message: string }>("admin", { action: "approveOrder", id }),
   rejectOrder: (id: string, assetClass: "equity" | "fixed_income") =>

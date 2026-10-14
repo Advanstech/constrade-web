@@ -52,6 +52,9 @@ import {
   Eye,
   CheckCircle,
   FileText,
+  Mail,
+  MailCheck,
+  MailWarning,
 } from "lucide-react";
 import {
   BarChart,
@@ -160,6 +163,8 @@ function fmtDate(d: string | null | undefined) {
 function exportToCsv(orders: AdminOrder[]) {
   const headers = [
     "Order ID",
+    "Client",
+    "Client Email",
     "Client ID",
     "Instrument",
     "Asset Class",
@@ -175,6 +180,8 @@ function exportToCsv(orders: AdminOrder[]) {
   const rows = orders.map((o) => {
     return [
       o.id,
+      o.client ?? "",
+      o.clientEmail ?? "",
       o.user_id,
       o.name,
       o.asset_class,
@@ -217,6 +224,7 @@ export default function AdminOrdersPage() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [voidReason, setVoidReason] = useState("");
   const [downloadingNoteId, setDownloadingNoteId] = useState<string | null>(null);
+  const [resendingEmailId, setResendingEmailId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -372,6 +380,26 @@ export default function AdminOrdersPage() {
       setActionError((e as Error)?.message ?? "Could not open contract note.");
     } finally {
       setDownloadingNoteId(null);
+    }
+  };
+
+  const handleResendExecutionEmail = async (order: AdminOrder) => {
+    setResendingEmailId(order.id);
+    setActionError(null);
+    try {
+      const res = await adminApi.resendExecutionEmail(order.id, order.asset_class);
+      const stamp = { sent: true, at: new Date().toISOString(), error: null };
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? ({ ...o, executionEmail: stamp } as AdminOrder) : o)),
+      );
+      setSelectedOrder((prev) =>
+        prev?.id === order.id ? ({ ...prev, executionEmail: stamp } as AdminOrder) : prev,
+      );
+      showSuccess(res.message || "Execution confirmation resent to the client.");
+    } catch (e: unknown) {
+      setActionError((e as Error)?.message ?? "Failed to resend confirmation email.");
+    } finally {
+      setResendingEmailId(null);
     }
   };
 
@@ -699,6 +727,7 @@ export default function AdminOrdersPage() {
                 <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/50">
                   <TableRow>
                     <TableHead className="w-[120px]">Order ID</TableHead>
+                    <TableHead className="hidden lg:table-cell">Client</TableHead>
                     <TableHead>Instrument</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead className="text-right">Qty / FV</TableHead>
@@ -723,6 +752,12 @@ export default function AdminOrdersPage() {
                       >
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {order.id.slice(0, 8)}…
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="text-sm font-medium">{order.client || "—"}</div>
+                          <div className="max-w-[160px] truncate text-xs text-muted-foreground">
+                            {order.clientEmail || `${order.user_id.slice(0, 8)}…`}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{order.name}</div>
@@ -919,6 +954,9 @@ export default function AdminOrdersPage() {
                         <div className="absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-background bg-emerald-500" />
                         <p className="text-sm font-medium text-foreground">Order Placed</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{fmtDate(selectedOrder.created_at)}</p>
+                        {selectedOrder.client && (
+                          <p className="mt-0.5 text-[10px] font-medium text-muted-foreground/80">by {selectedOrder.client} (client)</p>
+                        )}
                       </div>
 
                       <div className="relative pl-6">
@@ -930,6 +968,9 @@ export default function AdminOrdersPage() {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {selectedOrder.paymentConfirmedAt ? fmtDate(selectedOrder.paymentConfirmedAt) : "Awaiting payment"}
                         </p>
+                        {selectedOrder.desk?.confirmedBy && (
+                          <p className="mt-0.5 text-[10px] font-medium text-muted-foreground/80">by {selectedOrder.desk.confirmedBy.name}</p>
+                        )}
                       </div>
 
                       <div className="relative pl-6">
@@ -943,6 +984,9 @@ export default function AdminOrdersPage() {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {selectedOrder.placedAt ? fmtDate(selectedOrder.placedAt) : (selectedOrder.status === "rejected" || selectedOrder.status === "cancelled" ? "Skipped/NA" : "Awaiting placement")}
                         </p>
+                        {selectedOrder.desk?.placedBy && (
+                          <p className="mt-0.5 text-[10px] font-medium text-muted-foreground/80">by {selectedOrder.desk.placedBy.name}</p>
+                        )}
                       </div>
 
                       <div className="relative pl-6">
@@ -959,6 +1003,56 @@ export default function AdminOrdersPage() {
                         {selectedOrder.executionNote && (
                           <p className="text-xs text-muted-foreground mt-1.5 rounded bg-muted p-2">{selectedOrder.executionNote}</p>
                         )}
+                        {(selectedOrder.desk?.executedBy || selectedOrder.desk?.rejectedBy) && (
+                          <p className="mt-0.5 text-[10px] font-medium text-muted-foreground/80">
+                            by {(selectedOrder.status === "rejected" ? selectedOrder.desk?.rejectedBy : selectedOrder.desk?.executedBy)?.name}
+                          </p>
+                        )}
+                        {selectedOrder.desk?.voidedBy && (
+                          <p className="mt-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                            prior execution voided by {selectedOrder.desk.voidedBy.name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Client */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3">Client</h4>
+                    <div className="rounded-lg border bg-muted/30 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-bronze/15 font-bold text-brand-bronze">
+                          {(selectedOrder.client || "?").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{selectedOrder.client || "Unknown client"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{selectedOrder.clientEmail || "—"}</p>
+                        </div>
+                        {selectedOrder.clientKycStatus && (
+                          <span className={cn(
+                            "ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                            selectedOrder.clientKycStatus === "APPROVED"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          )}>
+                            KYC {selectedOrder.clientKycStatus}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Phone</p>
+                          <p className="mt-0.5 font-medium">{selectedOrder.clientPhone || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">CSD Account</p>
+                          <p className="mt-0.5 font-mono font-medium">{selectedOrder.clientCsd || "—"}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-muted-foreground">Client ID</p>
+                          <p className="mt-0.5 font-mono text-muted-foreground/90">{selectedOrder.user_id}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1046,6 +1140,71 @@ export default function AdminOrdersPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Client Notification — execution email delivery status */}
+                  {selectedOrder.status === "filled" && (() => {
+                    const mail = selectedOrder.executionEmail;
+                    const failed = mail?.sent === false;
+                    return (
+                      <div
+                        className={cn(
+                          "rounded-xl border p-4",
+                          failed
+                            ? "border-red-500/30 bg-red-500/5"
+                            : "border-emerald-500/30 bg-emerald-500/5",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span
+                              className={cn(
+                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                                failed
+                                  ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                              )}
+                            >
+                              {failed ? <MailWarning className="h-4 w-4" /> : <MailCheck className="h-4 w-4" />}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">Client Notification</p>
+                              {mail ? (
+                                failed ? (
+                                  <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                                    Delivery failed{mail.error ? ` — ${mail.error}` : ""}
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    Contract note emailed to {selectedOrder.clientEmail || "client"}
+                                    {" · "}
+                                    {format(new Date(mail.at), "dd MMM yyyy, HH:mm")}
+                                  </p>
+                                )
+                              ) : (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  No delivery record — confirmation was sent before tracking, or mail was not configured.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 gap-1.5"
+                            disabled={resendingEmailId === selectedOrder.id || !selectedOrder.clientEmail}
+                            onClick={() => void handleResendExecutionEmail(selectedOrder)}
+                          >
+                            {resendingEmailId === selectedOrder.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Mail className="h-3.5 w-3.5" />
+                            )}
+                            Resend
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Actions Footer */}

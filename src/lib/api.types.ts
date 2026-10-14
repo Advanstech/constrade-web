@@ -327,8 +327,26 @@ export interface AdminDashboardData {
   latestOrders: Order[];
 }
 
+export interface OrderDeskActor {
+  name: string;
+  email: string;
+  at: string;
+}
+
 export interface AdminOrder extends Order {
   client: string;
+  clientEmail?: string;
+  clientPhone?: string | null;
+  clientCsd?: string | null;
+  clientKycStatus?: string | null;
+  desk?: Partial<
+    Record<
+      "confirmedBy" | "placedBy" | "executedBy" | "rejectedBy" | "voidedBy",
+      OrderDeskActor
+    >
+  >;
+  // Latest EXECUTED-confirmation email delivery attempt (null = never sent/tracked)
+  executionEmail?: { sent: boolean; at: string; error?: string | null } | null;
   // Result fields — populated after execution
   filledPrice?: number | null;
   filledQty?: number | null;
