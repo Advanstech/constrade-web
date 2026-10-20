@@ -39,7 +39,7 @@ function toDateInput(value?: string | Date | null) {
 
 function hydrateKycForm(progress: KycProgress, profile: any): KycFormData {
   const data = progress.data as any;
-  const draft = (data.draft ?? {}) as Partial<KycFormData>;
+  const draft = (data.draft ?? {}) as any;
   const individual = data.individualProfile ?? {};
   const employment = data.employmentDetails ?? {};
   const tax = data.taxDetails ?? {};
@@ -49,69 +49,158 @@ function hydrateKycForm(progress: KycProgress, profile: any): KycFormData {
   const profileName = String(profile?.full_name ?? "").trim().split(/\s+/);
   const firstName = profileName[0] ?? "";
   const surname = profileName.slice(1).join(" ");
-  const saved1 = { ...EMPTY_FORM["1"]!, ...draft["1"] };
-  const saved2 = { ...EMPTY_FORM["2"]!, ...draft["2"] };
-  const saved3 = { ...EMPTY_FORM["3"]!, ...draft["3"] };
+  const saved1 = { ...EMPTY_FORM["1"]!, ...(draft["1"] ?? {}) };
+  const saved2 = { ...EMPTY_FORM["2"]!, ...(draft["2"] ?? {}) };
+  const saved3 = { ...EMPTY_FORM["3"]!, ...(draft["3"] ?? {}) };
   const saved4 = draft["4"] ?? EMPTY_FORM["4"]!;
-  const saved5 = { ...EMPTY_FORM["5"]!, ...draft["5"] };
-  const saved6 = { ...EMPTY_FORM["6"]!, ...draft["6"] };
-  const identityType = individual.idDocumentType === "PASSPORT" ? "Passport" : "Ghana Card";
+  const saved5 = { ...EMPTY_FORM["5"]!, ...(draft["5"] ?? {}) };
+  const saved6 = { ...EMPTY_FORM["6"]!, ...(draft["6"] ?? {}) };
+  const identityType =
+    saved4.idDocumentType === "PASSPORT" || individual.idDocumentType === "PASSPORT"
+      ? "Passport"
+      : "Ghana Card";
   const persistedIds = documents
     .filter((doc) => doc.type === "GHANA_CARD" || doc.type === "PASSPORT")
     .slice(-2);
   const selfie = [...documents].reverse().find((doc) => doc.type === "SELFIE");
   const signature = [...documents].reverse().find((doc) => doc.type === "SIGNATURE");
+  const baseIdentityDocs = Array.isArray(saved4.identityDocs) && saved4.identityDocs.length > 0
+    ? saved4.identityDocs
+    : EMPTY_FORM["4"]!.identityDocs;
   const identityDocs = EMPTY_FORM["4"]!.identityDocs.map((emptyDoc, index) => {
-    const savedDoc = (saved4.identityDocs?.[index] ?? {}) as any;
+    const savedDoc = (baseIdentityDocs[index] ?? {}) as any;
     const persisted = persistedIds[index];
     return {
       ...emptyDoc,
       ...savedDoc,
       type: savedDoc.type || (persisted?.type === "PASSPORT" ? "Passport" : identityType),
-      number: savedDoc.number || (identityType === "Passport" ? individual.passportNumber : individual.ghanaCardNumber) || "",
+      number:
+        savedDoc.number ||
+        saved4.idNumber ||
+        (identityType === "Passport" ? individual.passportNumber : individual.ghanaCardNumber) ||
+        "",
       fileName: savedDoc.fileName || persisted?.fileName || "",
       file: null,
       fileUrl: persisted?.fileUrl,
     };
   });
 
+  const clean = (v: unknown): string => {
+    if (typeof v !== "string") return "";
+    const t = v.trim();
+    return t.toUpperCase() === "N/A" ? "" : t;
+  };
+
   return {
     "1": {
       ...saved1,
-      firstName: saved1.firstName || firstName,
-      surname: saved1.surname || surname,
-      dateOfBirth: saved1.dateOfBirth || toDateInput(individual.dateOfBirth),
-      countryOfOrigin: saved1.countryOfOrigin || individual.nationality || "",
-      countryOfResidence: saved1.countryOfResidence || individual.nationality || "",
-      tin: saved1.tin || tax.tinNumber || "",
+      firstName: clean(saved1.firstName) || firstName,
+      surname: clean(saved1.surname) || clean((draft["1"] as any)?.lastName) || surname,
+      dateOfBirth: clean(saved1.dateOfBirth) || toDateInput(individual.dateOfBirth),
+      countryOfOrigin:
+        clean(saved1.countryOfOrigin) ||
+        clean((draft["1"] as any)?.nationality) ||
+        clean(individual.nationality) ||
+        "",
+      countryOfResidence:
+        clean(saved1.countryOfResidence) ||
+        clean((draft["1"] as any)?.nationality) ||
+        clean(individual.nationality) ||
+        "",
+      tin: clean(saved1.tin) || clean(tax.tinNumber) || "",
       hasExistingCsd: saved1.hasExistingCsd || Boolean(data.csdAccount?.csdNumber),
-      csdNumber: saved1.csdNumber || data.csdAccount?.csdNumber || "",
+      csdNumber: clean(saved1.csdNumber) || clean(data.csdAccount?.csdNumber) || "",
     },
     "2": {
       ...saved2,
-      email: saved2.email || profile?.email || "",
-      mobile1: saved2.mobile1 || profile?.phone || "",
-      residentialAddress: saved2.residentialAddress || individual.residentialAddress || individual.address || "",
-      occupation: saved2.occupation || individual.occupation || "",
-      profession: saved2.profession || employment.jobTitle || "",
-      employmentStatus: saved2.employmentStatus || "",
+      email: clean(saved2.email) || profile?.email || "",
+      mobile1:
+        clean(saved2.mobile1) ||
+        clean((draft["1"] as any)?.phone) ||
+        profile?.phone ||
+        "",
+      residentialAddress:
+        clean(saved2.residentialAddress) ||
+        clean((draft["1"] as any)?.address) ||
+        clean(individual.residentialAddress) ||
+        clean(individual.address) ||
+        "",
+      occupation:
+        clean(saved2.occupation) ||
+        clean((draft["1"] as any)?.occupation) ||
+        clean(individual.occupation) ||
+        "",
+      profession:
+        clean(saved2.profession) ||
+        clean((draft["2"] as any)?.jobTitle) ||
+        clean(employment.jobTitle) ||
+        "",
+      employmentStatus:
+        clean(saved2.employmentStatus) ||
+        clean((employment as any).employmentStatus) ||
+        "",
+      monthlyIncomeRange:
+        clean(saved2.monthlyIncomeRange) ||
+        clean((draft["2"] as any)?.annualIncome) ||
+        clean(financial.annualIncome) ||
+        "",
       employer: {
         ...EMPTY_FORM["2"]!.employer,
-        ...saved2.employer,
-        name: saved2.employer?.name || employment.employerName || "",
-        natureOfBusiness: saved2.employer?.natureOfBusiness || employment.industry || "",
+        ...(saved2.employer ?? {}),
+        name:
+          clean(saved2.employer?.name) ||
+          clean((draft["2"] as any)?.employerName) ||
+          clean(employment.employerName) ||
+          "",
+        natureOfBusiness:
+          clean(saved2.employer?.natureOfBusiness) ||
+          clean((draft["2"] as any)?.industry) ||
+          clean(employment.industry) ||
+          "",
       },
-      bankName: saved2.bankName || bank.bankName || "",
-      branch: saved2.branch || bank.branch || "",
-      accountName: saved2.accountName || bank.accountName || "",
-      accountNumber: saved2.accountNumber || bank.accountNumber || "",
+      bankName:
+        clean(saved2.bankName) ||
+        clean((draft["3"] as any)?.bankName) ||
+        clean(bank.bankName) ||
+        "",
+      branch:
+        clean(saved2.branch) ||
+        clean((draft["3"] as any)?.branch) ||
+        clean(bank.branch) ||
+        "",
+      accountName:
+        clean(saved2.accountName) ||
+        clean((draft["3"] as any)?.accountName) ||
+        clean(bank.accountName) ||
+        "",
+      accountNumber:
+        clean(saved2.accountNumber) ||
+        clean((draft["3"] as any)?.accountNumber) ||
+        clean(bank.accountNumber) ||
+        "",
     },
     "3": {
       ...saved3,
-      category: saved3.category || (data.corporateProfile || progress.data.corporateProfile ? "Corporate Client" : "Individual Client"),
-      investmentObjectives: saved3.investmentObjectives || financial.investmentObjectives || "",
-      sourceOfFunds: saved3.sourceOfFunds || individual.sourceOfFunds || "",
-      initialInvestment: saved3.initialInvestment || financial.netWorth || "",
+      category:
+        clean(saved3.category) ||
+        (data.corporateProfile || progress.data.corporateProfile
+          ? "Corporate Client"
+          : "Individual Client"),
+      investmentObjectives:
+        clean(saved3.investmentObjectives) ||
+        clean((draft["2"] as any)?.investmentObjectives) ||
+        clean(financial.investmentObjectives) ||
+        "",
+      sourceOfFunds:
+        clean(saved3.sourceOfFunds) ||
+        clean((draft["1"] as any)?.sourceOfFunds) ||
+        clean(individual.sourceOfFunds) ||
+        "",
+      initialInvestment:
+        clean(saved3.initialInvestment) ||
+        clean((draft["2"] as any)?.netWorth) ||
+        clean(financial.netWorth) ||
+        "",
     },
     "4": {
       ...EMPTY_FORM["4"]!,
@@ -123,11 +212,23 @@ function hydrateKycForm(progress: KycProgress, profile: any): KycFormData {
     },
     "5": {
       ...saved5,
+      signature:
+        saved5.signature ||
+        ((draft["5"] as any)?.signatureBase64
+          ? `data:image/png;base64,${(draft["5"] as any).signatureBase64}`
+          : ""),
       signatureFile: null,
       signatureFileName: saved5.signatureFileName || signature?.fileName || "",
       signatureUrl: signature?.fileUrl,
     },
-    "6": saved6,
+    "6": {
+      ...saved6,
+      accuracy: Boolean(saved6.accuracy ?? (draft["6"] as any)?.accuracyDeclaration),
+      terms: Boolean(saved6.terms ?? (draft["6"] as any)?.termsAccepted),
+      sourceOfFundsDeclaration: Boolean(
+        saved6.sourceOfFundsDeclaration ?? (draft["6"] as any)?.sofDeclaration,
+      ),
+    },
   };
 }
 

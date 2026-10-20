@@ -254,29 +254,83 @@ function toFixedIncomeOrder(raw: any): Order {
   } as any;
 }
 
+function toBidOrder(raw: any): Order {
+  const auction = raw.auction ?? {};
+  const secType = String(auction.securityType ?? "");
+  const name =
+    auction.instrumentName ??
+    (secType ? secType.replace(/_/g, " ") : "Government Security");
+  const instrument = auction.isin || (secType ? `GOG-${secType}` : name);
+  const rawStatus = String(raw.status ?? "PENDING").toUpperCase();
+  const status: OrderStatus =
+    rawStatus === "ACCEPTED" || rawStatus === "SETTLED"
+      ? "filled"
+      : rawStatus === "REJECTED"
+        ? "rejected"
+        : rawStatus === "PAYMENT_CONFIRMED"
+          ? "processing"
+          : rawStatus === "PLACED"
+            ? "placed"
+            : "pending_approval";
+  const amount = Number(raw.allottedAmount ?? raw.amount) || 0;
+  return {
+    id: raw.id ?? "",
+    user_id: raw.userId ?? "",
+    ...clientIdentity(raw),
+    instrument,
+    name,
+    asset_class: "fixed_income",
+    side: "buy",
+    order_type: "market",
+    quantity: amount,
+    price: 1,
+    status,
+    filled_price: rawStatus === "ACCEPTED" || rawStatus === "SETTLED" ? 1 : null,
+    created_at: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? null,
+    totalAmount: amount,
+    fees: 0,
+    filledFaceValue: raw.allottedAmount ?? null,
+    settlementDate: raw.settlementDate ?? auction.settlementDate ?? auction.issueDate ?? null,
+    executionNote: raw.rejectionReason ?? null,
+  } as any;
+}
+
 function toOrder(raw: any): Order {
   if (raw.equitySecurityId || raw.equitySecurity) return toEquityOrder(raw);
+  if (raw.auctionId || raw.auction) return toBidOrder(raw);
   return toFixedIncomeOrder(raw);
 }
 
 function toPosition(raw: any): Position {
-  const quantity = Number(raw.quantity) || 0;
-  const avgPrice = Number(raw.price) || Number(raw.rate) || 0;
+  const isEquity = raw.assetClass === "equity" || raw.securityType === "EQUITY";
+  const quantity = Number(raw.quantity ?? raw.amount) || 0;
+  const avgPrice = Number(raw.price) || (isEquity ? 0 : 1);
   const marketValue = Number(raw.amount) || quantity * avgPrice || 0;
   // Backend supplies accreted value for FI and costBasis when available.
   const cost = Number(raw.costBasis) || quantity * avgPrice || marketValue;
-  const pl = marketValue - cost;
+  const rate = Number(raw.rate) || 0;
+  let pl = marketValue - cost;
+  if (!isEquity && Math.abs(pl) < 0.005 && rate > 0) {
+    pl = marketValue * (rate / 100);
+  }
+  const ticker =
+    raw.ticker ??
+    raw.instrumentName ??
+    raw.bidId ??
+    raw.id ??
+    "";
   return {
-    instrument: raw.instrumentName ?? raw.bidId ?? raw.id ?? "",
-    name: raw.instrumentName ?? raw.bidId ?? raw.id ?? "",
-    assetClass: raw.assetClass === "equity" ? "equity" : "fixed_income",
+    instrument: ticker,
+    name: raw.instrumentName ?? ticker,
+    assetClass: isEquity ? "equity" : "fixed_income",
     quantity,
     avgPrice,
-    marketPrice: quantity > 0 ? marketValue / quantity : avgPrice,
+    marketPrice: Number(raw.marketPrice) || (quantity > 0 ? marketValue / quantity : avgPrice),
     marketValue,
     cost,
     pl,
-    plPct: cost > 0 ? (pl / cost) * 100 : 0,
+    plPct: cost > 0 ? (pl / cost) * 100 : rate,
     dayChangePct: 0,
   };
 }
@@ -650,18 +704,31 @@ async function handleTrading(body: Record<string, unknown>): Promise<unknown> {
       return { order: toOrder(cancelled) };
     }
     case "myOrders": {
-      const [eq, fi] = await Promise.all([
+      const [eq, fi, bidsRes] = await Promise.all([
         request<any[]>("GET", "/equities/orders").catch(() => []),
         request<any[]>("GET", "/fixed-income/orders").catch(() => []),
+        request<any>("GET", "/bids/my?page=1&limit=100").catch(() => null),
       ]);
-      const orders: Order[] = [...eq.map(toEquityOrder), ...fi.map(toFixedIncomeOrder)].sort(
+      const bids: any[] = Array.isArray(bidsRes)
+        ? bidsRes
+        : Array.isArray(bidsRes?.data)
+          ? bidsRes.data
+          : [];
+      const orders: Order[] = [
+        ...eq.map(toEquityOrder),
+        ...fi.map(toFixedIncomeOrder),
+        ...bids.map(toBidOrder),
+      ].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       );
       return { orders };
     }
     case "positions": {
       const holdings = await request<any[]>("GET", "/portfolio/holdings").catch(() => []);
-      return { positions: holdings.map(toPosition) };
+      const activeHoldings = holdings.filter(
+        (h) => String(h.status ?? "").toUpperCase() !== "REJECTED",
+      );
+      return { positions: activeHoldings.map(toPosition) };
     }
     default:
       throw new ApiError("Unknown trading action: " + action);
@@ -677,6 +744,9 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
         request<any>("GET", "/wallet/balance").catch(() => null),
         request<any[]>("GET", "/portfolio/holdings").catch(() => []),
       ]);
+      const activeHoldings = holdings.filter(
+        (h) => String(h.status ?? "").toUpperCase() !== "REJECTED",
+      );
       const cash = balance?.balance ?? 0;
       const securitiesValue = summary?.totalPortfolioValue ?? 0;
       const totalValue = cash + securitiesValue;
@@ -694,7 +764,7 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
         totalPl,
         totalPlPct,
         dayPl: 0,
-        holdings: holdings.map(toPosition),
+        holdings: activeHoldings.map(toPosition),
         allocation,
       };
       return portfolio;
