@@ -28,13 +28,28 @@ export function UploadResultModal({ order, onClose, onSubmit }: UploadResultModa
   const isFixedIncome = order.asset_class === "fixed_income";
   const today = new Date().toISOString().split("T")[0];
 
-  const [filledPrice, setFilledPrice] = useState("");
-  const [filledQtyOrFV, setFilledQtyOrFV] = useState(
-    isFixedIncome ? String(order.quantity) : String(order.quantity),
+  const [filledPrice, setFilledPrice] = useState(
+    order.filledPrice != null
+      ? String(order.filledPrice)
+      : order.filled_price != null
+        ? String(order.filled_price)
+        : "",
   );
-  const [settlementDate, setSettlementDate] = useState(today);
+  const [filledQtyOrFV, setFilledQtyOrFV] = useState(
+    isFixedIncome
+      ? String(order.filledFaceValue ?? order.quantity)
+      : String(order.filledQty ?? order.quantity),
+  );
+  const [settlementDate, setSettlementDate] = useState(
+    order.settlementDate
+      ? new Date(order.settlementDate).toISOString().split("T")[0]
+      : today,
+  );
   const [executionNote, setExecutionNote] = useState(
-    isFixedIncome ? "Executed via Bank of Ghana primary market" : "Executed on Ghana Stock Exchange",
+    order.executionNote ||
+      (isFixedIncome
+        ? "Executed via Bank of Ghana primary market"
+        : "Executed on Ghana Stock Exchange"),
   );
   const [traderNotes, setTraderNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);

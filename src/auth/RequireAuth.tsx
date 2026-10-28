@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/api.types";
-import { isStaff } from "@/lib/permissions";
+import { can, isStaff } from "@/lib/permissions";
 
 function FullScreenLoader() {
   return (
@@ -55,8 +55,7 @@ export function RequireRole({
 
     if (!loading && profile) {
       const ok = minimum
-        ? (["client", "trader", "compliance", "admin"] as Role[]).indexOf(profile.role) >=
-          (["client", "trader", "compliance", "admin"] as Role[]).indexOf(minimum)
+        ? can(profile.role, minimum)
         : staff
           ? isStaff(profile.role)
           : true;
@@ -70,8 +69,7 @@ export function RequireRole({
   if (loading || !user || !profile) return <FullScreenLoader />;
   
   const ok = minimum
-    ? (["client", "trader", "compliance", "admin"] as Role[]).indexOf(profile.role) >=
-      (["client", "trader", "compliance", "admin"] as Role[]).indexOf(minimum)
+    ? can(profile.role, minimum)
     : staff
       ? isStaff(profile.role)
       : true;

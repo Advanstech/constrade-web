@@ -17,7 +17,14 @@ export type OrderStatus =
   | "filled"
   | "cancelled";
 
-export type Role = "client" | "trader" | "compliance" | "admin";
+export type Role = "client" | "researcher" | "trader" | "compliance" | "admin";
+export type BackendRole =
+  | "INVESTOR"
+  | "TRADER"
+  | "RESEARCHER"
+  | "COMPLIANCE"
+  | "ADMIN"
+  | "SUPER_ADMIN";
 export type KycStatus = "pending" | "submitted" | "approved" | "rejected";
 
 export interface Quote {
@@ -242,6 +249,7 @@ export interface AdminUserDetail {
   subscription?: { tier?: string; status?: string } | null;
   kycDocuments: AdminKycDocument[];
   kycDraft?: Record<string, unknown> | null;
+  kycApplication?: Record<string, unknown> | null;
   bids?: AdminBid[];
   equityOrders?: AdminUserOrder[];
   fixedIncomeOrders?: AdminUserOrder[];
@@ -301,7 +309,7 @@ export interface ProvisionUserInput {
   firstName: string;
   lastName: string;
   email: string;
-  role: "INVESTOR" | "ADMIN" | "SUPER_ADMIN";
+  role: BackendRole;
 }
 
 export interface AdminMetrics {

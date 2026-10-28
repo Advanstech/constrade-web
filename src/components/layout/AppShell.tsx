@@ -86,6 +86,7 @@ function CCMark() {
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut } = useAuth();
   const navigate = useRouter();
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -175,7 +176,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <aside
           className={cn(
             "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 ease-in-out lg:flex",
-            collapsed ? "w-[4.5rem]" : "w-60",
+            collapsed ? "w-[4.5rem]" : "lg:w-52 xl:w-60",
           )}
         >
           <div className="flex h-16 shrink-0 items-center justify-center border-b border-sidebar-border">
@@ -284,7 +285,44 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">{children}</main>
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+            <div className="mx-auto w-full max-w-[1920px]">{children}</div>
+          </main>
+
+          {/* PWA / Mobile Bottom Navigation Bar */}
+          <nav
+            aria-label="Client mobile navigation"
+            className="flex shrink-0 items-center justify-around border-t border-sidebar-border bg-sidebar/95 px-2 pt-1.5 backdrop-blur lg:hidden pb-safe"
+          >
+            {[
+              { label: "Home", href: "/app", icon: LayoutDashboard },
+              { label: "Markets", href: "/app/markets", icon: LineChart },
+              { label: "Trade", href: "/app/trade", icon: ArrowLeftRight },
+              { label: "Portfolio", href: "/app/portfolio", icon: PieChart },
+              { label: "Orders", href: "/app/orders", icon: FileText },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active =
+                item.href === "/app"
+                  ? pathname === "/app" || pathname === "/app/dashboard"
+                  : pathname?.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg py-1 text-[10px] font-semibold transition-colors",
+                    active
+                      ? "text-brand-bronze"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </div>
 

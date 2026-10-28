@@ -34,13 +34,106 @@ export interface EmployerInfo {
   officeEmail: string;
 }
 
-export interface Step1Data {
+export interface JointApplicantData {
   title: string;
   gender: string;
   surname: string;
   firstName: string;
   otherNames: string;
   maidenName: string;
+  maritalStatus: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  motherMaidenName: string;
+  tin: string;
+  residentialStatus: string;
+  countryOfOrigin: string;
+  countryOfResidence: string;
+  residentialAddress: string;
+  digitalAddress: string;
+  mobileNumber1: string;
+  emailAddress: string;
+  idType: string;
+  idNumber: string;
+  idIssueDate: string;
+  idExpiryDate: string;
+}
+
+export interface ItfBeneficiaryData {
+  title: string;
+  gender: string;
+  surname: string;
+  firstName: string;
+  otherNames: string;
+  relationship: string;
+  maritalStatus: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  residentialStatus: string;
+  countryOfOrigin: string;
+  countryOfResidence: string;
+  tin: string;
+  idType: string;
+  idNumber: string;
+  idIssueDate: string;
+  idExpiryDate: string;
+}
+
+export interface NextOfKinData {
+  title: string;
+  gender: string;
+  surname: string;
+  firstName: string;
+  otherNames: string;
+  relationship: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  residentialStatus: string;
+  countryOfOrigin: string;
+  countryOfResidence: string;
+  contactNumber: string;
+  emailAddress: string;
+  idType: string;
+  idNumber: string;
+  idIssueDate: string;
+  idExpiryDate: string;
+}
+
+export interface SecondaryBankData {
+  bankName: string;
+  branch: string;
+  accountName: string;
+  accountNumber: string;
+}
+
+export interface FatcaDetailsData {
+  isForeignCitizen: boolean;
+  holdsForeignPassport: boolean;
+  holdsGreenCard: boolean;
+  isForeignTaxResident: boolean;
+  spent183DaysAbroad: boolean;
+  foreignFullName: string;
+  foreignResidentialAddress: string;
+  foreignMailingAddress: string;
+  foreignPhone: string;
+  foreignTinOrSsn: string;
+}
+
+export interface PepEntryData {
+  officialName: string;
+  relationship: string;
+  positionHeld: string;
+}
+
+export interface Step1Data {
+  accountCategory: string;
+  title: string;
+  gender: string;
+  surname: string;
+  firstName: string;
+  otherNames: string;
+  maidenName: string;
+  previousNames: string;
   maritalStatus: string;
   dateOfBirth: string;
   placeOfBirth: string;
@@ -52,8 +145,12 @@ export interface Step1Data {
   permitNumber: string;
   permitIssueDate: string;
   permitExpiryDate: string;
+  permitPlaceOfIssue: string;
+  professionalLicenseNo: string;
   hasExistingCsd: boolean;
   csdNumber: string;
+  jointApplicant: JointApplicantData;
+  itfBeneficiary: ItfBeneficiaryData;
 }
 
 export interface Step2Data {
@@ -78,6 +175,9 @@ export interface Step2Data {
   branch: string;
   accountName: string;
   accountNumber: string;
+  hasSecondaryBank: boolean;
+  secondaryBank: SecondaryBankData;
+  nextOfKin: NextOfKinData;
 }
 
 export interface Step3Data {
@@ -88,7 +188,14 @@ export interface Step3Data {
   investmentHorizon: string;
   investmentKnowledge: string;
   sourceOfFunds: string;
+  sourceOfFundsOther: string;
   initialInvestment: string;
+  topUpFrequency: string;
+  marketLossReaction: string;
+  modeOfInstructions: string;
+  statementDelivery: string;
+  statementFrequency: string;
+  signingMandate: string;
 }
 
 export interface Step4Data {
@@ -96,6 +203,9 @@ export interface Step4Data {
   passportFile?: File | null;
   passportPhotoUrl?: string;
   identityDocs: IdentityDoc[];
+  fatcaDetails: FatcaDetailsData;
+  isPep: boolean;
+  pepEntries: PepEntryData[];
 }
 
 export interface Step5Data {
@@ -103,6 +213,8 @@ export interface Step5Data {
   signatureFile?: File | null;
   signatureFileName?: string;
   signatureUrl?: string;
+  jointSignature?: string;
+  jointSignatureFileName?: string;
 }
 
 export interface Step6Data {
@@ -122,11 +234,27 @@ export interface KycFormData {
 
 export const EMPTY_FORM: KycFormData = {
   "1": {
+    accountCategory: "Individual",
     title: "", gender: "", surname: "", firstName: "", otherNames: "",
-    maidenName: "", maritalStatus: "", dateOfBirth: "", placeOfBirth: "",
-    mothersMaidenName: "", tin: "", residentialStatus: "", countryOfOrigin: "",
-    countryOfResidence: "", permitNumber: "", permitIssueDate: "",
-    permitExpiryDate: "", hasExistingCsd: false, csdNumber: "",
+    maidenName: "", previousNames: "", maritalStatus: "", dateOfBirth: "", placeOfBirth: "",
+    mothersMaidenName: "", tin: "", residentialStatus: "Resident Ghanaian", countryOfOrigin: "Ghana",
+    countryOfResidence: "Ghana", permitNumber: "", permitIssueDate: "",
+    permitExpiryDate: "", permitPlaceOfIssue: "", professionalLicenseNo: "",
+    hasExistingCsd: false, csdNumber: "",
+    jointApplicant: {
+      title: "", gender: "", surname: "", firstName: "", otherNames: "",
+      maidenName: "", maritalStatus: "", dateOfBirth: "", placeOfBirth: "",
+      motherMaidenName: "", tin: "", residentialStatus: "Resident Ghanaian",
+      countryOfOrigin: "Ghana", countryOfResidence: "Ghana",
+      residentialAddress: "", digitalAddress: "", mobileNumber1: "", emailAddress: "",
+      idType: "Ghana Card", idNumber: "", idIssueDate: "", idExpiryDate: "",
+    },
+    itfBeneficiary: {
+      title: "", gender: "", surname: "", firstName: "", otherNames: "",
+      relationship: "Child", maritalStatus: "Single", dateOfBirth: "", placeOfBirth: "",
+      residentialStatus: "Resident Ghanaian", countryOfOrigin: "Ghana", countryOfResidence: "Ghana",
+      tin: "", idType: "Ghana Card", idNumber: "", idIssueDate: "", idExpiryDate: "",
+    },
   },
   "2": {
     residentialAddress: "", nearestLandmark: "", cityTown: "",
@@ -143,30 +271,59 @@ export const EMPTY_FORM: KycFormData = {
     },
     occupation: "", profession: "",
     bankName: "", branch: "", accountName: "", accountNumber: "",
+    hasSecondaryBank: false,
+    secondaryBank: {
+      bankName: "", branch: "", accountName: "", accountNumber: "",
+    },
+    nextOfKin: {
+      title: "", gender: "", surname: "", firstName: "", otherNames: "",
+      relationship: "", dateOfBirth: "", placeOfBirth: "",
+      residentialStatus: "Resident Ghanaian", countryOfOrigin: "Ghana", countryOfResidence: "Ghana",
+      contactNumber: "", emailAddress: "", idType: "Ghana Card", idNumber: "",
+      idIssueDate: "", idExpiryDate: "",
+    },
   },
   "3": {
-    investmentTypes: [], category: "",
-    investmentObjectives: "", riskTolerance: "", investmentHorizon: "",
-    investmentKnowledge: "", sourceOfFunds: "", initialInvestment: "",
+    investmentTypes: ["Treasury Bills/Notes/Bonds", "Equities"], category: "Individual Investor",
+    investmentObjectives: "", riskTolerance: "Medium", investmentHorizon: "Medium Term",
+    investmentKnowledge: "Medium", sourceOfFunds: "Salary", sourceOfFundsOther: "",
+    initialInvestment: "", topUpFrequency: "Monthly",
+    marketLossReaction: "CONCERNED_HOLD",
+    modeOfInstructions: "Email", statementDelivery: "Email", statementFrequency: "Monthly",
+    signingMandate: "One to Sign",
   },
   "4": {
     passportPhoto: "",
     passportFile: null,
     identityDocs: [
-      { type: "", number: "", placeOfIssue: "", issueDate: "", expiryDate: "", fileName: "", file: undefined },
-      { type: "", number: "", placeOfIssue: "", issueDate: "", expiryDate: "", fileName: "", file: undefined },
+      { type: "Ghana Card", number: "", placeOfIssue: "Accra", issueDate: "", expiryDate: "", fileName: "", file: undefined },
+      { type: "Ghana Card", number: "", placeOfIssue: "Accra", issueDate: "", expiryDate: "", fileName: "", file: undefined },
     ],
+    fatcaDetails: {
+      isForeignCitizen: false,
+      holdsForeignPassport: false,
+      holdsGreenCard: false,
+      isForeignTaxResident: false,
+      spent183DaysAbroad: false,
+      foreignFullName: "",
+      foreignResidentialAddress: "",
+      foreignMailingAddress: "",
+      foreignPhone: "",
+      foreignTinOrSsn: "",
+    },
+    isPep: false,
+    pepEntries: [],
   },
-  "5": { signature: "", signatureFile: null, signatureFileName: "" },
+  "5": { signature: "", signatureFile: null, signatureFileName: "", jointSignature: "", jointSignatureFileName: "" },
   "6": { accuracy: false, sourceOfFundsDeclaration: false, terms: false },
 };
 
 export const STEP_LABELS = [
-  "Personal Information",
-  "Contact & Professional",
-  "Account Preferences",
-  "Document Uploads",
-  "Digital Signature",
+  "Personal & Ownership",
+  "Contact, Work & Next of Kin",
+  "Suitability & Mandate",
+  "Identity, FATCA & PEP",
+  "Digital Signatures",
   "Review & Submit"
 ];
 
@@ -318,35 +475,42 @@ export function SearchableSelect({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Type to search…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && query.trim()) {
+                  e.preventDefault();
+                  const exact = filtered.find((o) => o.toLowerCase() === query.trim().toLowerCase());
+                  onChange(exact ?? query.trim());
+                  setOpen(false);
+                }
+              }}
+              placeholder="Type to search or enter custom…"
               className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-1 focus-visible:ring-brand-bronze/40"
             />
           </div>
           <div className="max-h-52 overflow-y-auto">
-            {filtered.length === 0 ? (
+            {query.trim() && !options.some((o) => o.toLowerCase() === query.trim().toLowerCase()) && (
               <button
                 type="button"
-                onClick={() => { onChange(query); setOpen(false); }}
-                className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                onClick={() => { onChange(query.trim()); setOpen(false); }}
+                className="flex w-full items-center gap-2 border-b border-border/50 bg-brand-bronze/5 px-3 py-2 text-left text-sm font-medium text-brand-bronze hover:bg-brand-bronze/10"
               >
-                Use &ldquo;{query}&rdquo;
+                Use &ldquo;{query.trim()}&rdquo;
               </button>
-            ) : (
-              filtered.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => { onChange(opt); setOpen(false); }}
-                  className={cn(
-                    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
-                    opt === value && "bg-brand-bronze-soft text-brand-bronze-dark font-medium",
-                  )}
-                >
-                  {opt === value && <Check className="h-3.5 w-3.5 shrink-0" />}
-                  {opt}
-                </button>
-              ))
             )}
+            {filtered.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => { onChange(opt); setOpen(false); }}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                  opt === value && "bg-brand-bronze-soft text-brand-bronze-dark font-medium",
+                )}
+              >
+                {opt === value && <Check className="h-3.5 w-3.5 shrink-0" />}
+                {opt}
+              </button>
+            ))}
           </div>
         </div>
       )}

@@ -159,7 +159,7 @@ const Trade = () => {
           </CardContent>
         </Card>
       ) : (
-      <div className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr] 2xl:grid-cols-[1.05fr_1.25fr]">
         {/* Instrument picker */}
         <Card>
           <CardContent className="p-0">
@@ -174,7 +174,7 @@ const Trade = () => {
                 />
               </div>
             </div>
-            <div className="max-h-[24rem] overflow-y-auto">
+            <div className="max-h-[22rem] min-h-[20rem] overflow-y-auto lg:max-h-[calc(100dvh-16rem)]">
               {quotes.length === 0
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <Skeleton key={i} className="mx-4 my-2 h-12" />

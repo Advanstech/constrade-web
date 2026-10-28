@@ -39,9 +39,12 @@ const Login = () => {
   }, [resendIn]);
 
   const redirectFor = (role?: string) => {
-    const destination = ["trader", "compliance", "admin"].includes(role ?? "")
-      ? "/admin/dashboard"
-      : "/app/dashboard";
+    const destination =
+      role === "trader"
+        ? "/admin/orders"
+        : ["researcher", "compliance", "admin"].includes(role ?? "")
+          ? "/admin/dashboard"
+          : "/app/dashboard";
     navigate.replace(destination);
   };
 

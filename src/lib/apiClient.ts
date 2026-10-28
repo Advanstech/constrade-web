@@ -31,7 +31,12 @@ function readToken(key: string): string | null {
   if (memoryRefreshToken && key === REFRESH_TOKEN_KEY) return memoryRefreshToken;
   const storage = safeStorage("local");
   try {
-    return storage?.getItem(key) ?? null;
+    const val = storage?.getItem(key) ?? null;
+    if (val) {
+      if (key === ACCESS_TOKEN_KEY) memoryAccessToken = val;
+      if (key === REFRESH_TOKEN_KEY) memoryRefreshToken = val;
+    }
+    return val;
   } catch {
     return null;
   }
@@ -97,7 +102,7 @@ async function rawRequest<T = unknown>(
   };
 
   const token = getAccessToken();
-  if (token) {
+  if (token && !path.includes("/auth/refresh")) {
     headers.Authorization = `Bearer ${token}`;
   }
 
@@ -178,8 +183,13 @@ function performRefresh(): Promise<boolean> {
         if (!res.accessToken || !res.refreshToken) return false;
         setTokens(res.accessToken, res.refreshToken);
         return true;
-      } catch {
-        clearTokens();
+      } catch (err: unknown) {
+        // Only wipe local session if the refresh token is explicitly rejected as invalid/revoked (401).
+        // Transient network disconnects or 5xx server errors must not clear the user's login.
+        const status = err instanceof ApiError ? err.status : undefined;
+        if (status === 401) {
+          clearTokens();
+        }
         return false;
       } finally {
         refreshInFlight = null;

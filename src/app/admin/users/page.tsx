@@ -79,10 +79,18 @@ import type {
   AdminStats,
   AdminUserDetail,
 } from "@/lib/api.types";
+import { BACKEND_ROLE_META } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const BACKEND_ROLES = ["INVESTOR", "ADMIN", "SUPER_ADMIN"] as const;
+const BACKEND_ROLES = [
+  "INVESTOR",
+  "TRADER",
+  "RESEARCHER",
+  "COMPLIANCE",
+  "ADMIN",
+  "SUPER_ADMIN",
+] as const;
 const PAGE_SIZES = [10, 25, 50];
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -170,7 +178,14 @@ function organizeDocs(
 }
 
 type KycFilter = "ALL" | "PENDING" | "PARTIAL" | "APPROVED" | "REJECTED";
-type RoleFilter = "ALL" | "INVESTOR" | "ADMIN" | "SUPER_ADMIN";
+type RoleFilter =
+  | "ALL"
+  | "INVESTOR"
+  | "TRADER"
+  | "RESEARCHER"
+  | "COMPLIANCE"
+  | "ADMIN"
+  | "SUPER_ADMIN";
 type DrawerTab = "profile" | "activity" | "documents";
 
 function display(value: unknown): string {
@@ -1051,12 +1066,12 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="space-y-6 p-3 sm:p-5 lg:p-6 xl:p-8">
       <PageHeader
         title="Investor Governance"
         subtitle="Compliance, CSD account-opening and access management for every investor on the platform."
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 lg:flex-nowrap">
             <Button variant="outline" size="sm" onClick={load}>
               <RotateCcw className="h-3.5 w-3.5" /> Refresh
             </Button>
@@ -1081,7 +1096,7 @@ export default function AdminUsersPage() {
       />
 
       {/* KPI row */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:gap-4">
         {[
           { label: "Total Investors", value: counts.total, icon: Users },
           { label: "Pending KYC", value: counts.pending, icon: ShieldAlert },
@@ -1090,13 +1105,13 @@ export default function AdminUsersPage() {
           { label: "CSD Linked", value: counts.csd, icon: WalletCards },
         ].map(({ label, value, icon: Icon }) => (
           <Card key={label}>
-            <CardContent className="flex items-center justify-between p-5">
+            <CardContent className="flex items-center justify-between p-4 xl:p-5">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
+                <p className="mt-1 text-xl font-bold text-foreground xl:text-2xl">{value}</p>
               </div>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-bronze/10 text-brand-bronze">
-                <Icon className="h-5 w-5" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-bronze/10 text-brand-bronze xl:h-10 xl:w-10">
+                <Icon className="h-4 w-4 xl:h-5 xl:w-5" />
               </span>
             </CardContent>
           </Card>
@@ -1135,14 +1150,14 @@ export default function AdminUsersPage() {
               value={roleFilter}
               onValueChange={(value) => setRoleFilter(value as RoleFilter)}
             >
-              <SelectTrigger className="h-9 min-w-0 flex-1 sm:w-[150px] sm:flex-none">
+              <SelectTrigger className="h-9 min-w-0 flex-1 sm:w-[175px] sm:flex-none">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Roles</SelectItem>
                 {BACKEND_ROLES.map((role) => (
                   <SelectItem key={role} value={role}>
-                    {role.replace("_", " ")}
+                    {BACKEND_ROLE_META[role]?.label ?? role.replace("_", " ")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1165,13 +1180,13 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="px-6 py-3">Investor</TableHead>
-                  <TableHead className="px-4 py-3">Identity</TableHead>
-                  <TableHead className="px-4 py-3">KYC</TableHead>
-                  <TableHead className="hidden px-4 py-3 md:table-cell">CSD</TableHead>
-                  <TableHead className="px-4 py-3">Role</TableHead>
-                  <TableHead className="hidden px-4 py-3 lg:table-cell">Joined</TableHead>
-                  <TableHead className="px-6 py-3 text-right">Details</TableHead>
+                  <TableHead className="px-4 py-3 xl:px-6">Investor</TableHead>
+                  <TableHead className="hidden px-3 py-3 sm:table-cell xl:px-4">Identity</TableHead>
+                  <TableHead className="px-3 py-3 xl:px-4">KYC</TableHead>
+                  <TableHead className="hidden px-4 py-3 2xl:table-cell">CSD</TableHead>
+                  <TableHead className="px-3 py-3 xl:px-4">Role</TableHead>
+                  <TableHead className="hidden px-3 py-3 xl:table-cell xl:px-4">Joined</TableHead>
+                  <TableHead className="px-4 py-3 text-right whitespace-nowrap xl:px-6">Official PDFs &amp; Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1184,36 +1199,43 @@ export default function AdminUsersPage() {
                 ) : (
                   pageUsers.map((user) => {
                     const idInfo = identityInfo(user);
+                    const csdNum = recordValue(user.csdAccount, "csdNumber");
                     return (
                       <TableRow
                         key={user.id}
                         className="cursor-pointer"
                         onClick={() => openUser(user)}
                       >
-                        <TableCell className="px-6 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-navy text-xs font-bold text-white dark:bg-brand-bronze">
+                        <TableCell className="px-4 py-3.5 xl:px-6">
+                          <div className="flex items-center gap-2.5 xl:gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-navy text-xs font-bold text-white dark:bg-brand-bronze xl:h-9 xl:w-9">
                               {(user.firstName || user.email).slice(0, 2).toUpperCase()}
                             </span>
-                            <div className="min-w-0">
+                            <div className="min-w-0 max-w-[180px] lg:max-w-[210px] xl:max-w-[260px] 2xl:max-w-xs">
                               <p className="truncate font-semibold text-foreground">
                                 {fullName(user)}
                               </p>
                               <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                                <Mail className="h-3 w-3" /> {user.email}
+                                <Mail className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{user.email}</span>
                               </p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="px-4 py-3.5">
+                        <TableCell className="hidden px-3 py-3.5 sm:table-cell xl:px-4">
                           <p className="text-xs font-medium text-foreground">{idInfo.type}</p>
                           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                             {idInfo.number}
                           </p>
+                          {csdNum && (
+                            <p className="mt-0.5 max-w-[140px] truncate font-mono text-[10px] text-brand-bronze 2xl:hidden" title={String(csdNum)}>
+                              CSD: {String(csdNum)}
+                            </p>
+                          )}
                         </TableCell>
-                        <TableCell className="px-4 py-3.5">
+                        <TableCell className="px-3 py-3.5 xl:px-4">
                           <div className="flex flex-col items-start gap-1.5">
-                            <Badge className={kycBadgeClass(user.kycStatus)}>
+                            <Badge className={cn("whitespace-nowrap", kycBadgeClass(user.kycStatus))}>
                               {user.isPendingEmailConfirmation
                                 ? "Awaiting Email"
                                 : user.kycStatus === "PENDING"
@@ -1234,10 +1256,10 @@ export default function AdminUsersPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="hidden px-4 py-3.5 font-mono text-xs md:table-cell">
-                          {display(recordValue(user.csdAccount, "csdNumber"))}
+                        <TableCell className="hidden px-4 py-3.5 font-mono text-xs 2xl:table-cell">
+                          {display(csdNum)}
                         </TableCell>
-                        <TableCell className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="px-3 py-3.5 xl:px-4" onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={user.role}
                             onValueChange={(value) =>
@@ -1247,25 +1269,82 @@ export default function AdminUsersPage() {
                               )
                             }
                           >
-                            <SelectTrigger className="h-8 w-32 text-xs">
+                            <SelectTrigger className="h-8 w-[124px] text-xs font-medium xl:w-36">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               {BACKEND_ROLES.map((role) => (
                                 <SelectItem key={role} value={role}>
-                                  {role.replace("_", " ")}
+                                  {BACKEND_ROLE_META[role]?.label ?? role.replace("_", " ")}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="hidden px-4 py-3.5 text-xs text-muted-foreground lg:table-cell">
+                        <TableCell className="hidden px-3 py-3.5 text-xs whitespace-nowrap text-muted-foreground xl:table-cell xl:px-4">
                           {formatDate(user.createdAt)}
                         </TableCell>
-                        <TableCell className="px-6 py-3.5 text-right">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                        <TableCell className="px-4 py-3.5 text-right whitespace-nowrap xl:px-6" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1 xl:gap-1.5">
+                            {!user.isPendingEmailConfirmation && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-[11px] font-semibold"
+                                  title="Download filled 5-page SEC KYC Form (PDF)"
+                                  disabled={actionLoading === `kyc-${user.id}`}
+                                  onClick={() =>
+                                    void runDownload(`kyc-${user.id}`, () =>
+                                      adminApi.exportUserKyc(user.id),
+                                    )
+                                  }
+                                >
+                                  <Download className="mr-1 h-3 w-3 text-brand-bronze" />
+                                  KYC
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-[11px] font-semibold"
+                                  title="Download filled CSD Account Opening Form 1 (PDF)"
+                                  disabled={actionLoading === `csd-${user.id}`}
+                                  onClick={() =>
+                                    void runDownload(`csd-${user.id}`, () =>
+                                      adminApi.exportUserCsdForm(user.id),
+                                    )
+                                  }
+                                >
+                                  <Download className="mr-1 h-3 w-3 text-brand-bronze" />
+                                  CSD
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-[11px] font-semibold"
+                                  title="Download filled Electronic Communication Indemnity Form (PDF)"
+                                  disabled={actionLoading === `indemnity-${user.id}`}
+                                  onClick={() =>
+                                    void runDownload(`indemnity-${user.id}`, () =>
+                                      adminApi.exportUserIndemnityForm(user.id),
+                                    )
+                                  }
+                                >
+                                  <Download className="mr-1 h-3 w-3 text-brand-bronze" />
+                                  Indemnity
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              title="Open full investor compliance drawer"
+                              onClick={() => openUser(user)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1333,7 +1412,7 @@ export default function AdminUsersPage() {
           if (!open) setSelected(null);
         }}
       >
-        <SheetContent className="flex w-full flex-col gap-0 border-l-border bg-background p-0 sm:w-[760px] sm:max-w-none">
+        <SheetContent className="flex w-full flex-col gap-0 border-l-border bg-background p-0 sm:w-[92vw] lg:w-[720px] xl:w-[820px] 2xl:w-[920px] sm:max-w-none">
           {detailLoading && !selected?.kycDocuments ? (
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading investor record…
@@ -1444,6 +1523,71 @@ export default function AdminUsersPage() {
                         <RotateCcw className="h-3.5 w-3.5" /> Re-open
                       </Button>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Always-visible Official Regulatory PDFs & Dispatch Bar */}
+              {!selected.isPendingEmailConfirmation && (
+                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border bg-brand-bronze/5 px-6 py-2.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-brand-bronze">
+                    Official Filled PDFs:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs font-semibold"
+                      disabled={actionLoading === "kyc"}
+                      onClick={() =>
+                        void runDownload("kyc", () =>
+                          adminApi.exportUserKyc(selected.id),
+                        )
+                      }
+                    >
+                      {actionLoading === "kyc" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="mr-1.5 h-3.5 w-3.5 text-brand-bronze" />
+                      )}
+                      SEC KYC Form (PDF)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs font-semibold"
+                      disabled={actionLoading === "csd"}
+                      onClick={() =>
+                        void runDownload("csd", () =>
+                          adminApi.exportUserCsdForm(selected.id),
+                        )
+                      }
+                    >
+                      {actionLoading === "csd" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="mr-1.5 h-3.5 w-3.5 text-brand-bronze" />
+                      )}
+                      CSD Form 1 (PDF)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs font-semibold"
+                      disabled={actionLoading === "indemnity"}
+                      onClick={() =>
+                        void runDownload("indemnity", () =>
+                          adminApi.exportUserIndemnityForm(selected.id),
+                        )
+                      }
+                    >
+                      {actionLoading === "indemnity" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="mr-1.5 h-3.5 w-3.5 text-brand-bronze" />
+                      )}
+                      Indemnity Form (PDF)
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1648,9 +1792,154 @@ export default function AdminUsersPage() {
                             label: "Secondary Phone",
                             value: recordValue(selected.individualProfile, "secondaryPhone"),
                           },
+                          {
+                            key: "mothersMaidenName",
+                            label: "Mother's Maiden Name",
+                            value:
+                              recordValue(selected.individualProfile, "mothersMaidenName") ??
+                              recordValue(selected.kycApplication, "motherMaidenName"),
+                          },
+                          {
+                            key: "placeOfBirth",
+                            label: "Place of Birth",
+                            value:
+                              recordValue(selected.individualProfile, "placeOfBirth") ??
+                              recordValue(selected.kycApplication, "placeOfBirth"),
+                          },
+                          {
+                            key: "digitalAddress",
+                            label: "GhanaPost Digital GPS",
+                            value:
+                              recordValue(selected.individualProfile, "digitalAddress") ??
+                              recordValue(selected.kycApplication, "digitalAddress"),
+                          },
+                          {
+                            key: "nearestLandmark",
+                            label: "Nearest Landmark",
+                            value:
+                              recordValue(selected.individualProfile, "nearestLandmark") ??
+                              recordValue(selected.kycApplication, "nearestLandmark"),
+                          },
                         ]}
                         missingLabel="Individual KYC profile not submitted."
                       />
+                    )}
+
+                    {/* SEC Suitability, Mandate & Next of Kin */}
+                    {selected.kycApplication && (
+                      <>
+                        <ProfileSection
+                          {...sectionProps}
+                          id="sec-suitability"
+                          icon={Shield}
+                          title="SEC Suitability & Account Mandate"
+                          saveKey="secSuitability"
+                          fields={[
+                            {
+                              key: "category",
+                              label: "Ownership Category",
+                              value: recordValue(selected.kycApplication, "category"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "signingMandate",
+                              label: "Signing Mandate",
+                              value: recordValue(selected.kycApplication, "signingMandate"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "riskTolerance",
+                              label: "Risk Tolerance",
+                              value: recordValue(selected.kycApplication, "riskTolerance"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "investmentHorizon",
+                              label: "Investment Horizon",
+                              value: recordValue(selected.kycApplication, "investmentHorizon"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "investmentKnowledge",
+                              label: "Investment Knowledge",
+                              value: recordValue(selected.kycApplication, "investmentKnowledge"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "marketLossReaction",
+                              label: "10% Year-1 Loss Reaction",
+                              value: recordValue(selected.kycApplication, "marketLossReaction"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "topUpFrequency",
+                              label: "Top-up Frequency",
+                              value: recordValue(selected.kycApplication, "topUpFrequency"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "modeOfInstructions",
+                              label: "Mode of Instructions",
+                              value: recordValue(selected.kycApplication, "modeOfInstructions"),
+                              readOnly: true,
+                            },
+                            {
+                              key: "modeOfStatementDelivery",
+                              label: "Statement Delivery",
+                              value: `${recordValue(selected.kycApplication, "modeOfStatementDelivery") ?? "EMAIL"} (${recordValue(selected.kycApplication, "statementFrequency") ?? "MONTHLY"})`,
+                              readOnly: true,
+                            },
+                          ]}
+                          missingLabel="SEC suitability profile not submitted."
+                        />
+
+                        {Boolean((selected.kycApplication as Record<string, unknown>)?.nextOfKin) && (
+                          <ProfileSection
+                            {...sectionProps}
+                            id="sec-nok"
+                            icon={Users}
+                            title="SEC Next of Kin Particulars"
+                            saveKey="secNok"
+                            fields={(() => {
+                              const nok = (selected.kycApplication as Record<string, unknown>)
+                                ?.nextOfKin as Record<string, unknown> | undefined;
+                              return [
+                                {
+                                  key: "fullName",
+                                  label: "Full Name",
+                                  value: `${recordValue(nok, "title") ?? ""} ${recordValue(nok, "firstName") ?? ""} ${recordValue(nok, "surname") ?? ""}`.trim(),
+                                  readOnly: true,
+                                },
+                                {
+                                  key: "relationship",
+                                  label: "Relationship",
+                                  value: recordValue(nok, "relationship"),
+                                  readOnly: true,
+                                },
+                                {
+                                  key: "contactNumber",
+                                  label: "Contact Phone",
+                                  value: recordValue(nok, "contactNumber"),
+                                  readOnly: true,
+                                },
+                                {
+                                  key: "emailAddress",
+                                  label: "Email Address",
+                                  value: recordValue(nok, "emailAddress"),
+                                  readOnly: true,
+                                },
+                                {
+                                  key: "idNumber",
+                                  label: "Identity Document",
+                                  value: `${recordValue(nok, "idType") ?? "GHANA_CARD"} · ${recordValue(nok, "idNumber") ?? "—"}`,
+                                  readOnly: true,
+                                },
+                              ];
+                            })()}
+                            missingLabel="Next of Kin details not submitted."
+                          />
+                        )}
+                      </>
                     )}
 
                     {/* Corporate KYC */}
@@ -1937,40 +2226,64 @@ export default function AdminUsersPage() {
 
                 {drawerTab === "documents" && (
                   <div className="space-y-3">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() =>
-                        void runDownload("kyc", () =>
-                          adminApi.exportUserKyc(selected.id),
-                        )
-                      }
-                      disabled={actionLoading === "kyc"}
-                    >
-                      {actionLoading === "kyc" ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <FileText className="h-4 w-4" />
-                      )}
-                      Export KYC Profile (PDF)
-                    </Button>
-                    <Button
-                      variant="premium"
-                      className="w-full"
-                      onClick={() =>
-                        void runDownload("csd", () =>
-                          adminApi.exportUserCsdForm(selected.id),
-                        )
-                      }
-                      disabled={actionLoading === "csd"}
-                    >
-                      {actionLoading === "csd" ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      Download CSD Account Form (PDF)
-                    </Button>
+                    <div className="rounded-xl border border-brand-bronze/30 bg-brand-bronze/5 p-3.5 space-y-2.5">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-bronze">
+                        Official Regulatory PDFs (Auto-Filled &amp; Signed)
+                      </p>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() =>
+                            void runDownload("kyc", () =>
+                              adminApi.exportUserKyc(selected.id),
+                            )
+                          }
+                          disabled={actionLoading === "kyc"}
+                        >
+                          {actionLoading === "kyc" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-brand-bronze" />
+                          )}
+                          1. Download SEC KYC Form (PDF)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() =>
+                            void runDownload("csd", () =>
+                              adminApi.exportUserCsdForm(selected.id),
+                            )
+                          }
+                          disabled={actionLoading === "csd"}
+                        >
+                          {actionLoading === "csd" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 text-brand-bronze" />
+                          )}
+                          2. Download CSD Account Form 1 (PDF)
+                        </Button>
+                        <Button
+                          variant="premium"
+                          className="w-full justify-start"
+                          onClick={() =>
+                            void runDownload("indemnity", () =>
+                              adminApi.exportUserIndemnityForm(selected.id),
+                            )
+                          }
+                          disabled={actionLoading === "indemnity"}
+                        >
+                          {actionLoading === "indemnity" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="h-4 w-4" />
+                          )}
+                          3. Download Electronic Indemnity Form (PDF)
+                        </Button>
+                      </div>
+                    </div>
                     {(() => {
                       // Uploaded files can also live in the KYC draft (saved
                       // before submission) without a KycDocument row — surface
@@ -2060,7 +2373,7 @@ export default function AdminUsersPage() {
                   variant="outline"
                   className="flex-1"
                   disabled={actionLoading !== null || selected.isPendingEmailConfirmation}
-                  title="Emails trading@constantcap.com.gh with the investor's CSD account-opening form attached"
+                  title="Emails trading@constantcap.com.gh with the investor's filled CSD Form 1, SEC KYC Form, and Electronic Communication Indemnity Form PDFs attached"
                   onClick={() => void handleDispatch()}
                 >
                   {actionLoading === "dispatch" ? (
@@ -2068,7 +2381,7 @@ export default function AdminUsersPage() {
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  Dispatch CSD to Trading
+                  Dispatch CSD, KYC &amp; Indemnity PDFs
                 </Button>
                 <Button
                   variant="danger"
@@ -2164,11 +2477,16 @@ export default function AdminUsersPage() {
                 <SelectContent>
                   {BACKEND_ROLES.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {role.replace("_", " ")}
+                      {BACKEND_ROLE_META[role]?.label ?? role.replace("_", " ")}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {BACKEND_ROLE_META[newUser.role] && (
+                <p className="text-[11px] text-muted-foreground">
+                  {BACKEND_ROLE_META[newUser.role].description}
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>

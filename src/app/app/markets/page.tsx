@@ -137,7 +137,7 @@ const AppMarkets = () => {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr] 2xl:grid-cols-[1.05fr_1.3fr]">
         {/* List */}
         <div className="rounded-2xl border border-border bg-card shadow-card">
           <div className="border-b border-border p-4">
@@ -160,7 +160,7 @@ const AppMarkets = () => {
             </Tabs>
           </div>
 
-          <div className="max-h-[28rem] overflow-y-auto">
+          <div className="max-h-[24rem] min-h-[20rem] overflow-y-auto lg:max-h-[calc(100dvh-16rem)]">
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <Skeleton key={i} className="mx-4 my-2 h-14" />

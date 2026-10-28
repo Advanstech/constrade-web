@@ -129,7 +129,7 @@ export default function ClientSettingsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 p-4 pt-8 md:flex-row sm:p-6 lg:p-8">
+    <div className="mx-auto flex w-full max-w-7xl 2xl:max-w-[1600px] flex-col gap-8 p-4 pt-6 md:flex-row sm:p-6 lg:gap-10 lg:p-8">
       
       {/* Sidebar Navigation */}
       <div className="w-full shrink-0 md:w-64">

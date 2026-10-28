@@ -80,8 +80,9 @@ function mapKycStatus(status: string): KycStatus {
 function mapRole(role: string): Role {
   const r = String(role).toLowerCase();
   if (r === "admin" || r === "super_admin") return "admin";
-  if (r === "trader") return "trader";
   if (r === "compliance") return "compliance";
+  if (r === "trader") return "trader";
+  if (r === "researcher") return "researcher";
   return "client";
 }
 
@@ -391,6 +392,7 @@ function toKycProgress(raw: any): KycProgress {
       financialInfo: raw.financialInfo ?? null,
       bankDetails: raw.bankDetails ?? null,
       csdAccount: raw.csdAccount ?? null,
+      kycApplication: raw.kycApplication ?? null,
     },
   };
 }
@@ -1244,6 +1246,27 @@ export const onboardingApi = {
     call<OnboardingResult>("onboarding", { action: "submit", declarations }),
   setCsdAccount: (csdNumber: string) =>
     call<{ success: boolean }>("onboarding", { action: "setCsdAccount", csdNumber }),
+  submitSecKyc: (payload: Record<string, unknown>) =>
+    request<any>("POST", "/onboarding/sec-kyc", payload),
+  getSecKyc: () =>
+    request<any>("GET", "/onboarding/sec-kyc"),
+  downloadKycForm: async () => {
+    const base = API_BASE_URL.replace(/\/$/, "");
+    const token = getAccessToken();
+    const res = await fetch(`${base}/onboarding/export/kyc-form`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError("Failed to download KYC form", res.status);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sec-kyc-form-${new Date().toISOString().split("T")[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
   downloadCsdForm: async () => {
     const base = API_BASE_URL.replace(/\/$/, "");
     const token = getAccessToken();
@@ -1256,6 +1279,23 @@ export const onboardingApi = {
     const a = document.createElement("a");
     a.href = url;
     a.download = `csd-form-${new Date().toISOString().split("T")[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
+  downloadIndemnityForm: async () => {
+    const base = API_BASE_URL.replace(/\/$/, "");
+    const token = getAccessToken();
+    const res = await fetch(`${base}/onboarding/export/indemnity-form`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError("Failed to download Indemnity form", res.status);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `electronic-indemnity-form-${new Date().toISOString().split("T")[0]}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1386,7 +1426,10 @@ export const adminApi = {
     request<AdminUserDetail>("PATCH", `/admin/users/${userId}/profile`, payload),
   updateUserKyc: (userId: string, status: "PENDING" | "APPROVED" | "REJECTED") =>
     request<AdminUserDetail>("PATCH", `/admin/users/${userId}/kyc`, { status }),
-  updateUserRole: (userId: string, role: "INVESTOR" | "ADMIN" | "SUPER_ADMIN") =>
+  updateUserRole: (
+    userId: string,
+    role: "INVESTOR" | "TRADER" | "RESEARCHER" | "COMPLIANCE" | "ADMIN" | "SUPER_ADMIN",
+  ) =>
     request<AdminUserDetail>("PATCH", `/admin/users/${userId}/profile`, { role }),
   documentUrl: (documentId: string) =>
     request<{ signedUrl: string }>("GET", `/admin/documents/${documentId}/signed-url`),
@@ -1407,8 +1450,9 @@ export const adminApi = {
     request<{ success: boolean; message: string }>("DELETE", `/admin/users/${userId}/hard`),
   provisionUser: (data: ProvisionUserInput) => request<AdminUserDetail>("POST", "/admin/users", data),
   exportUsers: () => downloadAdminFile("/admin/users/export/csv", `investor-registry-${new Date().toISOString().slice(0, 10)}.csv`),
-  exportUserKyc: (userId: string) => downloadAdminFile(`/admin/users/${userId}/kyc-pdf`, `kyc-${userId.slice(0, 8)}.pdf`),
+  exportUserKyc: (userId: string) => downloadAdminFile(`/admin/users/${userId}/kyc-pdf`, `sec-kyc-${userId.slice(0, 8)}.pdf`),
   exportUserCsdForm: (userId: string) => downloadAdminFile(`/admin/users/${userId}/csd-form`, `csd-form-${userId.slice(0, 8)}.pdf`),
+  exportUserIndemnityForm: (userId: string) => downloadAdminFile(`/admin/users/${userId}/indemnity-form`, `indemnity-form-${userId.slice(0, 8)}.pdf`),
   orders: () =>
     call<{ orders: AdminOrder[] }>("admin", { action: "orders" }).then((d) => d.orders),
   transactions: () =>

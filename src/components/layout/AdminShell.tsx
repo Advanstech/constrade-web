@@ -76,6 +76,7 @@ function CCMark() {
 export function AdminShell({ children }: { children: ReactNode }) {
   const { profile, signOut } = useAuth();
   const navigate = useRouter();
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -137,7 +138,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <aside
           className={cn(
             "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 ease-in-out lg:flex",
-            collapsed ? "w-[4.5rem]" : "w-60",
+            collapsed ? "w-[4.5rem]" : "lg:w-52 xl:w-60",
           )}
         >
           <div className="flex h-16 shrink-0 items-center justify-center border-b border-sidebar-border bg-brand-navy/5">
@@ -190,6 +191,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <span className="hidden items-center gap-2 rounded-full bg-brand-orange/10 px-3 py-1 text-xs font-semibold text-brand-orange md:flex">
                   <ShieldCheck className="h-4 w-4" />
                   Admin Hub
+                  {profile?.role && (
+                    <span className="rounded-full bg-brand-orange/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-orange">
+                      {ROLE_LABEL[profile.role]}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -229,7 +235,44 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-muted/20">{children}</main>
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-muted/20">
+            <div className="mx-auto w-full max-w-[1920px]">{children}</div>
+          </main>
+
+          {/* PWA / Mobile Bottom Navigation Bar */}
+          <nav
+            aria-label="Admin mobile navigation"
+            className="flex shrink-0 items-center justify-around border-t border-sidebar-border bg-sidebar/95 px-2 pt-1.5 backdrop-blur lg:hidden pb-safe"
+          >
+            {[
+              { label: "Analytics", href: "/admin", icon: BarChart3 },
+              { label: "Clients", href: "/admin/users", icon: Users },
+              { label: "Orders", href: "/admin/orders", icon: ClipboardCheck },
+              { label: "Txns", href: "/admin/transactions", icon: Banknote },
+              { label: "Reports", href: "/admin/reports", icon: FileText },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active =
+                item.href === "/admin"
+                  ? pathname === "/admin" || pathname === "/admin/dashboard"
+                  : pathname?.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg py-1 text-[10px] font-semibold transition-colors",
+                    active
+                      ? "text-brand-orange"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </div>
 

@@ -221,7 +221,7 @@ export default function AdminOrdersPage() {
   const [uploadTarget, setUploadTarget] = useState<AdminOrder | null>(null);
   const [paymentConfirmationTarget, setPaymentConfirmationTarget] = useState<AdminOrder | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [canVoidExecution, setCanVoidExecution] = useState(false);
   const [voidReason, setVoidReason] = useState("");
   const [downloadingNoteId, setDownloadingNoteId] = useState<string | null>(null);
   const [resendingEmailId, setResendingEmailId] = useState<string | null>(null);
@@ -260,8 +260,12 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     adminApi
       .me()
-      .then((raw) => setIsSuperAdmin(raw.role === "SUPER_ADMIN"))
-      .catch(() => setIsSuperAdmin(false));
+      .then((raw) =>
+        setCanVoidExecution(
+          ["COMPLIANCE", "ADMIN", "SUPER_ADMIN"].includes(String(raw.role || "")),
+        ),
+      )
+      .catch(() => setCanVoidExecution(false));
   }, []);
 
   // Reset to first page whenever filters change.
@@ -726,15 +730,15 @@ export default function AdminOrdersPage() {
               <Table>
                 <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[120px]">Order ID</TableHead>
-                    <TableHead className="hidden lg:table-cell">Client</TableHead>
-                    <TableHead>Instrument</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Qty / FV</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Placed</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[100px] px-3 py-3 xl:px-4">Order ID</TableHead>
+                    <TableHead className="hidden px-3 py-3 lg:table-cell xl:px-4">Client</TableHead>
+                    <TableHead className="px-3 py-3 xl:px-4">Instrument</TableHead>
+                    <TableHead className="px-3 py-3 xl:px-4">Type</TableHead>
+                    <TableHead className="px-3 py-3 text-right xl:px-4">Qty / FV</TableHead>
+                    <TableHead className="px-3 py-3 text-right xl:px-4">Price</TableHead>
+                    <TableHead className="px-3 py-3 xl:px-4">Status</TableHead>
+                    <TableHead className="hidden px-3 py-3 xl:table-cell xl:px-4">Placed</TableHead>
+                    <TableHead className="px-3 py-3 text-right whitespace-nowrap xl:px-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -750,20 +754,20 @@ export default function AdminOrdersPage() {
                         className="group cursor-pointer hover:bg-muted/30"
                         onClick={() => setSelectedOrder(order)}
                       >
-                        <TableCell className="font-mono text-xs text-muted-foreground">
+                        <TableCell className="px-3 py-3 font-mono text-xs text-muted-foreground xl:px-4">
                           {order.id.slice(0, 8)}…
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="text-sm font-medium">{order.client || "—"}</div>
-                          <div className="max-w-[160px] truncate text-xs text-muted-foreground">
+                        <TableCell className="hidden px-3 py-3 lg:table-cell xl:px-4">
+                          <div className="max-w-[160px] truncate text-sm font-medium xl:max-w-[200px]">{order.client || "—"}</div>
+                          <div className="max-w-[160px] truncate text-xs text-muted-foreground xl:max-w-[200px]">
                             {order.clientEmail || `${order.user_id.slice(0, 8)}…`}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-3 py-3 xl:px-4">
                           <div className="font-medium">{order.name}</div>
                           <div className="text-xs text-muted-foreground">{fi ? "Fixed Income" : "Equity"}</div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-3 py-3 xl:px-4">
                           <span className={cn(
                             "inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
                             isBuy ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"
@@ -771,22 +775,22 @@ export default function AdminOrdersPage() {
                             {order.side}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right font-medium">
+                        <TableCell className="px-3 py-3 text-right font-medium whitespace-nowrap xl:px-4">
                           {fi ? fmt(order.quantity) : order.quantity.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-3 py-3 text-right whitespace-nowrap xl:px-4">
                           {order.price ? fmt(order.price) : "MKT"}
                         </TableCell>
-                        <TableCell>
-                          <div className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium", statusCfg.bg, statusCfg.text)}>
-                            <statusCfg.icon className="h-3 w-3" />
+                        <TableCell className="px-3 py-3 xl:px-4">
+                          <div className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", statusCfg.bg, statusCfg.text)}>
+                            <statusCfg.icon className="h-3 w-3 shrink-0" />
                             {statusCfg.label}
                           </div>
                         </TableCell>
-                        <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                        <TableCell className="hidden px-3 py-3 text-xs whitespace-nowrap text-muted-foreground xl:table-cell xl:px-4">
                           {format(new Date(order.created_at), "MMM d, HH:mm")}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-3 py-3 text-right whitespace-nowrap xl:px-4">
                           <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                             {order.status === "pending_approval" && (
                               <Button
@@ -831,6 +835,18 @@ export default function AdminOrdersPage() {
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 Result
+                              </Button>
+                            )}
+                            {order.status === "filled" && !order.contractNotePath && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1 border-brand-bronze/40 text-brand-bronze hover:bg-brand-bronze/10"
+                                onClick={() => openUploadResult(order)}
+                                title="Upload CSD Contract Note"
+                              >
+                                <Upload className="h-3.5 w-3.5" />
+                                Upload Contract
                               </Button>
                             )}
                             {order.contractNotePath && (
@@ -920,7 +936,7 @@ export default function AdminOrdersPage() {
 
       {/* Detail Drawer */}
       <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-        <SheetContent className="w-full sm:w-[540px] sm:max-w-none border-l-border bg-card p-0 flex flex-col gap-0 shadow-2xl">
+        <SheetContent className="w-full sm:w-[480px] lg:w-[540px] xl:w-[620px] sm:max-w-none border-l-border bg-card p-0 flex flex-col gap-0 shadow-2xl">
           {selectedOrder && (() => {
             const fi = selectedOrder.asset_class === "fixed_income";
             const isBuy = selectedOrder.side.toLowerCase() === "buy";
@@ -1340,7 +1356,21 @@ export default function AdminOrdersPage() {
                       </>
                     )}
 
-                    {selectedOrder.status === "filled" && isSuperAdmin && (
+                    {selectedOrder.status === "filled" && (
+                      <Button
+                        variant="outline"
+                        className="w-full border-brand-bronze/40 text-brand-bronze hover:bg-brand-bronze/10"
+                        onClick={() => openUploadResult(selectedOrder)}
+                        disabled={isProcessing}
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        {selectedOrder.contractNotePath
+                          ? "Replace / Update CSD Contract Note"
+                          : "Upload CSD Contract Note"}
+                      </Button>
+                    )}
+
+                    {selectedOrder.status === "filled" && canVoidExecution && (
                       <AlertDialog onOpenChange={(open) => !open && setVoidReason("")}>
                         <AlertDialogTrigger asChild>
                           <Button
