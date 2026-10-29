@@ -182,11 +182,8 @@ function Step1({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           <Input value={d.otherNames} onChange={(e) => p({ otherNames: e.target.value })} placeholder="Kofi" />
         </Field>
       </div>
-      <div className="grid gap-6 sm:grid-cols-3">
-        <Field label="Maiden name (if applicable)">
-          <Input value={d.maidenName} onChange={(e) => p({ maidenName: e.target.value })} />
-        </Field>
-        <Field label="Previous names (if any)">
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Field label="Previous names / maiden name (if any)">
           <Input value={d.previousNames} onChange={(e) => p({ previousNames: e.target.value })} placeholder="Optional" />
         </Field>
         <Field label="Marital status">

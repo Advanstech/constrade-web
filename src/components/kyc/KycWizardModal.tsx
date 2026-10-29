@@ -379,6 +379,8 @@ export function KycWizardModal({
   const profileRef = useRef(profile);
   profileRef.current = profile;
   const hydratedOpenSessionRef = useRef(false);
+  const hasLoadedInitialStepRef = useRef(false);
+  const userNavigatedRef = useRef(false);
 
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftQueue = useRef<Promise<void>>(Promise.resolve());
@@ -401,8 +403,11 @@ export function KycWizardModal({
       const completed = Math.min(res.completedSteps, STEP_LABELS.length);
       const resumeStep = Math.min(Math.max(1, res.currentStep), STEP_LABELS.length);
       setCompletedSteps(completed);
-      setStep(resumeStep);
-      setMaxStepReached(Math.max(resumeStep, completed + 1));
+      setMaxStepReached((prev) => Math.max(prev, resumeStep, completed + 1));
+      if (!hasLoadedInitialStepRef.current && !userNavigatedRef.current) {
+        setStep(resumeStep);
+      }
+      hasLoadedInitialStepRef.current = true;
     } catch (err) {
       console.error("Failed to load saved KYC application", err);
       toast.error("Could not load your saved KYC application", { description: "Please try again or contact support." });
@@ -414,6 +419,8 @@ export function KycWizardModal({
   useEffect(() => {
     if (!open) {
       hydratedOpenSessionRef.current = false;
+      hasLoadedInitialStepRef.current = false;
+      userNavigatedRef.current = false;
       return;
     }
     if (hydratedOpenSessionRef.current || !profileRef.current) return;
@@ -826,7 +833,7 @@ export function KycWizardModal({
           surname: d1.surname || "Investor",
           firstName: d1.firstName || "Investor",
           otherNames: d1.otherNames || undefined,
-          maidenName: d1.maidenName || undefined,
+          maidenName: d1.previousNames || undefined,
           maritalStatus: d1.maritalStatus || "Single",
           previousNames: d1.previousNames || undefined,
           dateOfBirth: d1.dateOfBirth || "1990-01-01",
@@ -990,16 +997,17 @@ export function KycWizardModal({
   };
 
   const goToStep = async (target: number) => {
+    userNavigatedRef.current = true;
     if (target === step) return;
 
-    // Going back to an already-completed step is always allowed.
-    if (target < step) {
+    // Moving to an already reached, completed, or previous step:
+    if (target < step || target <= maxStepReached || target <= completedSteps + 1) {
+      void queueDraftSave(form);
       setStep(target);
       return;
     }
 
-    // Forward navigation is limited to the very next step, which will save
-    // the current step first if it is dirty.
+    // Forward navigation to the very next step saves and validates the current step first.
     if (target > step + 1) {
       toast.error("Please complete the current step first.");
       return;
@@ -1063,7 +1071,7 @@ export function KycWizardModal({
                 const num = idx + 1;
                 const completed = num <= completedSteps || num < step;
                 const active = num === step;
-                const reachable = num <= step + 1 || num <= completedSteps + 1;
+                const reachable = num <= step + 1 || num <= completedSteps + 1 || num <= maxStepReached;
                 return (
                   <button
                     key={label}

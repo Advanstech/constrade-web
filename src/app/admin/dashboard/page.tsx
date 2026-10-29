@@ -107,9 +107,16 @@ const AdminDashboard = () => {
         title="Staff analytics"
         subtitle="Firm-wide overview across clients, orders and assets."
         actions={
-          <Button variant="outline" size="sm" onClick={load}>
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/market-data">
+                <TrendingUp className="h-3.5 w-3.5" /> Market Data Desk
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={load}>
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </Button>
+          </div>
         }
       />
 
@@ -181,8 +188,13 @@ const AdminDashboard = () => {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Market summary */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base font-bold">Market snapshot</CardTitle>
+            <Button asChild variant="ghost" size="sm" className="text-brand-bronze">
+              <Link href="/admin/market-data">
+                Manage <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-2.5">
             {[

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { marketsApi } from "@/lib/api";
+import { subscribeEvents, type MarketTick } from "@/lib/realtime";
 import type { FeedItem, MarketSummary } from "@/lib/api.types";
 import { changeClass } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -12,19 +13,44 @@ export function PriceTicker({ dark }: { dark?: boolean }) {
   const [summary, setSummary] = useState<MarketSummary | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
 
-  useEffect(() => {
-    let alive = true;
+  const load = useCallback(() => {
     void Promise.all([marketsApi.summary(), marketsApi.feed(10)])
       .then(([s, f]) => {
-        if (!alive) return;
         setSummary(s);
         setFeed(f);
       })
       .catch(() => {});
-    return () => {
-      alive = false;
-    };
   }, []);
+
+  useEffect(() => {
+    load();
+    const timer = window.setInterval(load, 30_000);
+    const onUpdated = () => load();
+    window.addEventListener("market-data-updated", onUpdated);
+    const unsubscribe = subscribeEvents((e) => {
+      if (e.event !== "market" || !Array.isArray(e.data)) return;
+      const ticks = e.data as MarketTick[];
+      setFeed((prev) =>
+        prev.map((item) => {
+          const t = ticks.find((x) => x.ticker === item.ticker);
+          if (!t) return item;
+          const prevClose = t.previousClose ?? item.price;
+          return {
+            ...item,
+            price: t.price,
+            changePct: prevClose
+              ? +(((t.price - prevClose) / prevClose) * 100).toFixed(2)
+              : item.changePct,
+          };
+        }),
+      );
+    });
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("market-data-updated", onUpdated);
+      unsubscribe();
+    };
+  }, [load]);
 
   if (!summary) {
     return (

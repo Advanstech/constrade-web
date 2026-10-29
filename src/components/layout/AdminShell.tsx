@@ -19,6 +19,7 @@ import {
   Settings,
   Banknote,
   LineChart,
+  TrendingUp,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -49,6 +50,7 @@ const ADMIN_NAV = [
   { label: "Clients", href: "/admin/users", icon: Users },
   { label: "Transactions", href: "/admin/transactions", icon: Banknote },
   { label: "Order Approvals", href: "/admin/orders", icon: ClipboardCheck },
+  { label: "Market Data", href: "/admin/market-data", icon: TrendingUp },
   { label: "Financials", href: "/admin/reports/financial", icon: LineChart },
   { label: "Reports", href: "/admin/reports", icon: FileText },
   { label: "Settings", href: "/admin/settings", icon: Settings },

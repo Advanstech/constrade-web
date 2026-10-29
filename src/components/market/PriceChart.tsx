@@ -157,8 +157,12 @@ export function PriceChart({
   const [mode, setMode] = useState<ChartMode>("area");
   const [compareTicker, setCompareTicker] = useState<string>("");
   const [points, setPoints] = useState<HistoryPoint[]>([]);
+  const [unit, setUnit] = useState<string | null>(null);
   const [comparePoints, setComparePoints] = useState<HistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fmtVal = (v: number) =>
+    unit === "PERCENT" ? `${Number(v).toFixed(2)}%` : formatGHS(Number(v));
 
   useEffect(() => {
     let alive = true;
@@ -166,7 +170,10 @@ export function PriceChart({
     marketsApi
       .history(ticker, range)
       .then((h) => {
-        if (alive) setPoints(h.points ?? []);
+        if (alive) {
+          setPoints(h.points ?? []);
+          setUnit(h.unit ?? null);
+        }
       })
       .catch(() => alive && setPoints([]))
       .finally(() => alive && setLoading(false));
@@ -414,7 +421,7 @@ export function PriceChart({
                 tickFormatter={(v: number) => v.toFixed(2)}
               />
               <Tooltip
-                formatter={(v: number) => formatGHS(Number(v))}
+                formatter={(v: number) => fmtVal(Number(v))}
                 contentStyle={tooltipStyle}
               />
               {mode === "area" ? (

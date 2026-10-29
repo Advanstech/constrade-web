@@ -1517,6 +1517,231 @@ export const adminApi = {
   },
   exportIssuanceCalendarPdf: () =>
     downloadAdminFile("/reports/issuance-calendar/pdf", `issuance-calendar-${new Date().toISOString().slice(0, 10)}.pdf`, "POST"),
+
+  // Market Data & Feed Management (Admin / Trader / Researcher / Compliance)
+  equitySecurities: () =>
+    request<any[]>("GET", "/equities/admin/securities"),
+  createEquitySecurity: async (payload: {
+    ticker: string;
+    name: string;
+    sector: string;
+    price: number;
+    previousClose?: number;
+    dayHigh?: number;
+    dayLow?: number;
+    volume?: number;
+    marketCap?: string;
+    peRatio?: number;
+    dividendYield?: number;
+  }) => {
+    const res = await request<any>("POST", "/equities/admin/securities", payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  updateEquitySecurity: async (
+    ticker: string,
+    payload: {
+      name?: string;
+      sector?: string;
+      price?: number;
+      previousClose?: number;
+      dayHigh?: number;
+      dayLow?: number;
+      volume?: number;
+      marketCap?: string;
+      peRatio?: number;
+      dividendYield?: number;
+      isActive?: boolean;
+    },
+  ) => {
+    const res = await request<any>("PATCH", `/equities/admin/securities/${encodeURIComponent(ticker)}`, payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  syncGsePrices: async () => {
+    const res = await request<any>("POST", "/market-data/admin/gse-prices/sync");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  fixedIncomeSecurities: () =>
+    request<any[]>("GET", "/fixed-income/admin/securities"),
+  createFixedIncomeSecurity: async (payload: {
+    isin: string;
+    name: string;
+    type: string;
+    issuer: string;
+    couponRate: number;
+    maturityDate: string;
+    yield: number;
+    price: number;
+    minimumInvestment: number;
+  }) => {
+    const res = await request<any>("POST", "/fixed-income/admin/securities", payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  updateFixedIncomeSecurity: async (
+    id: string,
+    payload: {
+      isin?: string;
+      name?: string;
+      type?: string;
+      issuer?: string;
+      couponRate?: number;
+      maturityDate?: string;
+      yield?: number;
+      price?: number;
+      minimumInvestment?: number;
+      isActive?: boolean;
+    },
+  ) => {
+    const res = await request<any>("PATCH", `/fixed-income/admin/securities/${encodeURIComponent(id)}`, payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  yieldCurves: (limit = 100) =>
+    request<any[]>("GET", `/market-data/admin/yield-curves?limit=${limit}`),
+  createYieldCurve: async (payload: {
+    tenor: string;
+    rate: number;
+    change?: number;
+    benchmark?: string;
+    date?: string;
+    source?: string;
+  }) => {
+    const res = await request<any>("POST", "/market-data/admin/yield-curves", payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  updateYieldCurve: async (
+    id: string,
+    payload: {
+      tenor?: string;
+      rate?: number;
+      change?: number;
+      benchmark?: string;
+      date?: string;
+      source?: string;
+      isActive?: boolean;
+    },
+  ) => {
+    const res = await request<any>("PUT", `/market-data/admin/yield-curves/${encodeURIComponent(id)}`, payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  deleteYieldCurve: async (id: string) => {
+    const res = await request<any>("DELETE", `/market-data/admin/yield-curves/${encodeURIComponent(id)}`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  syncYieldCurve: async () => {
+    const res = await request<any>("POST", "/market-data/admin/yield-curve/sync");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  benchmarks: () =>
+    request<Array<{
+      symbol: string;
+      name: string;
+      dataType: string;
+      value: number | null;
+      change: number;
+      changePercent: number;
+      unit: string;
+      source: string;
+      timestamp: string | null;
+    }>>("GET", "/market-data/admin/benchmarks"),
+  updateBenchmark: async (payload: {
+    symbol: string;
+    name?: string;
+    dataType?: "STOCK_INDEX" | "CURRENCY_RATE" | "TREASURY_RATE";
+    value: number;
+    change?: number;
+    changePercent?: number;
+    unit?: string;
+    source?: string;
+  }) => {
+    const res = await request<any>("POST", "/market-data/admin/benchmarks", payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  syncFxRates: async () => {
+    const res = await request<any>("POST", "/market-data/admin/fx-rates/sync");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  tenderResults: (limit = 100) =>
+    request<any[]>("GET", `/market-data/admin/tender-results?limit=${limit}`),
+  createTenderResult: async (payload: {
+    tenderId: string;
+    securityType: string;
+    instrumentName: string;
+    issueDate: string;
+    maturityDate?: string;
+    targetAmount: number;
+    totalBidAmount: number;
+    acceptedAmount: number;
+    weightedAverageRate?: number;
+    couponRate?: number;
+    interestRate?: number;
+    boGReference?: string;
+    pressReleaseUrl?: string;
+  }) => {
+    const res = await request<any>("POST", "/market-data/admin/tender-results", payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  updateTenderResult: async (
+    id: string,
+    payload: {
+      targetAmount?: number;
+      totalBidAmount?: number;
+      acceptedAmount?: number;
+      weightedAverageRate?: number;
+      couponRate?: number;
+      interestRate?: number;
+      status?: string;
+      boGReference?: string;
+      pressReleaseUrl?: string;
+    },
+  ) => {
+    const res = await request<any>("PUT", `/market-data/admin/tender-results/${encodeURIComponent(id)}`, payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  deleteTenderResult: async (id: string) => {
+    const res = await request<any>("DELETE", `/market-data/admin/tender-results/${encodeURIComponent(id)}`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
 };
 
 // ---------- notifications ----------
