@@ -23,7 +23,6 @@ const GROUPS: { key: PerformanceGroup; label: string }[] = [
   { key: "equities", label: "Equities" },
   { key: "fixed", label: "Fixed Income Yields" },
   { key: "eurobonds", label: "SSA Eurobonds" },
-  { key: "fx", label: "Foreign Exchange" },
 ];
 
 const tooltipStyle = {

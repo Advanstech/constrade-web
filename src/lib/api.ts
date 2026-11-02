@@ -1601,6 +1601,7 @@ export const adminApi = {
       price?: number;
       minimumInvestment?: number;
       isActive?: boolean;
+      isPublic?: boolean;
     },
   ) => {
     const res = await request<any>("PATCH", `/fixed-income/admin/securities/${encodeURIComponent(id)}`, payload);

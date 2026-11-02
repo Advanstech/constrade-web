@@ -1032,6 +1032,29 @@ export function KycWizardModal({
     ];
   }, [form]);
 
+  // Approved KYC is locked — further edits are an admin/back-office right.
+  if (profile?.kyc_status === "approved") {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-success" /> KYC verified
+            </DialogTitle>
+            <DialogDescription>
+              Your identity has been verified and approved. KYC details can no
+              longer be edited from your account — please contact support if an
+              administrator needs to update them.
+            </DialogDescription>
+          </DialogHeader>
+          <Button className="mt-2 w-full" onClick={() => onOpenChange(false)}>
+            Got it
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-none w-screen h-[100dvh] max-h-screen !rounded-none m-0 p-0 border-0 flex flex-col bg-background/95 backdrop-blur-xl">

@@ -219,6 +219,7 @@ export interface AdminKycDocument {
 }
 
 export interface AdminUserDetail {
+  canViewSpecialInstruments?: boolean;
   id: string;
   email: string;
   firstName?: string | null;

@@ -77,7 +77,16 @@ const Trade = () => {
   const qty = Number(quantity);
   const limit = Number(limitPrice);
   const refPrice = selected?.price ?? 0;
-  const effectivePrice = orderType === "limit" ? (limit > 0 ? limit : refPrice) : refPrice;
+  // Exchange rule: orders of 1,000+ shares always go to market; and a limit
+  // price may rest at most ±10% away from the current price.
+  const isEquity = selected?.assetClass !== "fixed_income";
+  const forcedMarket = isEquity && qty >= 1000;
+  const effectiveOrderType = forcedMarket ? "market" : orderType;
+  const limitFloor = refPrice * 0.9;
+  const limitCap = refPrice * 1.1;
+  const limitOutOfBand =
+    isEquity && effectiveOrderType === "limit" && limit > 0 && (limit < limitFloor - 1e-9 || limit > limitCap + 1e-9);
+  const effectivePrice = effectiveOrderType === "limit" ? (limit > 0 ? limit : refPrice) : refPrice;
   const estimate = qty > 0 ? qty * effectivePrice : 0;
   const feeComponents = feeSchedule?.equities.components ?? [];
   const feeRows = feeComponents.map((c) => ({
@@ -102,9 +111,9 @@ const Trade = () => {
       const { order, message } = await tradingApi.placeOrder({
         instrument: selected.ticker,
         side,
-        orderType,
+        orderType: effectiveOrderType,
         quantity: qty,
-        limitPrice: orderType === "limit" ? limit : undefined,
+        limitPrice: effectiveOrderType === "limit" ? limit : undefined,
       });
       setPlaced(order);
       toast.success(message ?? "Order submitted");
@@ -280,12 +289,17 @@ const Trade = () => {
                   </TabsList>
                 </Tabs>
 
-                <Tabs value={orderType} onValueChange={(v) => setOrderType(v as "market" | "limit")} className="mt-4">
+                <Tabs value={effectiveOrderType} onValueChange={(v) => setOrderType(v as "market" | "limit")} className="mt-4">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="market">Market</TabsTrigger>
-                    <TabsTrigger value="limit">Limit</TabsTrigger>
+                    <TabsTrigger value="limit" disabled={forcedMarket}>Limit</TabsTrigger>
                   </TabsList>
                 </Tabs>
+                {forcedMarket && (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Orders of 1,000+ shares are automatically routed as market orders.
+                  </p>
+                )}
 
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -302,17 +316,24 @@ const Trade = () => {
                       onChange={(e) => setQuantity(e.target.value)}
                     />
                   </div>
-                  {orderType === "limit" && (
+                  {effectiveOrderType === "limit" && (
                     <div className="space-y-2">
                       <Label>Limit price (GHS)</Label>
                       <Input
                         type="number"
-                        min="0"
+                        min={limitFloor.toFixed(2)}
+                        max={limitCap.toFixed(2)}
                         step="0.01"
                         placeholder="0.00"
                         value={limitPrice}
                         onChange={(e) => setLimitPrice(e.target.value)}
+                        className={cn(limitOutOfBand && "border-danger focus-visible:ring-danger")}
                       />
+                      {isEquity && refPrice > 0 && (
+                        <p className={cn("text-[11px]", limitOutOfBand ? "font-semibold text-danger" : "text-muted-foreground")}>
+                          Allowed range: {formatGHS(limitFloor)} – {formatGHS(limitCap)} (±10% of market price)
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -371,7 +392,7 @@ const Trade = () => {
                     "mt-5 w-full",
                     side === "buy" ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90",
                   )}
-                  disabled={submitting || (side === "buy" && !sufficient) || !profile?.csd_account}
+                  disabled={submitting || (side === "buy" && !sufficient) || !profile?.csd_account || limitOutOfBand}
                   onClick={submit}
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}

@@ -68,6 +68,7 @@ interface FixedIncomeSecurityRow {
   maturityDate?: string | null;
   minimumInvestment?: number | null;
   isActive?: boolean;
+  isPublic?: boolean;
 }
 
 interface YieldCurveRow {
@@ -165,6 +166,7 @@ export default function AdminMarketDataPage() {
     maturityDate: new Date(Date.now() + 91 * 86400000).toISOString().slice(0, 10),
     minimumInvestment: "100",
     isActive: true,
+    isPublic: true,
   });
 
   // Yield Curve Dialog State
@@ -447,6 +449,7 @@ export default function AdminMarketDataPage() {
       maturityDate: new Date(Date.now() + 91 * 86400000).toISOString().slice(0, 10),
       minimumInvestment: "100",
       isActive: true,
+      isPublic: true,
     });
     setFiDialogOpen(true);
   };
@@ -464,6 +467,7 @@ export default function AdminMarketDataPage() {
       maturityDate: fi.maturityDate ? new Date(fi.maturityDate).toISOString().slice(0, 10) : "",
       minimumInvestment: String(fi.minimumInvestment ?? 100),
       isActive: fi.isActive !== false,
+      isPublic: fi.isPublic !== false,
     });
     setFiDialogOpen(true);
   };
@@ -495,6 +499,7 @@ export default function AdminMarketDataPage() {
         await adminApi.updateFixedIncomeSecurity(editingFi.id, {
           ...payload,
           isActive: fiForm.isActive,
+          isPublic: fiForm.isPublic,
         });
         toast({
           title: `Updated ${payload.name}`,
@@ -1563,6 +1568,17 @@ export default function AdminMarketDataPage() {
                 }
               />
             </div>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={fiForm.isPublic}
+                onChange={(e) =>
+                  setFiForm((f) => ({ ...f, isPublic: e.target.checked }))
+                }
+                className="h-4 w-4 accent-brand-orange"
+              />
+              Visible to public — uncheck to reserve for staff &amp; entitled clients
+            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFiDialogOpen(false)}>

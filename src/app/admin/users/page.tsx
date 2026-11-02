@@ -871,6 +871,31 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleSpecialInstruments = async () => {
+    if (!selected) return;
+    const next = selected.canViewSpecialInstruments !== true;
+    setActionLoading("special");
+    try {
+      const updated = await adminApi.updateUserProfile(selected.id, {
+        canViewSpecialInstruments: next,
+      });
+      setSelected((prev) =>
+        prev
+          ? { ...prev, ...(updated?.id ? updated : {}), canViewSpecialInstruments: next }
+          : prev,
+      );
+      toast.success(
+        `Special-instruments access ${next ? "granted" : "revoked"}.`,
+      );
+    } catch (err) {
+      toast.error("Update failed", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleApproveCsd = async () => {
     if (!selected) return;
     const trimmed = csdQuickNumber.trim();
@@ -1523,6 +1548,22 @@ export default function AdminUsersPage() {
                         <RotateCcw className="h-3.5 w-3.5" /> Re-open
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={actionLoading !== null}
+                      onClick={() => void handleSpecialInstruments()}
+                    >
+                      {actionLoading === "special" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                      )}
+                      {selected.canViewSpecialInstruments ===
+                      true
+                        ? "Revoke special instruments"
+                        : "Grant special instruments"}
+                    </Button>
                   </div>
                 </div>
               )}
