@@ -22,6 +22,7 @@ const GROUPS: { key: PerformanceGroup; label: string }[] = [
   { key: "gse", label: "GSE Composite Index" },
   { key: "equities", label: "Equities" },
   { key: "fixed", label: "Fixed Income Yields" },
+  { key: "fx", label: "Foreign Exchange" },
   { key: "eurobonds", label: "SSA Eurobonds" },
 ];
 
