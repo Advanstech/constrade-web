@@ -976,9 +976,10 @@ export function KycWizardModal({
           declarationAccepted: Boolean(data?.accuracy && data?.terms && data?.sourceOfFundsDeclaration),
         };
 
-        await onboardingApi.submitSecKyc(secPayload).catch((err) => {
-          console.warn("SEC KYC structured submission warning:", err);
-        });
+        // The SEC KYC application is the authoritative compliance record —
+        // a failed submission must stop the flow instead of being swallowed,
+        // otherwise onboarding completes with no KycApplication on file.
+        await onboardingApi.submitSecKyc(secPayload);
       }
 
       await onboardingApi.submit({
