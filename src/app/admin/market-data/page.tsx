@@ -5,11 +5,17 @@ import {
   Activity,
   Building2,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Coins,
   Edit3,
+  Eye,
+  EyeOff,
   Globe,
   Landmark,
   Loader2,
+  Pause,
+  Play,
   Plus,
   RefreshCw,
   Search,
@@ -101,6 +107,7 @@ interface TenderResultRow {
 }
 
 const TENORS = ["91D", "182D", "364D", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y"];
+const PAGE_SIZES = [10, 25, 50];
 
 const SECURITY_TYPES = [
   { value: "BILL_91_DAY", label: "91-Day Treasury Bill", defaultName: "91-Day Treasury Bill" },
@@ -131,6 +138,14 @@ export default function AdminMarketDataPage() {
 
   const [equitySearch, setEquitySearch] = useState("");
   const [fiSearch, setFiSearch] = useState("");
+
+  // Per-table pagination state
+  const [eqPage, setEqPage] = useState(1);
+  const [fiPage, setFiPage] = useState(1);
+  const [ycPage, setYcPage] = useState(1);
+  const [trPage, setTrPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
 
   // Equity Dialog State
   const [equityDialogOpen, setEquityDialogOpen] = useState(false);
@@ -262,6 +277,104 @@ export default function AdminMarketDataPage() {
         String(f.type || "").toLowerCase().includes(q),
     );
   }, [fixedIncome, fiSearch]);
+
+  // Reset each table to page 1 when its dataset or page size shrinks
+  useEffect(() => setEqPage(1), [equitySearch, pageSize]);
+  useEffect(() => setFiPage(1), [fiSearch, pageSize]);
+  useEffect(() => {
+    setYcPage(1);
+    setTrPage(1);
+  }, [pageSize]);
+
+  const eqTotalPages = Math.max(1, Math.ceil(filteredEquities.length / pageSize));
+  const eqCurrentPage = Math.min(eqPage, eqTotalPages);
+  const pagedEquities = filteredEquities.slice(
+    (eqCurrentPage - 1) * pageSize,
+    eqCurrentPage * pageSize,
+  );
+
+  const fiTotalPages = Math.max(1, Math.ceil(filteredFixedIncome.length / pageSize));
+  const fiCurrentPage = Math.min(fiPage, fiTotalPages);
+  const pagedFixedIncome = filteredFixedIncome.slice(
+    (fiCurrentPage - 1) * pageSize,
+    fiCurrentPage * pageSize,
+  );
+
+  const ycTotalPages = Math.max(1, Math.ceil(yieldCurves.length / pageSize));
+  const ycCurrentPage = Math.min(ycPage, ycTotalPages);
+  const pagedYieldCurves = yieldCurves.slice(
+    (ycCurrentPage - 1) * pageSize,
+    ycCurrentPage * pageSize,
+  );
+
+  const trTotalPages = Math.max(1, Math.ceil(tenders.length / pageSize));
+  const trCurrentPage = Math.min(trPage, trTotalPages);
+  const pagedTenders = tenders.slice(
+    (trCurrentPage - 1) * pageSize,
+    trCurrentPage * pageSize,
+  );
+
+  // Quick inline status toggles — same admin endpoints the dialogs use, so
+  // every change still broadcasts via SSE and fires `market-data-updated`.
+  const handleToggleEquityStatus = async (eq: EquitySecurityRow) => {
+    const next = eq.isActive === false;
+    const key = `eq-${eq.ticker}`;
+    setTogglingKey(key);
+    try {
+      await adminApi.updateEquitySecurity(eq.ticker, { isActive: next });
+      setEquities((prev) =>
+        prev.map((e) => (e.ticker === eq.ticker ? { ...e, isActive: next } : e)),
+      );
+      toast({
+        title: `${eq.ticker} ${next ? "reactivated" : "paused"}`,
+        description: next
+          ? "Live on Web, Portal, and Mobile trading terminals."
+          : "Hidden from client trading lists immediately.",
+      });
+    } catch (err) {
+      toast({
+        title: "Update Failed",
+        description: err instanceof Error ? err.message : "Could not change listing status.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingKey(null);
+    }
+  };
+
+  const handleToggleFi = async (fi: FixedIncomeSecurityRow, flag: "isActive" | "isPublic") => {
+    const next = fi[flag] === false;
+    const key = `fi-${fi.id}-${flag}`;
+    setTogglingKey(key);
+    try {
+      await adminApi.updateFixedIncomeSecurity(fi.id, { [flag]: next });
+      setFixedIncome((prev) =>
+        prev.map((f) => (f.id === fi.id ? { ...f, [flag]: next } : f)),
+      );
+      toast({
+        title:
+          flag === "isPublic"
+            ? `${fi.isin} ${next ? "published" : "restricted"}`
+            : `${fi.isin} ${next ? "reactivated" : "deactivated"}`,
+        description:
+          flag === "isPublic"
+            ? next
+              ? "Visible to all clients on Web, Portal, and Mobile."
+              : "Now staff-only — entitled clients keep access."
+            : next
+              ? "Instrument tradeable again on all platforms."
+              : "Removed from client order tickets immediately.",
+      });
+    } catch (err) {
+      toast({
+        title: "Update Failed",
+        description: err instanceof Error ? err.message : "Could not update instrument.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingKey(null);
+    }
+  };
 
   // Latest active yield curve per tenor for summary view
   const latestYieldByTenor = useMemo(() => {
@@ -929,7 +1042,7 @@ export default function AdminMarketDataPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredEquities.map((eq) => {
+                    {pagedEquities.map((eq) => {
                       const prev = eq.previousClose ?? eq.price;
                       const changePct =
                         prev && prev > 0 ? ((eq.price - prev) / prev) * 100 : 0;
@@ -971,13 +1084,35 @@ export default function AdminMarketDataPage() {
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditEquity(eq)}
-                            >
-                              <Edit3 className="h-3.5 w-3.5" /> Update Quote
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={togglingKey === `eq-${eq.ticker}`}
+                                title={
+                                  eq.isActive !== false
+                                    ? "Pause trading — hides from client terminals"
+                                    : "Reactivate listing on all platforms"
+                                }
+                                onClick={() => handleToggleEquityStatus(eq)}
+                              >
+                                {togglingKey === `eq-${eq.ticker}` ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : eq.isActive !== false ? (
+                                  <Pause className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Play className="h-3.5 w-3.5 text-brand-orange" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditEquity(eq)}
+                              >
+                                <Edit3 className="h-3.5 w-3.5" /> Update Quote
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -992,6 +1127,14 @@ export default function AdminMarketDataPage() {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                page={eqCurrentPage}
+                pageSize={pageSize}
+                total={filteredEquities.length}
+                totalPages={eqTotalPages}
+                onPage={setEqPage}
+                onPageSize={setPageSize}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1040,7 +1183,7 @@ export default function AdminMarketDataPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredFixedIncome.map((fi) => (
+                    {pagedFixedIncome.map((fi) => (
                       <tr
                         key={fi.id}
                         className="border-b border-border/60 hover:bg-muted/30"
@@ -1067,18 +1210,65 @@ export default function AdminMarketDataPage() {
                           {fi.maturityDate ? formatDate(fi.maturityDate) : "—"}
                         </td>
                         <td className="hidden px-4 py-3 text-center md:table-cell">
-                          <Badge variant={fi.isActive !== false ? "default" : "secondary"}>
-                            {fi.isActive !== false ? "Active" : "Archived"}
-                          </Badge>
+                          <div className="flex items-center justify-center gap-1">
+                            <Badge variant={fi.isActive !== false ? "default" : "secondary"}>
+                              {fi.isActive !== false ? "Active" : "Archived"}
+                            </Badge>
+                            <Badge variant={fi.isPublic !== false ? "outline" : "secondary"}>
+                              {fi.isPublic !== false ? "Public" : "Staff"}
+                            </Badge>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditFi(fi)}
-                          >
-                            <Edit3 className="h-3.5 w-3.5" /> Update Rate
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={togglingKey === `fi-${fi.id}-isPublic`}
+                              title={
+                                fi.isPublic !== false
+                                  ? "Restrict — staff & entitled clients only"
+                                  : "Publish — visible to all clients"
+                              }
+                              onClick={() => handleToggleFi(fi, "isPublic")}
+                            >
+                              {togglingKey === `fi-${fi.id}-isPublic` ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : fi.isPublic !== false ? (
+                                <Eye className="h-3.5 w-3.5" />
+                              ) : (
+                                <EyeOff className="h-3.5 w-3.5 text-brand-orange" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={togglingKey === `fi-${fi.id}-isActive`}
+                              title={
+                                fi.isActive !== false
+                                  ? "Deactivate instrument"
+                                  : "Reactivate instrument"
+                              }
+                              onClick={() => handleToggleFi(fi, "isActive")}
+                            >
+                              {togglingKey === `fi-${fi.id}-isActive` ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : fi.isActive !== false ? (
+                                <Pause className="h-3.5 w-3.5" />
+                              ) : (
+                                <Play className="h-3.5 w-3.5 text-brand-orange" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditFi(fi)}
+                            >
+                              <Edit3 className="h-3.5 w-3.5" /> Update Rate
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1092,6 +1282,14 @@ export default function AdminMarketDataPage() {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                page={fiCurrentPage}
+                pageSize={pageSize}
+                total={filteredFixedIncome.length}
+                totalPages={fiTotalPages}
+                onPage={setFiPage}
+                onPageSize={setPageSize}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1231,7 +1429,7 @@ export default function AdminMarketDataPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {yieldCurves.slice(0, 30).map((yc) => (
+                    {pagedYieldCurves.map((yc) => (
                       <tr
                         key={yc.id}
                         className="border-b border-border/60 hover:bg-muted/30"
@@ -1274,9 +1472,24 @@ export default function AdminMarketDataPage() {
                         </td>
                       </tr>
                     ))}
+                    {yieldCurves.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                          No yield curve entries yet.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                page={ycCurrentPage}
+                pageSize={pageSize}
+                total={yieldCurves.length}
+                totalPages={ycTotalPages}
+                onPage={setYcPage}
+                onPageSize={setPageSize}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1312,7 +1525,7 @@ export default function AdminMarketDataPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tenders.map((tr) => {
+                    {pagedTenders.map((tr) => {
                       const rate =
                         tr.weightedAverageRate ?? tr.interestRate ?? tr.couponRate;
                       return (
@@ -1368,6 +1581,14 @@ export default function AdminMarketDataPage() {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                page={trCurrentPage}
+                pageSize={pageSize}
+                total={tenders.length}
+                totalPages={trTotalPages}
+                onPage={setTrPage}
+                onPageSize={setPageSize}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1860,3 +2081,63 @@ export default function AdminMarketDataPage() {
   );
 }
 
+
+function TablePagination({
+  page,
+  pageSize,
+  total,
+  totalPages,
+  onPage,
+  onPageSize,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  onPage: (page: number) => void;
+  onPageSize: (size: number) => void;
+}) {
+  if (total === 0) return null;
+  const start = (page - 1) * pageSize;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
+      <p className="text-xs text-muted-foreground">
+        Showing {start + 1}–{Math.min(start + pageSize, total)} of {total}
+      </p>
+      <div className="flex items-center gap-2">
+        <select
+          value={pageSize}
+          onChange={(event) => onPageSize(Number(event.target.value))}
+          className="h-8 rounded-md border border-input bg-card px-2 text-xs text-foreground"
+        >
+          {PAGE_SIZES.map((size) => (
+            <option key={size} value={size}>
+              {size} rows
+            </option>
+          ))}
+        </select>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          disabled={page === 1}
+          onClick={() => onPage(Math.max(1, page - 1))}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="px-1 text-xs text-muted-foreground">
+          {page} / {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          disabled={page === totalPages}
+          onClick={() => onPage(Math.min(totalPages, page + 1))}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
