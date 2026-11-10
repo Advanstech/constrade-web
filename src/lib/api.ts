@@ -1442,6 +1442,12 @@ export const adminApi = {
       status,
       ...(reviewNote ? { reviewNote } : {}),
     }),
+  updateDocumentFile: (documentId: string, fileBase64: string, mimeType = "image/jpeg") =>
+    request<AdminKycDocument & { signedUrl?: string }>(
+      "PATCH",
+      `/admin/documents/${documentId}/file`,
+      { fileBase64, mimeType },
+    ),
   dispatchNotice: (userId: string) =>
     request<{ success: boolean; message: string }>("POST", `/admin/users/${userId}/dispatch-notice`),
   deleteUser: (userId: string) =>

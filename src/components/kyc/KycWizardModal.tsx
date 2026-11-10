@@ -346,11 +346,18 @@ function hydrateKycForm(progress: KycProgress, profile: any): KycFormData {
     },
     "6": {
       ...saved6,
-      accuracy: Boolean(saved6.accuracy ?? (draft["6"] as any)?.accuracyDeclaration ?? app.declarationAccepted),
-      terms: Boolean(saved6.terms ?? (draft["6"] as any)?.termsAccepted ?? app.declarationAccepted),
-      sourceOfFundsDeclaration: Boolean(
-        saved6.sourceOfFundsDeclaration ?? (draft["6"] as any)?.sofDeclaration ?? app.declarationAccepted,
-      ),
+      accuracy:
+        saved6.accuracy ||
+        Boolean((draft["6"] as any)?.accuracyDeclaration) ||
+        app.declarationAccepted === true,
+      terms:
+        saved6.terms ||
+        Boolean((draft["6"] as any)?.termsAccepted) ||
+        app.declarationAccepted === true,
+      sourceOfFundsDeclaration:
+        saved6.sourceOfFundsDeclaration ||
+        Boolean((draft["6"] as any)?.sofDeclaration) ||
+        app.declarationAccepted === true,
     },
   };
 }

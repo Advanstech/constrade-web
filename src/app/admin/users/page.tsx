@@ -33,10 +33,12 @@ import {
   UserRound,
   Users,
   WalletCards,
+  Wand2,
   XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LoadError } from "@/components/layout/LoadError";
+import { KycImageEditor } from "@/components/admin/KycImageEditor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -463,6 +465,7 @@ function DocCard({
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   const isImage = (url: string) => /\.(jpe?g|png|gif|webp)(\?|$)/i.test(url);
@@ -516,7 +519,20 @@ function DocCard({
     }
   };
 
+  const handleEditSave = async (fileBase64: string) => {
+    const updated = await adminApi.updateDocumentFile(doc.id, fileBase64, "image/jpeg");
+    const nextUrl = updated.signedUrl ?? updated.fileUrl;
+    setSignedUrl(nextUrl);
+    onStatusChange({ ...doc, ...updated });
+    setEditing(false);
+    setPreviewing(true);
+    toast.success("Document image updated.");
+  };
+
+  const canEditImage = !superseded && isImage(signedUrl ?? doc.fileUrl);
+
   return (
+    <>
     <div
       className={cn(
         "overflow-hidden rounded-xl border border-border bg-card",
@@ -610,6 +626,30 @@ function DocCard({
               <AlertCircle className="h-3.5 w-3.5" />
             </Button>
           )}
+          {canEditImage && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              title="Edit / enhance image"
+              onClick={async () => {
+                setLoadingUrl(true);
+                try {
+                  const { signedUrl: url } = await adminApi.documentUrl(doc.id);
+                  setSignedUrl(url);
+                  setEditing(true);
+                } catch (err) {
+                  toast.error("Could not access document", {
+                    description: err instanceof Error ? err.message : undefined,
+                  });
+                } finally {
+                  setLoadingUrl(false);
+                }
+              }}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"
@@ -641,6 +681,29 @@ function DocCard({
         </div>
       </div>
     </div>
+
+    <Dialog open={editing} onOpenChange={(open) => !open && setEditing(false)}>
+      <DialogContent className="flex h-[88vh] max-h-[88vh] w-[min(96vw,64rem)] max-w-none flex-col overflow-hidden p-0">
+        <DialogHeader className="border-b border-border px-4 py-3">
+          <DialogTitle className="text-base">Edit KYC document image</DialogTitle>
+          <DialogDescription className="text-xs">
+            {label} — rotate, flip, crop, or adjust brightness, contrast and
+            sharpness, then save back to the document record.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1">
+          {editing && signedUrl && (
+            <KycImageEditor
+              imageUrl={signedUrl}
+              title={label}
+              onSave={handleEditSave}
+              onClose={() => setEditing(false)}
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
