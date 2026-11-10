@@ -40,11 +40,15 @@ const sections = [
     body: "The platform uses essential browser storage to maintain your secure login session and preferences. We do not use third-party advertising trackers or marketing pixels on the authenticated application. On mobile, push-notification tokens are stored to deliver order and account alerts; you can disable notifications in your device settings.",
   },
   {
-    title: "6. Data Retention & Your Rights",
-    body: "You have the right under the Data Protection Act, 2012 (Act 843) of Ghana to request a copy of the data we hold about you and to request correction of inaccuracies. For deletion requests, please note we are legally required to retain financial transaction and KYC records for the minimum period prescribed by Ghanaian securities law.",
+    title: "6. International Users & Cross-Border Transfers",
+    body: "Constant Capital (Ghana) Limited is established in Ghana and your data is primarily processed and stored in Ghana. If you access the platform from outside Ghana — including the EEA, United Kingdom or Switzerland — your data may be transferred to and processed in Ghana. We rely on the safeguards available under applicable law, including the Data Protection Act, 2012 (Act 843) of Ghana and, where required, the European Commission's adequacy decisions or standard contractual clauses with our service providers. Users in the EEA, UK and Switzerland additionally hold rights under the GDPR/UK GDPR (access, rectification, erasure, restriction, portability and objection).",
   },
   {
-    title: "7. Contact",
+    title: "7. Data Retention & Your Rights",
+    body: "You have the right under the Data Protection Act, 2012 (Act 843) of Ghana — and, where applicable, the GDPR — to request a copy of the data we hold about you, to request correction of inaccuracies, and to exercise the additional rights described in section 6. For deletion requests, please note we are legally required to retain financial transaction and KYC records for the minimum period prescribed by Ghanaian securities law and applicable regulation.",
+  },
+  {
+    title: "8. Contact",
     body: "For privacy inquiries or data-access requests, contact our client services team via the Support section of the app or by email at support@constantcap.com.gh.",
   },
 ];
@@ -71,8 +75,9 @@ export default function PrivacyPolicyPage() {
             Privacy Policy
           </h1>
           <p className="mt-3 text-muted-foreground">
-            Last updated October 2026. Your information is protected under the
-            Data Protection Act, 2012 (Act 843) of Ghana.
+            Last updated November 2026. Your information is protected under the
+            Data Protection Act, 2012 (Act 843) of Ghana, with additional
+            safeguards for users in the EEA, UK and Switzerland.
           </p>
         </div>
 

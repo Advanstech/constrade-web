@@ -29,19 +29,23 @@ const sections = [
     body: "Brokerage commissions, exchange levies, CSD charges and statutory fees apply to each transaction and are disclosed on the order ticket before you confirm. We may update our fee schedule with prior notice through the platform or by email.",
   },
   {
-    title: "7. Electronic Signature & Communications",
+    title: "7. International Investors",
+    body: "The platform is operated under the laws of the Republic of Ghana and may be used by investors residing outside Ghana, subject to successful KYC verification, sanctions and watchlist screening, and the availability of suitable payment and settlement rails. Non-Ghanaian residents are solely responsible for ensuring that their use of the platform complies with the securities, tax and foreign-exchange laws of their country of residence. Settlement of Ghana securities occurs through the Central Securities Depository; investors who cannot hold a CSD account directly may be required to settle through a local custodian or correspondent arrangement.",
+  },
+  {
+    title: "8. Electronic Signature & Communications",
     body: "Signatures drawn or uploaded within the platform constitute legally binding electronic signatures under the Electronic Transactions Act, 2008 (Act 772), and may be applied to account-opening and depository forms generated on your behalf. You consent to receiving statements, contract notes and regulatory communications electronically.",
   },
   {
-    title: "8. Acceptable Use & Security",
+    title: "9. Acceptable Use & Security",
     body: "You must keep your credentials and one-time PINs confidential and notify us immediately of any unauthorised access. We may suspend accounts exhibiting fraudulent, abusive or unlawful activity. The platform may not be used for market manipulation, money laundering or any purpose prohibited by Ghanaian law.",
   },
   {
-    title: "9. Limitation of Liability",
+    title: "10. Limitation of Liability",
     body: "Constant Capital shall not be liable for indirect, incidental or consequential damages arising from use of, or inability to use, the platform, including investment losses, market volatility, exchange outages, or third-party data feed interruptions.",
   },
   {
-    title: "10. Contact",
+    title: "11. Contact",
     body: "Questions about these terms may be directed to our client services team via the Support section of the app, or by email at support@constantcap.com.gh.",
   },
 ];
@@ -68,8 +72,9 @@ export default function TermsOfServicePage() {
             Terms of Service
           </h1>
           <p className="mt-3 text-muted-foreground">
-            Last updated October 2026. These terms govern your use of the
-            Constant Trade platform for Ghana equities and fixed income.
+            Last updated November 2026. These terms govern your use of the
+            Constant Trade platform for Ghana equities and fixed income,
+            including access by investors residing outside Ghana.
           </p>
         </div>
 
