@@ -782,13 +782,18 @@ const Funding = () => {
               {/* Printable Receipt (Hidden on screen, visible on print) */}
               <div className="hidden print:block fixed inset-0 z-[99999] bg-white text-black p-10 font-sans">
                 <div className="mx-auto max-w-2xl border border-gray-200 rounded-2xl p-8 bg-white">
-                  <div className="flex justify-between items-start mb-12">
+                  <div className="flex justify-between items-start mb-12 border-b-2 border-[#0F102F]/10 pb-6">
                     <div>
-                      <h1 className="text-3xl font-black tracking-tight text-gray-900">CONSTANT CAPITAL</h1>
-                      <p className="text-sm text-gray-500 mt-1">Premium Brokerage Services</p>
+                      <img
+                        src="/branding/brand_logo_light.png"
+                        alt="Constant Capital — Broker Dealer"
+                        className="h-12 w-auto object-contain mb-2"
+                      />
+                      <p className="text-xs font-semibold text-gray-700">Constant Capital (Ghana) Limited</p>
+                      <p className="text-xs text-gray-500">Heritage Tower, 6th Floor, Ridge, Accra • SEC &amp; GSE Licensed</p>
                     </div>
                     <div className="text-right">
-                      <h2 className="text-2xl font-semibold text-gray-800">TRANSACTION RECEIPT</h2>
+                      <h2 className="text-xl font-bold tracking-wider text-[#0F102F]">OFFICIAL RECEIPT</h2>
                       <p className="text-sm font-mono text-gray-500 mt-1">{selectedTx.payRef || selectedTx.reference || selectedTx.id}</p>
                     </div>
                   </div>

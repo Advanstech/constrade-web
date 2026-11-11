@@ -76,17 +76,24 @@ export function PrintableStatementModal({
           {/* Institutional Header */}
           <div className="border-b-2 border-brand-bronze pb-6">
             <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-navy text-brand-bronze font-display text-xl font-black shadow-sm">
-                    CC
-                  </div>
-                  <div>
-                    <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/branding/brand_logo_light.png"
+                    alt="Constant Capital — Broker Dealer"
+                    className="h-11 w-auto object-contain dark:hidden print:block"
+                  />
+                  <img
+                    src="/branding/brand_logo_dark.png"
+                    alt="Constant Capital — Broker Dealer"
+                    className="hidden h-11 w-auto object-contain dark:block print:hidden"
+                  />
+                  <div className="border-l border-border pl-3">
+                    <h1 className="font-display text-base font-bold tracking-tight text-foreground sm:text-lg">
                       CONSTANT CAPITAL (GHANA) LIMITED
                     </h1>
                     <p className="text-xs font-medium text-brand-bronze">
-                      Licensed Broker-Dealer & Dealing Member of the Ghana Stock Exchange (GSE)
+                      Licensed Broker-Dealer &amp; Dealing Member of the Ghana Stock Exchange (GSE)
                     </p>
                   </div>
                 </div>
