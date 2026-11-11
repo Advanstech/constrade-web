@@ -121,12 +121,20 @@ export default function PrivacyPolicyPage() {
               </p>
             </div>
           </div>
-          <Link
-            href="/legal/terms"
-            className="text-sm font-semibold text-brand-bronze hover:underline"
-          >
-            Read our Terms of Service →
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/legal/delete-account"
+              className="text-sm font-semibold text-brand-bronze hover:underline"
+            >
+              Account Deletion
+            </Link>
+            <Link
+              href="/legal/terms"
+              className="text-sm font-semibold text-brand-bronze hover:underline"
+            >
+              Read our Terms of Service →
+            </Link>
+          </div>
         </div>
       </div>
     </main>
