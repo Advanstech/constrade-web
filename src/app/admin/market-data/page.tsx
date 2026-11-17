@@ -56,9 +56,13 @@ interface EquitySecurityRow {
   dayHigh?: number | null;
   dayLow?: number | null;
   volume?: number | null;
-  marketCap?: string | null;
-  peRatio?: number | null;
+  dividendPerShare?: number | null;
   dividendYield?: number | null;
+  dividendType?: string | null;
+  exDividendDate?: string | null;
+  paymentDate?: string | null;
+  lastDividendDate?: string | null;
+  withholdingTaxRate?: number | null;
   isActive?: boolean;
 }
 
@@ -160,9 +164,13 @@ export default function AdminMarketDataPage() {
     dayHigh: "",
     dayLow: "",
     volume: "0",
-    marketCap: "",
-    peRatio: "",
+    dividendPerShare: "",
     dividendYield: "",
+    dividendType: "",
+    exDividendDate: "",
+    paymentDate: "",
+    lastDividendDate: "",
+    withholdingTaxRate: "",
     isActive: true,
   });
 
@@ -465,9 +473,13 @@ export default function AdminMarketDataPage() {
       dayHigh: "",
       dayLow: "",
       volume: "0",
-      marketCap: "",
-      peRatio: "",
+      dividendPerShare: "",
       dividendYield: "",
+      dividendType: "",
+      exDividendDate: "",
+      paymentDate: "",
+      lastDividendDate: "",
+      withholdingTaxRate: "",
       isActive: true,
     });
     setEquityDialogOpen(true);
@@ -475,6 +487,7 @@ export default function AdminMarketDataPage() {
 
   const openEditEquity = (eq: EquitySecurityRow) => {
     setEditingEquity(eq);
+    const toDateInput = (v?: string | null) => (v ? v.slice(0, 10) : "");
     setEquityForm({
       ticker: eq.ticker || "",
       name: eq.name || "",
@@ -484,9 +497,13 @@ export default function AdminMarketDataPage() {
       dayHigh: eq.dayHigh != null ? String(eq.dayHigh) : "",
       dayLow: eq.dayLow != null ? String(eq.dayLow) : "",
       volume: String(eq.volume ?? 0),
-      marketCap: eq.marketCap || "",
-      peRatio: eq.peRatio != null ? String(eq.peRatio) : "",
+      dividendPerShare: eq.dividendPerShare != null ? String(eq.dividendPerShare) : "",
       dividendYield: eq.dividendYield != null ? String(eq.dividendYield) : "",
+      dividendType: eq.dividendType || "",
+      exDividendDate: toDateInput(eq.exDividendDate),
+      paymentDate: toDateInput(eq.paymentDate),
+      lastDividendDate: toDateInput(eq.lastDividendDate),
+      withholdingTaxRate: eq.withholdingTaxRate != null ? String(eq.withholdingTaxRate) : "",
       isActive: eq.isActive !== false,
     });
     setEquityDialogOpen(true);
@@ -512,9 +529,13 @@ export default function AdminMarketDataPage() {
         dayHigh: equityForm.dayHigh ? parseFloat(equityForm.dayHigh) : undefined,
         dayLow: equityForm.dayLow ? parseFloat(equityForm.dayLow) : undefined,
         volume: equityForm.volume ? parseInt(equityForm.volume, 10) : 0,
-        marketCap: equityForm.marketCap.trim() || undefined,
-        peRatio: equityForm.peRatio ? parseFloat(equityForm.peRatio) : undefined,
+        dividendPerShare: equityForm.dividendPerShare ? parseFloat(equityForm.dividendPerShare) : undefined,
         dividendYield: equityForm.dividendYield ? parseFloat(equityForm.dividendYield) : undefined,
+        dividendType: equityForm.dividendType || undefined,
+        exDividendDate: equityForm.exDividendDate || undefined,
+        paymentDate: equityForm.paymentDate || undefined,
+        lastDividendDate: equityForm.lastDividendDate || undefined,
+        withholdingTaxRate: equityForm.withholdingTaxRate ? parseFloat(equityForm.withholdingTaxRate) : undefined,
       };
       if (editingEquity) {
         await adminApi.updateEquitySecurity(editingEquity.ticker, {
@@ -1681,14 +1702,90 @@ export default function AdminMarketDataPage() {
                 onChange={(e) => setEquityForm((f) => ({ ...f, volume: e.target.value }))}
               />
             </div>
+            <div className="sm:col-span-2 mt-1 border-t border-border pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Dividend declaration — feeds expected-dividend estimates on client order tickets
+              </p>
+            </div>
             <div className="space-y-1.5">
-              <Label>Market Cap</Label>
+              <Label>Dividend per Share (GHS)</Label>
               <Input
-                value={equityForm.marketCap}
+                type="number"
+                step="0.0001"
+                value={equityForm.dividendPerShare}
                 onChange={(e) =>
-                  setEquityForm((f) => ({ ...f, marketCap: e.target.value }))
+                  setEquityForm((f) => ({ ...f, dividendPerShare: e.target.value }))
                 }
-                placeholder="e.g. GHS 30.2B"
+                placeholder="e.g. 1.6704"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Dividend Type</Label>
+              <select
+                value={equityForm.dividendType}
+                onChange={(e) =>
+                  setEquityForm((f) => ({ ...f, dividendType: e.target.value }))
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— None —</option>
+                <option value="Final">Final</option>
+                <option value="Interim">Interim</option>
+                <option value="Special">Special</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Dividend Yield (%)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={equityForm.dividendYield}
+                onChange={(e) =>
+                  setEquityForm((f) => ({ ...f, dividendYield: e.target.value }))
+                }
+                placeholder="e.g. 9.05"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Withholding Tax Rate (%)</Label>
+              <Input
+                type="number"
+                step="0.1"
+                value={equityForm.withholdingTaxRate}
+                onChange={(e) =>
+                  setEquityForm((f) => ({ ...f, withholdingTaxRate: e.target.value }))
+                }
+                placeholder="8.0 (Ghana statutory)"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ex-Dividend Date</Label>
+              <Input
+                type="date"
+                value={equityForm.exDividendDate}
+                onChange={(e) =>
+                  setEquityForm((f) => ({ ...f, exDividendDate: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Payment Date</Label>
+              <Input
+                type="date"
+                value={equityForm.paymentDate}
+                onChange={(e) =>
+                  setEquityForm((f) => ({ ...f, paymentDate: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Last Dividend Paid</Label>
+              <Input
+                type="date"
+                value={equityForm.lastDividendDate}
+                onChange={(e) =>
+                  setEquityForm((f) => ({ ...f, lastDividendDate: e.target.value }))
+                }
               />
             </div>
           </div>

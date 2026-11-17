@@ -143,6 +143,13 @@ function toEquityQuote(raw: any): Quote {
     volume: Number(raw.volume) || 0,
     sector: raw.sector,
     marketCap: raw.marketCap,
+    dividendPerShare: raw.dividendPerShare != null ? Number(raw.dividendPerShare) : null,
+    dividendYield: raw.dividendYield != null ? Number(raw.dividendYield) : null,
+    dividendType: raw.dividendType ?? null,
+    exDividendDate: raw.exDividendDate ?? null,
+    paymentDate: raw.paymentDate ?? null,
+    lastDividendDate: raw.lastDividendDate ?? null,
+    withholdingTaxRate: raw.withholdingTaxRate != null ? Number(raw.withholdingTaxRate) : null,
   };
 }
 
@@ -1536,9 +1543,13 @@ export const adminApi = {
     dayHigh?: number;
     dayLow?: number;
     volume?: number;
-    marketCap?: string;
-    peRatio?: number;
+    dividendPerShare?: number;
     dividendYield?: number;
+    dividendType?: string;
+    exDividendDate?: string;
+    paymentDate?: string;
+    lastDividendDate?: string;
+    withholdingTaxRate?: number;
   }) => {
     const res = await request<any>("POST", "/equities/admin/securities", payload);
     if (typeof window !== "undefined") {
@@ -1556,9 +1567,13 @@ export const adminApi = {
       dayHigh?: number;
       dayLow?: number;
       volume?: number;
-      marketCap?: string;
-      peRatio?: number;
+      dividendPerShare?: number;
       dividendYield?: number;
+      dividendType?: string;
+      exDividendDate?: string;
+      paymentDate?: string;
+      lastDividendDate?: string;
+      withholdingTaxRate?: number;
       isActive?: boolean;
     },
   ) => {

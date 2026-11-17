@@ -43,6 +43,15 @@ export interface Quote {
   maturity?: string;
   yieldToMaturity?: number;
   minInvestment?: number;
+  // API-provided dividend fields (equities only) — nullable when no
+  // dividend is on record. Timing/eligibility is derived from the dates.
+  dividendPerShare?: number | null;
+  dividendYield?: number | null;
+  dividendType?: string | null;
+  exDividendDate?: string | null;
+  paymentDate?: string | null;
+  lastDividendDate?: string | null;
+  withholdingTaxRate?: number | null;
 }
 
 export interface MarketSummary {

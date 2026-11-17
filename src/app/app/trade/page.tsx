@@ -100,6 +100,64 @@ const Trade = () => {
   const netProceeds = estimate - feesTotal;
   const sufficient = side === "buy" ? totalDebit <= cash : true;
 
+  // Expected dividend — computed from the API-provided dividend fields on
+  // the security (same arithmetic as the API's dividend-estimate endpoint;
+  // no client-side rates). A buy only receives the dividend while the
+  // stock trades cum-dividend (before its ex-dividend date).
+  const dividend = useMemo(() => {
+    if (!isEquity || qty <= 0 || !selected?.dividendPerShare || selected.dividendPerShare <= 0) {
+      return null;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const ex = selected.exDividendDate ? new Date(selected.exDividendDate) : null;
+    const pay = selected.paymentDate ? new Date(selected.paymentDate) : null;
+    let status: "CUM_DIVIDEND" | "EX_DIVIDEND" | "DECLARED" | "PAID" | "HISTORICAL" = "HISTORICAL";
+    if (pay && today >= pay) status = "PAID";
+    else if (ex && today >= ex) status = "EX_DIVIDEND";
+    else if (ex) status = "CUM_DIVIDEND";
+    else if (pay) status = "DECLARED";
+    const wht = selected.withholdingTaxRate;
+    const gross = selected.dividendPerShare * qty;
+    const tax = wht != null ? (gross * wht) / 100 : null;
+    return {
+      dps: selected.dividendPerShare,
+      type: selected.dividendType,
+      status,
+      ex,
+      pay,
+      wht,
+      gross,
+      tax,
+      net: gross - (tax ?? 0),
+      receivable:
+        side === "buy"
+          ? status === "CUM_DIVIDEND" || status === "DECLARED"
+          : status === "EX_DIVIDEND" || status === "DECLARED",
+    };
+  }, [isEquity, qty, selected, side]);
+
+  const fmtDividendDate = (d: Date | null) =>
+    d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+
+  const dividendNote = dividend
+    ? side === "buy"
+      ? dividend.status === "CUM_DIVIDEND"
+        ? `Qualifies — buy before ex-date ${fmtDividendDate(dividend.ex)} to receive it${dividend.pay ? `; pays ${fmtDividendDate(dividend.pay)}` : ""}`
+        : dividend.status === "DECLARED"
+          ? `Declared${dividend.type ? ` ${dividend.type}` : ""} dividend${dividend.pay ? ` — pays ${fmtDividendDate(dividend.pay)}` : ""}; entitlement depends on ex-date`
+          : dividend.status === "EX_DIVIDEND"
+            ? `Past ex-date ${fmtDividendDate(dividend.ex)} — this dividend stays with the seller`
+            : dividend.status === "PAID"
+              ? `Latest declared dividend — paid ${fmtDividendDate(dividend.pay)}`
+              : "Last declared rate — no live dividend declaration"
+      : dividend.status === "CUM_DIVIDEND"
+        ? `Selling before ex-date ${fmtDividendDate(dividend.ex)} forfeits this dividend`
+        : dividend.status === "EX_DIVIDEND" || dividend.status === "DECLARED"
+          ? `You keep this dividend${dividend.pay ? ` — pays ${fmtDividendDate(dividend.pay)}` : ""}`
+          : "Latest declared dividend"
+    : null;
+
   const submit = async () => {
     if (!selected) return;
     if (!Number.isFinite(qty) || qty <= 0) {
@@ -359,6 +417,44 @@ const Trade = () => {
                     strong
                   />
                   {side === "buy" && <Row label="Available cash" value={formatGHS(cash)} />}
+                  {dividend && (
+                    <div className="mt-1 border-t border-border/60 pt-2">
+                      <Row
+                        label={dividend.receivable ? `Expected dividend${dividend.type ? ` (${dividend.type})` : ""}` : `Declared dividend${dividend.type ? ` (${dividend.type})` : ""}`}
+                        value={
+                          dividend.receivable
+                            ? `${formatGHS(dividend.net)} net`
+                            : `${formatGHS(dividend.dps)}/share`
+                        }
+                      />
+                      {dividend.receivable && (
+                        <>
+                          <Row
+                            label={`Gross (${qty} × ${formatGHS(dividend.dps)})`}
+                            value={formatGHS(dividend.gross)}
+                            muted
+                          />
+                          {dividend.tax != null && dividend.wht != null && (
+                            <Row
+                              label={`Withholding tax (${dividend.wht}%)`}
+                              value={`− ${formatGHS(dividend.tax)}`}
+                              muted
+                            />
+                          )}
+                        </>
+                      )}
+                      {dividendNote && (
+                        <p className={cn(
+                          "mt-1 flex items-start gap-1.5 text-[11px] leading-relaxed",
+                          dividend.status === "EX_DIVIDEND" ? "text-amber-600 dark:text-amber-400"
+                            : dividend.receivable ? "text-success" : "text-muted-foreground",
+                        )}>
+                          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+                          {dividendNote}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {side === "buy" && !sufficient && (
