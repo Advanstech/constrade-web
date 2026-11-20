@@ -96,6 +96,33 @@ export function statusClass(status: string): string {
   }
 }
 
+/**
+ * Holding rows mix settled positions with orders still in flight, so the
+ * portfolio table has to say which is which. Accepts the raw book status
+ * (ACCEPTED, SETTLED, PLACED, PAYMENT_CONFIRMED, …).
+ */
+export function holdingStatusLabel(status: string | null | undefined): string {
+  switch (String(status ?? "").toUpperCase()) {
+    case "SETTLED":
+    case "ACCEPTED":
+    case "EXECUTED":
+    case "FILLED":
+      return "Settled";
+    case "PAYMENT_CONFIRMED":
+      return "Paid — awaiting allotment";
+    case "PLACED":
+      return "Placed — awaiting fill";
+    case "SUBMITTED":
+      return "Submitted";
+    case "PENDING":
+      return "Pending payment";
+    case "REJECTED":
+      return "Rejected";
+    default:
+      return "In portfolio";
+  }
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);

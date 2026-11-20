@@ -317,11 +317,10 @@ function toPosition(raw: any): Position {
   const marketValue = Number(raw.amount) || quantity * avgPrice || 0;
   // Backend supplies accreted value for FI and costBasis when available.
   const cost = Number(raw.costBasis) || quantity * avgPrice || marketValue;
-  const rate = Number(raw.rate) || 0;
-  let pl = marketValue - cost;
-  if (!isEquity && Math.abs(pl) < 0.005 && rate > 0) {
-    pl = marketValue * (rate / 100);
-  }
+  // A position sitting at cost has no gain yet. Inventing a year of coupon
+  // here (marketValue × rate) is what made a pending ₵10,000 T-bill show a
+  // ₵663 "P/L" and drove the ₵1.42M total on the dashboard.
+  const pl = marketValue - cost;
   const ticker =
     raw.ticker ??
     raw.instrumentName ??
@@ -338,8 +337,9 @@ function toPosition(raw: any): Position {
     marketValue,
     cost,
     pl,
-    plPct: cost > 0 ? (pl / cost) * 100 : rate,
+    plPct: cost > 0 ? (pl / cost) * 100 : 0,
     dayChangePct: 0,
+    status: String(raw.status ?? "").toUpperCase(),
   };
 }
 
@@ -760,7 +760,10 @@ async function handleAccount(body: Record<string, unknown>): Promise<unknown> {
       const securitiesValue = summary?.totalPortfolioValue ?? 0;
       const totalValue = cash + securitiesValue;
       const totalPl = summary?.unrealizedInterest ?? 0;
-      const totalPlPct = summary?.averageYield ?? 0;
+      // P/L % is the return on money invested. It used to be the portfolio's
+      // weighted average coupon, so a flat book advertised "9.22% all-time".
+      const invested = Number(summary?.totalInvested) || 0;
+      const totalPlPct = invested > 0 ? (totalPl / invested) * 100 : 0;
       const allocation = (summary?.allocation ?? []).map((a: any) => ({
         label: a.label ?? a.securityType ?? "Other",
         value: Number(a.value) || 0,

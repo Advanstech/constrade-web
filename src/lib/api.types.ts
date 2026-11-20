@@ -135,6 +135,8 @@ export interface Position {
   pl: number;
   plPct: number;
   dayChangePct: number;
+  /** Raw book status (ACCEPTED, SETTLED, PLACED, PAYMENT_CONFIRMED, …). */
+  status?: string;
 }
 
 export interface AllocationSlice {

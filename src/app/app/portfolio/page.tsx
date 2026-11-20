@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { accountApi } from "@/lib/api";
 import type { Portfolio } from "@/lib/api.types";
-import { changeBgClass, formatGHS } from "@/lib/format";
+import { changeBgClass, formatGHS, holdingStatusLabel } from "@/lib/format";
 
 const PortfolioPage = () => {
   const [data, setData] = useState<Portfolio | null>(null);
@@ -224,7 +224,7 @@ const PortfolioPage = () => {
                           <td className="px-6 py-4">
                             <div className="font-semibold text-foreground">{h.instrument}</div>
                             <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                              <Clock className="h-3 w-3" /> Updated recently
+                              <Clock className="h-3 w-3" /> {holdingStatusLabel(h.status)}
                             </div>
                           </td>
                           <td className="px-4 py-4 text-right font-mono text-xs">
