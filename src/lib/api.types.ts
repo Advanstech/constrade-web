@@ -196,6 +196,71 @@ export interface OnboardingResult {
   };
 }
 
+// ---------- NIA Ghana Card face verification ----------
+
+export type NiaVerificationStatusValue =
+  | "UNVERIFIED"
+  | "VERIFIED"
+  | "FAILED"
+  | "INVALID_DATA"
+  | "WATCHLIST"
+  | "ERROR";
+
+export interface NiaVerificationResult {
+  id: string | null;
+  status: NiaVerificationStatusValue;
+  verified: boolean;
+  code: string | null;
+  reason: string | null;
+  message: string;
+  transactionGuid: string | null;
+  ghanaCardNumber: string;
+  mode: "KYC" | "YES_NO";
+  person: Record<string, unknown> | null;
+  createdAt: string;
+  cached: boolean;
+  warnings: string[];
+}
+
+export interface NiaRequirement {
+  key: "KYC" | "NIA_IDENTITY" | "CSD_ACCOUNT" | "BANK_ACCOUNT" | string;
+  label: string;
+  met: boolean;
+  blocking: boolean;
+}
+
+export interface NiaStatus {
+  provider: "NIA";
+  status: NiaVerificationStatusValue;
+  verified: boolean;
+  verifiedAt: string | null;
+  cardNumber: string | null;
+  applies: boolean;
+  enforced: boolean;
+  message: string;
+  latestAttempt: {
+    id: string;
+    status: NiaVerificationStatusValue;
+    responseCode: string | null;
+    reason: string | null;
+    createdAt: string;
+    message: string;
+  } | null;
+  recentAttempts: Array<{
+    id: string;
+    status: NiaVerificationStatusValue;
+    responseCode: string | null;
+    reason: string | null;
+    createdAt: string;
+    message: string;
+  }>;
+  tradingEligibility: {
+    eligible: boolean;
+    missing: string[];
+    requirements: NiaRequirement[];
+  };
+}
+
 export interface Profile {
   user_id: string;
   full_name: string;

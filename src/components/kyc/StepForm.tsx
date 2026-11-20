@@ -38,6 +38,7 @@ import {
   normalizePassportPhoto,
   normalizeSignatureImage,
 } from "@/lib/kyc-image-processing";
+import { NiaVerificationPanel } from "./NiaVerificationPanel";
 
 /** Helper to auto-format GhanaPost GPS (e.g. GA-052-7331) */
 function formatGhanaPostGps(rawInput: string): string {
@@ -1041,6 +1042,14 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           );
         })}
       </div>
+
+      {/* NIA Ghana Card face verification — required before trading. */}
+      {(d.identityDocs?.[0]?.type ?? "Ghana Card") === "Ghana Card" && (
+        <NiaVerificationPanel
+          pinNumber={d.identityDocs?.[0]?.number ?? ""}
+          source="WEB"
+        />
+      )}
 
       {/* SEC Section K: FATCA & CRS Self-Certification */}
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-5">

@@ -125,3 +125,63 @@ export function normalizeSignatureImage(file: File): Promise<File> {
     quality: 0.9,
   });
 }
+
+/** NIA refuses selfies above 1 MB and asks for a 640x480 crop. */
+export const NIA_MAX_SELFIE_BYTES = 1024 * 1024;
+
+function base64Bytes(dataUrl: string): number {
+  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+}
+
+/**
+ * Prepares a live selfie for the NIA face check: centre-crops to 4:3, scales
+ * to 640x480 and returns a base64 data URL within NIA's 1 MB ceiling.
+ *
+ * PNG is preferred because that is what NIA documents; if the crop exceeds
+ * 1 MB the same pixels are re-encoded as JPEG.
+ */
+export async function prepareNiaSelfie(
+  file: File,
+): Promise<{ dataUrl: string; bytes: number }> {
+  const image = await loadImage(file);
+  const targetWidth = 640;
+  const targetHeight = 480;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Image processing is not supported in this browser.");
+  }
+
+  // Cover-crop so the face fills the 4:3 frame without letterboxing.
+  const scale = Math.max(
+    targetWidth / image.naturalWidth,
+    targetHeight / image.naturalHeight,
+  );
+  const drawWidth = image.naturalWidth * scale;
+  const drawHeight = image.naturalHeight * scale;
+  ctx.drawImage(
+    image,
+    (targetWidth - drawWidth) / 2,
+    (targetHeight - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
+  );
+
+  let dataUrl = canvas.toDataURL("image/png");
+  let bytes = base64Bytes(dataUrl);
+  if (bytes > NIA_MAX_SELFIE_BYTES) {
+    dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    bytes = base64Bytes(dataUrl);
+  }
+  if (bytes > NIA_MAX_SELFIE_BYTES) {
+    throw new Error(
+      "The selfie is still above 1 MB after resizing. Move to better lighting and retake it.",
+    );
+  }
+  return { dataUrl, bytes };
+}

@@ -37,6 +37,8 @@ import type {
   AppNotification,
   ExecutionResultScan,
   AdminAuditLog,
+  NiaStatus,
+  NiaVerificationResult,
 } from "./api.types";
 
 async function call<T>(
@@ -1311,6 +1313,22 @@ export const onboardingApi = {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   },
+};
+
+// ---------- NIA Ghana Card face verification ----------
+
+/**
+ * NIA face checks. The image must be base64 (PNG/JPEG, at most 1 MB) — use
+ * the helpers in `kyc-image-processing` to downscale before calling.
+ */
+export const niaApi = {
+  verify: (payload: {
+    pinNumber: string;
+    image: string;
+    mode?: "KYC" | "YES_NO";
+    source?: "WEB" | "PORTAL" | "MOBILE";
+  }) => request<NiaVerificationResult>("POST", "/nia/verifications", payload),
+  status: () => request<NiaStatus>("GET", "/nia/status"),
 };
 
 // ---------- auth ----------
