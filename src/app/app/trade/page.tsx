@@ -13,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { accountApi, marketsApi, tradingApi, type FeeSchedule } from "@/lib/api";
+import { accountApi, marketsApi, niaApi, tradingApi, type FeeSchedule } from "@/lib/api";
 import { useAuth } from "@/auth/AuthProvider";
-import type { Order, Quote } from "@/lib/api.types";
+import type { NiaStatus, Order, Quote } from "@/lib/api.types";
 import { changeBgClass, formatGHS, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,22 @@ const Trade = () => {
   const [submitting, setSubmitting] = useState(false);
   const [placed, setPlaced] = useState<Order | null>(null);
   const [feeSchedule, setFeeSchedule] = useState<FeeSchedule | null>(null);
+  const [niaStatus, setNiaStatus] = useState<NiaStatus | null>(null);
+
+  // Pre-flight copy of the API's assertTradingEligibility. Without it the
+  // ticket only fails after submit, with a 403 for an unverified Ghana Card.
+  useEffect(() => {
+    let alive = true;
+    void niaApi
+      .status()
+      .then((s) => {
+        if (alive) setNiaStatus(s);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -99,6 +115,13 @@ const Trade = () => {
   const totalDebit = estimate + feesTotal;
   const netProceeds = estimate - feesTotal;
   const sufficient = side === "buy" ? totalDebit <= cash : true;
+  const niaBlocking =
+    niaStatus?.applies === true &&
+    niaStatus.enforced &&
+    niaStatus.status !== "VERIFIED";
+  const missingRequirements = (niaStatus?.tradingEligibility.requirements ?? [])
+    .filter((r) => r.blocking && !r.met)
+    .map((r) => r.label);
 
   // Expected dividend — computed from the API-provided dividend fields on
   // the security (same arithmetic as the API's dividend-estimate endpoint;
@@ -462,6 +485,24 @@ const Trade = () => {
                     <Info className="h-3.5 w-3.5" /> Insufficient cash for this order.
                   </p>
                 )}
+                {missingRequirements.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                    <p className="flex items-center gap-1.5 font-semibold">
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> Complete these before you can trade
+                    </p>
+                    <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[11px] leading-relaxed opacity-90">
+                      {missingRequirements.map((requirement) => (
+                        <li key={requirement}>{requirement}</li>
+                      ))}
+                    </ul>
+                    {niaBlocking && (
+                      <Link href="/app/kyc" className="mt-2 inline-block text-[11px] font-semibold underline">
+                        Open KYC to finish the NIA face check
+                      </Link>
+                    )}
+                  </div>
+                )}
+
                 {!profile?.csd_account ? (
                   <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
                     <p className="flex items-center gap-1.5 font-semibold">
@@ -488,7 +529,7 @@ const Trade = () => {
                     "mt-5 w-full",
                     side === "buy" ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90",
                   )}
-                  disabled={submitting || (side === "buy" && !sufficient) || !profile?.csd_account || limitOutOfBand}
+                  disabled={submitting || (side === "buy" && !sufficient) || !profile?.csd_account || limitOutOfBand || missingRequirements.length > 0}
                   onClick={submit}
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}

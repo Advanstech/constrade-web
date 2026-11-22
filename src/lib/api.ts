@@ -914,12 +914,14 @@ async function handleOnboarding(body: Record<string, unknown>): Promise<unknown>
     case "uploadDocument": {
       const file = body.file as File;
       const type = String(body.type ?? "");
+      const side = body.side ? String(body.side) : undefined;
       const base64 = await fileToBase64(file);
       const result = await request<any>("POST", "/onboarding/upload", {
         type,
         fileBase64: base64,
         fileName: file.name,
         mimeType: file.type,
+        ...(side ? { side } : {}),
       });
       notifyKycProgressChanged();
       return { document: result };
@@ -1248,11 +1250,12 @@ export const onboardingApi = {
       step,
       data,
     }).then((d) => d.progress),
-  uploadDocument: (file: File, type: string) =>
-    call<{ document: { id: string; type: string; fileUrl: string } }>("onboarding", {
+  uploadDocument: (file: File, type: string, side?: "front" | "back") =>
+    call<{ document: { id: string; type: string; side: string | null; fileUrl: string } }>("onboarding", {
       action: "uploadDocument",
       file,
       type,
+      side,
     }).then((d) => d.document),
   submit: (declarations?: { accuracyDeclaration?: boolean; termsAccepted?: boolean; sourceOfFundsDeclaration?: boolean }) =>
     call<OnboardingResult>("onboarding", { action: "submit", declarations }),

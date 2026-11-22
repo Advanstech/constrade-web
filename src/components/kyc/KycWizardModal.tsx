@@ -648,7 +648,14 @@ export function KycWizardModal({
           for (let i = 0; i < updatedStep.identityDocs.length; i += 1) {
             const doc = updatedStep.identityDocs[i];
             if (doc.file && !doc.fileUrl) {
-              const uploaded = await onboardingApi.uploadDocument(doc.file, doc.type === "Passport" ? "PASSPORT" : "GHANA_CARD");
+              // Row 0 is the front copy and row 1 the back copy; without the
+              // side marker two GHANA_CARD records are indistinguishable.
+              const isPassport = doc.type === "Passport";
+              const uploaded = await onboardingApi.uploadDocument(
+                doc.file,
+                isPassport ? "PASSPORT" : "GHANA_CARD",
+                isPassport ? undefined : i === 0 ? "front" : "back",
+              );
               updatedStep.identityDocs[i] = { ...doc, fileName: doc.file.name, file: undefined, fileUrl: uploaded.fileUrl };
               await persistUploadedDocuments();
             }
