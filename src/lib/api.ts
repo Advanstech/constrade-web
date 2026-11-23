@@ -71,6 +71,17 @@ async function dispatch(fn: string, body: Record<string, unknown>): Promise<unkn
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * The public catalogue only lists instruments that are actually on offer, and a
+ * paused one answers every lookup with a 404. Saying so beats a raw
+ * "Unknown instrument" when a client follows a bookmark to withdrawn paper.
+ */
+function instrumentGoneError(identifier: string) {
+  return new ApiError(
+    `"${identifier}" is not open for trading right now — it may have matured or been withdrawn. Browse Markets to see what is available.`,
+  );
+}
+
 function mapKycStatus(status: string): KycStatus {
   const s = String(status).toLowerCase();
   if (s === "approved") return "approved";
@@ -556,14 +567,15 @@ async function handleMarkets(body: Record<string, unknown>): Promise<unknown> {
     case "quotes": {
       const ticker = String(body.ticker ?? "");
       const isUuid = UUID_RE.test(ticker);
-      if (isUuid) {
-        const s = await request<any>("GET", `/fixed-income/securities/${ticker}`).catch(() => null);
-        if (s) return { quote: toFixedIncomeQuote(s) };
-      } else {
-        const s = await request<any>("GET", `/equities/securities/${ticker}`).catch(() => null);
-        if (s) return { quote: toEquityQuote(s) };
+      if (!isUuid) {
+        const equity = await request<any>("GET", `/equities/securities/${encodeURIComponent(ticker)}`).catch(() => null);
+        if (equity) return { quote: toEquityQuote(equity) };
       }
-      throw new ApiError("Unknown instrument: " + ticker);
+      // Bills and bonds resolve by ISIN as well as by id, so a GHGTB… bookmark
+      // lands here rather than in the equities branch.
+      const fixedIncome = await request<any>("GET", `/fixed-income/securities/${encodeURIComponent(ticker)}`).catch(() => null);
+      if (fixedIncome) return { quote: toFixedIncomeQuote(fixedIncome) };
+      throw isUuid ? instrumentGoneError(ticker) : new ApiError("Unknown instrument: " + ticker);
     }
     case "sparkline": {
       const ticker = String(body.ticker ?? "");
@@ -662,7 +674,10 @@ async function handleTrading(body: Record<string, unknown>): Promise<unknown> {
             fixedIncomeSecurityId = matched.id;
           } else {
             const single = await request<any>("GET", `/fixed-income/securities/${encodeURIComponent(instrument)}`).catch(() => null);
-            if (single?.id) fixedIncomeSecurityId = single.id;
+            // Never post an order against an identifier the catalogue will not
+            // resolve — that is what a paused bill looks like from here.
+            if (!single?.id) throw instrumentGoneError(instrument);
+            fixedIncomeSecurityId = single.id;
           }
         }
         const dto = {
@@ -692,7 +707,7 @@ async function handleTrading(body: Record<string, unknown>): Promise<unknown> {
             const order = await request<any>("POST", "/fixed-income/orders", dto);
             return { order: toFixedIncomeOrder(order), message: "Order submitted" };
           }
-          throw new ApiError("Unknown instrument: " + instrument);
+          throw instrumentGoneError(instrument);
         }
         const dto = {
           equitySecurityId: sec.id,
@@ -1424,6 +1439,75 @@ async function downloadAdminFile(
   window.URL.revokeObjectURL(url);
 }
 
+// ── Weekly market refresh (BoG bills / GoG bonds / GSE equities) ─────────────
+
+export type MarketSyncSourceStatus = "SUCCESS" | "PARTIAL" | "SKIPPED" | "FAILED";
+
+/** Per-source outcome of one refresh run. `frozen` lists the instruments the
+ *  back office pinned, so they were deliberately left untouched. */
+export interface MarketSyncSourceOutcome {
+  source: string;
+  status: MarketSyncSourceStatus;
+  updated: number;
+  unchanged: number;
+  frozen: string[];
+  unmatched: string[];
+  message?: string;
+}
+
+export interface MarketSyncRunResult {
+  success?: boolean;
+  triggeredBy?: string | null;
+  id?: string;
+  status: "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED" | "RUNNING";
+  summary: Record<string, unknown>;
+  sources: MarketSyncSourceOutcome[];
+}
+
+export interface MarketSyncStatus {
+  enabled: boolean;
+  /** Cron expression currently applied (default `0 3 * * 1` — Monday 03:00 UTC). */
+  schedule: string;
+  marketSources: { treasuryBills: string; bonds: string; equities: string };
+  lastRun: {
+    id: string;
+    trigger: "CRON" | "CATCH_UP" | "MANUAL";
+    status: "SUCCESS" | "PARTIAL" | "FAILED" | "SKIPPED" | "RUNNING";
+    startedAt: string;
+    finishedAt?: string | null;
+    durationMs?: number | null;
+    sources?: MarketSyncSourceOutcome[] | null;
+    summary?: Record<string, unknown> | null;
+    error?: string | null;
+  } | null;
+  recentRuns: Array<{
+    id: string;
+    trigger: string;
+    status: string;
+    startedAt: string;
+    finishedAt?: string | null;
+    durationMs?: number | null;
+  }>;
+  pinnedByBackOffice: {
+    fixedIncome: Array<{
+      id: string;
+      isin: string;
+      name: string;
+      type: string;
+      yield: number | null;
+      price: number | null;
+      updatedAt: string;
+    }>;
+    equities: Array<{
+      id: string;
+      ticker: string;
+      name: string;
+      price: number;
+      updatedAt: string;
+    }>;
+  };
+}
+
 export const adminApi = {
   dashboard: () =>
     call<AdminDashboardData>("admin", { action: "metrics" }),
@@ -1599,6 +1683,8 @@ export const adminApi = {
       lastDividendDate?: string;
       withholdingTaxRate?: number;
       isActive?: boolean;
+      /** false pins the quote so the weekly market refresh leaves it alone. */
+      autoSync?: boolean;
     },
   ) => {
     const res = await request<any>("PATCH", `/equities/admin/securities/${encodeURIComponent(ticker)}`, payload);
@@ -1614,6 +1700,20 @@ export const adminApi = {
     }
     return res;
   },
+  /**
+   * Weekly market refresh (BoG treasury bills, GoG bonds, GSE equities).
+   * Runs automatically every Monday; this is the "run it now" escape hatch.
+   * Instruments with autoSync = false are never touched.
+   */
+  runMarketSync: async () => {
+    const res = await request<MarketSyncRunResult>("POST", "/market-data/admin/market-sync/run");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("market-data-updated"));
+    }
+    return res;
+  },
+  marketSyncStatus: () =>
+    request<MarketSyncStatus>("GET", "/market-data/admin/market-sync/status"),
   fixedIncomeSecurities: () =>
     request<any[]>("GET", "/fixed-income/admin/securities"),
   createFixedIncomeSecurity: async (payload: {
@@ -1647,6 +1747,8 @@ export const adminApi = {
       minimumInvestment?: number;
       isActive?: boolean;
       isPublic?: boolean;
+      /** false pins the quote so the weekly market refresh leaves it alone. */
+      autoSync?: boolean;
     },
   ) => {
     const res = await request<any>("PATCH", `/fixed-income/admin/securities/${encodeURIComponent(id)}`, payload);

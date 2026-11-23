@@ -213,7 +213,15 @@ const AppMarkets = () => {
                 ))}
             {!loading && list.length === 0 && (
               <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-                No instruments match "{query}".
+                {query.trim()
+                  ? `No instruments match "${query}".`
+                  : tab === "fixed_income"
+                    ? "No fixed income instruments are open right now."
+                    : tab === "equity"
+                      ? "No equities are listed right now."
+                      : tab === "watchlist"
+                        ? "Your watchlist is empty — add instruments from the All tab."
+                        : "No instruments are open for trading right now."}
               </p>
             )}
           </div>

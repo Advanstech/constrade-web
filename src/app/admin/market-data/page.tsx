@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Building2,
+  CalendarClock,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   Globe,
   Landmark,
   Loader2,
+  Lock,
   Pause,
   Play,
   Plus,
@@ -41,9 +43,9 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { adminApi, marketsApi } from "@/lib/api";
+import { adminApi, marketsApi, type MarketSyncStatus } from "@/lib/api";
 import type { MarketSummary } from "@/lib/api.types";
-import { changeBgClass, formatDate, formatGHS } from "@/lib/format";
+import { changeBgClass, formatDate, formatDateTime, formatGHS } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface EquitySecurityRow {
@@ -64,6 +66,10 @@ interface EquitySecurityRow {
   lastDividendDate?: string | null;
   withholdingTaxRate?: number | null;
   isActive?: boolean;
+  /** false = pinned by the desk, so the weekly refresh leaves the quote alone. */
+  autoSync?: boolean;
+  dataSource?: string | null;
+  lastSyncedAt?: string | null;
 }
 
 interface FixedIncomeSecurityRow {
@@ -79,6 +85,10 @@ interface FixedIncomeSecurityRow {
   minimumInvestment?: number | null;
   isActive?: boolean;
   isPublic?: boolean;
+  /** false = pinned by the desk, so the weekly refresh leaves the quote alone. */
+  autoSync?: boolean;
+  dataSource?: string | null;
+  lastSyncedAt?: string | null;
 }
 
 interface YieldCurveRow {
@@ -93,6 +103,21 @@ interface YieldCurveRow {
 }
 
 type BenchmarkRow = Awaited<ReturnType<typeof adminApi.benchmarks>>[number];
+
+/** Where a quote came from and when it last arrived — the context for a Pinned row. */
+function provenanceLabel(source?: string | null, lastSyncedAt?: string | null) {
+  const origin =
+    source === "GSE_API"
+      ? "GSE feed"
+      : source === "BOG_API"
+        ? "BoG feed"
+        : source === "MANUAL"
+          ? "Desk entry"
+          : source
+            ? source.replace(/_/g, " ").toLowerCase()
+            : "Never synced";
+  return lastSyncedAt ? `${origin} · ${formatDateTime(lastSyncedAt)}` : origin;
+}
 
 interface TenderResultRow {
   id: string;
@@ -150,6 +175,10 @@ export default function AdminMarketDataPage() {
   const [trPage, setTrPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
+
+  // Weekly market refresh telemetry (BoG bills, GoG bonds, GSE equities)
+  const [syncStatus, setSyncStatus] = useState<MarketSyncStatus | null>(null);
+  const [runningSync, setRunningSync] = useState(false);
 
   // Equity Dialog State
   const [equityDialogOpen, setEquityDialogOpen] = useState(false);
@@ -458,6 +487,104 @@ export default function AdminMarketDataPage() {
       });
     } finally {
       setSyncingFx(false);
+    }
+  };
+
+  // Handlers: Weekly market refresh (BoG bills / GoG bonds / GSE equities)
+  const loadSyncStatus = useCallback(async () => {
+    try {
+      setSyncStatus(await adminApi.marketSyncStatus());
+    } catch {
+      // Telemetry only — the desk can still work if this read fails.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSyncStatus();
+  }, [loadSyncStatus]);
+
+  const handleRunMarketSync = async () => {
+    setRunningSync(true);
+    try {
+      const res = await adminApi.runMarketSync();
+      const summary = (res.summary ?? {}) as Record<string, unknown>;
+      const updated = Number(summary.updated ?? 0);
+      const frozen = Array.isArray(summary.frozen) ? summary.frozen.length : 0;
+      const unmatched = Array.isArray(summary.unmatched) ? summary.unmatched.length : 0;
+      const failed = res.status === "FAILED";
+      toast({
+        title: failed
+          ? "Weekly refresh failed"
+          : res.status === "PARTIAL"
+            ? "Weekly refresh partially applied"
+            : res.status === "SKIPPED"
+              ? "Weekly refresh is switched off"
+              : "Weekly refresh complete",
+        description: failed
+          ? String(summary.error ?? "Every source failed — nothing was written.")
+          : [
+              `${updated} quote${updated === 1 ? "" : "s"} refreshed.`,
+              frozen ? `${frozen} pinned instrument${frozen === 1 ? "" : "s"} left untouched.` : "",
+              unmatched
+                ? `${unmatched} published tenor${unmatched === 1 ? " has" : "s have"} no matching instrument.`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" "),
+        variant: failed || res.status === "SKIPPED" ? "destructive" : undefined,
+      });
+      await Promise.all([loadAll(), loadSyncStatus()]);
+    } catch (err) {
+      toast({
+        title: "Weekly Refresh Failed",
+        description: err instanceof Error ? err.message : "Could not run the weekly market refresh.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunningSync(false);
+    }
+  };
+
+  /**
+   * Pin or release an instrument. Pinned instruments are skipped by every
+   * automated refresh, which is how the desk keeps an override intact.
+   */
+  const setAutoSync = async (opts: {
+    kind: "equity" | "fixed-income";
+    id: string;
+    label: string;
+    enabled: boolean;
+  }) => {
+    const next = !opts.enabled;
+    const key = `pin-${opts.kind}-${opts.id}`;
+    setTogglingKey(key);
+    try {
+      if (opts.kind === "equity") {
+        await adminApi.updateEquitySecurity(opts.id, { autoSync: next });
+        setEquities((prev) =>
+          prev.map((e) => (e.ticker === opts.id ? { ...e, autoSync: next } : e)),
+        );
+      } else {
+        await adminApi.updateFixedIncomeSecurity(opts.id, { autoSync: next });
+        setFixedIncome((prev) =>
+          prev.map((f) => (f.id === opts.id ? { ...f, autoSync: next } : f)),
+        );
+      }
+      toast({
+        title: next ? `${opts.label} back on auto-sync` : `${opts.label} pinned to the desk quote`,
+        description: next
+          ? "The weekly BoG/GSE refresh will keep this quote current."
+          : "The weekly refresh will skip this quote until you release it.",
+      });
+      await loadSyncStatus();
+    } catch (err) {
+      toast({
+        title: "Update Failed",
+        description: err instanceof Error ? err.message : "Could not change auto-sync.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingKey(null);
     }
   };
 
@@ -950,6 +1077,20 @@ export default function AdminMarketDataPage() {
               )}
               Sync FX
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRunMarketSync}
+              disabled={runningSync}
+              title="Bills from BoG, bonds from tender results, equities from the GSE. Pinned quotes are skipped."
+            >
+              {runningSync ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CalendarClock className="h-3.5 w-3.5 text-brand-bronze" />
+              )}
+              Run Weekly Refresh
+            </Button>
             <Button variant="outline" size="sm" onClick={loadAll} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
               Refresh
@@ -957,6 +1098,88 @@ export default function AdminMarketDataPage() {
           </div>
         }
       />
+
+      {/* Weekly market refresh — runs every Monday after the Friday auctions */}
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-brand-bronze" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">
+                Weekly market refresh{" "}
+                <span className="font-mono text-[11px] font-normal text-muted-foreground">
+                  {syncStatus?.schedule ?? "0 3 * * 1"}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {syncStatus && !syncStatus.enabled
+                  ? "Paused by MARKET_SYNC_ENABLED — only the manual trigger will run."
+                  : "Mondays 03:00 GMT, after the Friday auctions: bills from the Bank of Ghana, bonds from published tender results, equities from the GSE. Quotes pinned by the desk are never overwritten."}
+              </p>
+              {syncStatus?.lastRun && (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-muted-foreground">
+                  <Badge
+                    variant={
+                      syncStatus.lastRun.status === "FAILED"
+                        ? "destructive"
+                        : syncStatus.lastRun.status === "SUCCESS"
+                          ? "default"
+                          : "secondary"
+                    }
+                    className="text-[10px]"
+                  >
+                    {syncStatus.lastRun.status}
+                  </Badge>
+                  <span>
+                    {formatDateTime(syncStatus.lastRun.startedAt)}
+                    {syncStatus.lastRun.trigger !== "CRON" ? ` · ${syncStatus.lastRun.trigger}` : ""}
+                    {syncStatus.lastRun.durationMs != null
+                      ? ` · ${(syncStatus.lastRun.durationMs / 1000).toFixed(1)}s`
+                      : ""}
+                  </span>
+                  {syncStatus.pinnedByBackOffice.fixedIncome.length +
+                    syncStatus.pinnedByBackOffice.equities.length >
+                    0 && (
+                    <span className="inline-flex items-center gap-1 text-brand-orange">
+                      <Lock className="h-3 w-3" />
+                      {syncStatus.pinnedByBackOffice.fixedIncome.length +
+                        syncStatus.pinnedByBackOffice.equities.length}{" "}
+                      pinned by the desk
+                    </span>
+                  )}
+                  {syncStatus.lastRun.error && (
+                    <span className="text-destructive">{syncStatus.lastRun.error}</span>
+                  )}
+                </div>
+              )}
+              {syncStatus?.lastRun?.sources?.length ? (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {syncStatus.lastRun.sources.map((s) => (
+                    <Badge
+                      key={`${s.source}-${s.status}`}
+                      variant={
+                        s.status === "FAILED"
+                          ? "destructive"
+                          : s.status === "SUCCESS"
+                            ? "outline"
+                            : "secondary"
+                      }
+                      className="text-[10px] font-normal"
+                      title={
+                        s.message ??
+                        `${s.updated} updated, ${s.unchanged} unchanged, ${s.frozen.length} pinned, ${s.unmatched.length} unmatched`
+                      }
+                    >
+                      {s.source}:{" "}
+                      {s.status === "SKIPPED" ? "skipped" : `${s.updated} updated`}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Top Live Benchmarks Strip */}
       {loading && !summary ? (
@@ -1075,7 +1298,12 @@ export default function AdminMarketDataPage() {
                           <td className="px-4 py-3 font-mono font-bold text-foreground">
                             {eq.ticker}
                           </td>
-                          <td className="px-4 py-3 font-medium">{eq.name}</td>
+                          <td className="px-4 py-3 font-medium">
+                            {eq.name}
+                            <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                              {provenanceLabel(eq.dataSource, eq.lastSyncedAt)}
+                            </div>
+                          </td>
                           <td className="hidden px-4 py-3 text-xs text-muted-foreground md:table-cell">
                             {eq.sector}
                           </td>
@@ -1100,9 +1328,16 @@ export default function AdminMarketDataPage() {
                             {Number(eq.volume || 0).toLocaleString("en-GH")}
                           </td>
                           <td className="hidden px-4 py-3 text-center md:table-cell">
-                            <Badge variant={eq.isActive !== false ? "default" : "secondary"}>
-                              {eq.isActive !== false ? "Active" : "Paused"}
-                            </Badge>
+                            <div className="flex items-center justify-center gap-1">
+                              <Badge variant={eq.isActive !== false ? "default" : "secondary"}>
+                                {eq.isActive !== false ? "Active" : "Paused"}
+                              </Badge>
+                              {eq.autoSync === false && (
+                                <Badge variant="outline" className="gap-1 text-[10px] text-brand-orange">
+                                  <Lock className="h-2.5 w-2.5" /> Pinned
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -1124,6 +1359,33 @@ export default function AdminMarketDataPage() {
                                   <Pause className="h-3.5 w-3.5" />
                                 ) : (
                                   <Play className="h-3.5 w-3.5 text-brand-orange" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={togglingKey === `pin-equity-${eq.ticker}`}
+                                title={
+                                  eq.autoSync === false
+                                    ? "Pinned to the desk quote — the weekly refresh skips it. Click to resume auto-sync."
+                                    : "On auto-sync — the weekly GSE refresh updates this quote. Click to pin it."
+                                }
+                                onClick={() =>
+                                  setAutoSync({
+                                    kind: "equity",
+                                    id: eq.ticker,
+                                    label: eq.ticker,
+                                    enabled: eq.autoSync !== false,
+                                  })
+                                }
+                              >
+                                {togglingKey === `pin-equity-${eq.ticker}` ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : eq.autoSync === false ? (
+                                  <Lock className="h-3.5 w-3.5 text-brand-orange" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
                                 )}
                               </Button>
                               <Button
@@ -1217,7 +1479,12 @@ export default function AdminMarketDataPage() {
                         <td className="px-4 py-3 font-mono text-xs font-semibold">
                           {fi.isin}
                         </td>
-                        <td className="px-4 py-3 font-medium">{fi.name}</td>
+                        <td className="px-4 py-3 font-medium">
+                          {fi.name}
+                          <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                            {provenanceLabel(fi.dataSource, fi.lastSyncedAt)}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-right font-mono font-bold text-brand-orange">
                           {Number(fi.yield || 0).toFixed(2)}%
                         </td>
@@ -1238,6 +1505,11 @@ export default function AdminMarketDataPage() {
                             <Badge variant={fi.isPublic !== false ? "outline" : "secondary"}>
                               {fi.isPublic !== false ? "Public" : "Staff"}
                             </Badge>
+                            {fi.autoSync === false && (
+                              <Badge variant="outline" className="gap-1 text-[10px] text-brand-orange">
+                                <Lock className="h-2.5 w-2.5" /> Pinned
+                              </Badge>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -1280,6 +1552,33 @@ export default function AdminMarketDataPage() {
                                 <Pause className="h-3.5 w-3.5" />
                               ) : (
                                 <Play className="h-3.5 w-3.5 text-brand-orange" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={togglingKey === `pin-fixed-income-${fi.id}`}
+                              title={
+                                fi.autoSync === false
+                                  ? "Pinned to the desk quote — the weekly refresh skips it. Click to resume auto-sync."
+                                  : "On auto-sync — the weekly BoG/tender refresh updates this quote. Click to pin it."
+                              }
+                              onClick={() =>
+                                setAutoSync({
+                                  kind: "fixed-income",
+                                  id: fi.id,
+                                  label: fi.isin,
+                                  enabled: fi.autoSync !== false,
+                                })
+                              }
+                            >
+                              {togglingKey === `pin-fixed-income-${fi.id}` ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : fi.autoSync === false ? (
+                                <Lock className="h-3.5 w-3.5 text-brand-orange" />
+                              ) : (
+                                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
                               )}
                             </Button>
                             <Button
