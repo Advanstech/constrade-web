@@ -1451,6 +1451,8 @@ export interface MarketSyncSourceOutcome {
   updated: number;
   unchanged: number;
   frozen: string[];
+  /** Paused by the desk (isActive = false) — reported, never repriced. */
+  paused?: string[];
   unmatched: string[];
   message?: string;
 }

@@ -220,6 +220,8 @@ export interface NiaVerificationResult {
   createdAt: string;
   cached: boolean;
   warnings: string[];
+  /** Machine-readable cause when the attempt was rejected or failed. */
+  failureCode: string | null;
 }
 
 export interface NiaRequirement {
@@ -245,6 +247,8 @@ export interface NiaStatus {
     reason: string | null;
     createdAt: string;
     message: string;
+    source?: string;
+    failureCode?: string | null;
   } | null;
   recentAttempts: Array<{
     id: string;
@@ -253,6 +257,8 @@ export interface NiaStatus {
     reason: string | null;
     createdAt: string;
     message: string;
+    source?: string;
+    failureCode?: string | null;
   }>;
   tradingEligibility: {
     eligible: boolean;

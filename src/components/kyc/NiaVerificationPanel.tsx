@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Camera,
   CheckCircle2,
+  Lightbulb,
   Loader2,
+  LifeBuoy,
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
@@ -13,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { niaApi } from "@/lib/api";
 import type { NiaStatus, NiaVerificationStatusValue } from "@/lib/api.types";
-import { prepareNiaSelfie } from "@/lib/kyc-image-processing";
+import { NiaCameraCapture } from "./NiaCameraCapture";
 
 interface NiaVerificationPanelProps {
   /** Ghana Card number from the identity step; empty disables verification. */
@@ -32,6 +34,32 @@ const STATUS_COPY: Record<NiaVerificationStatusValue, string> = {
   ERROR: "NIA unavailable",
 };
 
+/**
+ * What the investor should do about each machine-readable failure the API
+ * records. Without this the panel only said "try again", which is useless for
+ * the causes that need a different action.
+ */
+const FAILURE_GUIDANCE: Record<string, string> = {
+  CARD_INVALID:
+    "Check the Ghana Card number in the identity section — it looks like GHA-123456789-0.",
+  CARD_MISMATCH:
+    "That number does not match the Ghana Card on your KYC file. Correct it in the identity section, then retake the selfie.",
+  IMAGE_INVALID:
+    "The photo could not be read. Retake it in good light, without filters.",
+  IMAGE_TOO_LARGE:
+    "The photo was too large to send. Retake it so it can be cropped to 640×480.",
+  NOT_CONFIGURED:
+    "Face verification is not switched on for this environment yet. Contact support and we will complete your check manually.",
+  GATEWAY_TIMEOUT:
+    "NIA did not answer in time. This is usually temporary — wait a moment and try again.",
+  GATEWAY_UNREACHABLE:
+    "NIA could not be reached. Retake the selfie, and contact support if it keeps failing.",
+  GATEWAY_HTTP_ERROR:
+    "NIA returned an error. Try again shortly — if it repeats, contact support.",
+};
+
+const SUPPORT_EMAIL = "support@constantcap.com.gh";
+
 function statusTone(status: NiaVerificationStatusValue) {
   if (status === "VERIFIED") {
     return "border-emerald-300 bg-emerald-50 text-emerald-700";
@@ -45,10 +73,24 @@ function statusTone(status: NiaVerificationStatusValue) {
   return "border-border bg-background text-muted-foreground";
 }
 
+function formatAttemptTime(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /**
- * Ghana Card face check with NIA. The selfie is downscaled to a 640x480 crop
- * in the browser — NIA times out on full-resolution phone photos — and only
- * the comparison result is kept by the API.
+ * Ghana Card face check with NIA.
+ *
+ * The selfie is taken on a live 640x480 canvas (see NiaCameraCapture) and only
+ * the comparison result is kept by the API. Failures are explained by cause,
+ * every attempt is listed so support can pick up the conversation, and there is
+ * a direct support route instead of a dead "try again" button.
  */
 export function NiaVerificationPanel({
   pinNumber,
@@ -58,9 +100,11 @@ export function NiaVerificationPanel({
 }: NiaVerificationPanelProps) {
   const [status, setStatus] = useState<NiaStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [failureCode, setFailureCode] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -75,33 +119,49 @@ export function NiaVerificationPanel({
     void loadStatus();
   }, [loadStatus]);
 
-  const currentStatus: NiaVerificationStatusValue = status?.status ?? "UNVERIFIED";
+  const currentStatus: NiaVerificationStatusValue =
+    status?.status ?? "UNVERIFIED";
   const verified = currentStatus === "VERIFIED";
   const blocked = status?.applies === false || currentStatus === "WATCHLIST";
   const cardReady = pinNumber.replace(/[^0-9]/g, "").length >= 10;
+  const attempts = status?.recentAttempts ?? [];
 
-  const handleFile = async (file: File) => {
-    setError(null);
-    setWarnings([]);
-    if (!cardReady) {
-      setError("Enter your Ghana Card number before verifying.");
-      return;
-    }
+  const supportHref = useMemo(() => {
+    const digits = pinNumber.replace(/[^0-9]/g, "");
+    const cardHint = digits.length >= 4 ? `ending ${digits.slice(-4)}` : "on file";
+    const body = [
+      "I could not complete the Ghana Card face check in the app.",
+      "",
+      `Ghana Card: ${cardHint}`,
+      `Last result: ${currentStatus}${failureCode ? ` (${failureCode})` : ""}`,
+      `Attempts on record: ${attempts.length}`,
+      "",
+      "Please help me finish the verification.",
+    ].join("\n");
+    return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+      "NIA face verification — help needed",
+    )}&body=${encodeURIComponent(body)}`;
+  }, [attempts.length, currentStatus, failureCode, pinNumber]);
+
+  const verify = async (image: string) => {
     setBusy(true);
+    setError(null);
+    setFailureCode(null);
+    setWarnings([]);
     try {
-      const { dataUrl } = await prepareNiaSelfie(file);
-      const result = await niaApi.verify({
-        pinNumber,
-        image: dataUrl,
-        source,
-      });
+      const result = await niaApi.verify({ pinNumber, image, source });
       setWarnings(result.warnings ?? []);
+      setFailureCode(result.failureCode ?? null);
       if (result.status !== "VERIFIED") {
         setError(result.message);
       }
       await loadStatus();
-      if (result.status === "VERIFIED") onVerified?.();
+      if (result.status === "VERIFIED") {
+        setCameraOpen(false);
+        onVerified?.();
+      }
     } catch (err) {
+      setFailureCode(null);
       setError(
         err instanceof Error
           ? err.message
@@ -109,7 +169,6 @@ export function NiaVerificationPanel({
       );
     } finally {
       setBusy(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -169,8 +228,8 @@ export function NiaVerificationPanel({
 
       {!verified && !blocked && (
         <p className="text-xs text-muted-foreground">
-          Use a front camera, face the light, and keep your whole face in frame.
-          The image is resized to 640×480 before it leaves this device.
+          The camera shows the exact 640×480 frame that is sent to NIA. Face the
+          light and keep your whole face inside the oval.
         </p>
       )}
 
@@ -189,6 +248,13 @@ export function NiaVerificationPanel({
         </p>
       )}
 
+      {failureCode && FAILURE_GUIDANCE[failureCode] && (
+        <p className="flex items-start gap-2 text-xs text-muted-foreground">
+          <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {FAILURE_GUIDANCE[failureCode]}
+        </p>
+      )}
+
       {warnings.map((warning) => (
         <p
           key={warning}
@@ -201,22 +267,11 @@ export function NiaVerificationPanel({
 
       {!verified && !blocked && (
         <div className="flex flex-wrap items-center gap-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg"
-            capture="user"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void handleFile(file);
-            }}
-          />
           <Button
             type="button"
             variant="outline"
             disabled={busy || !cardReady}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setCameraOpen(true)}
           >
             {busy ? (
               <>
@@ -228,10 +283,27 @@ export function NiaVerificationPanel({
                 <Camera className="mr-2 h-4 w-4" />
                 {currentStatus === "UNVERIFIED"
                   ? "Take selfie & verify"
-                  : "Retake selfie"}
+                  : "Retry with a new selfie"}
               </>
             )}
           </Button>
+          <a
+            href={supportHref}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-bronze hover:underline"
+          >
+            <LifeBuoy className="h-3.5 w-3.5" />
+            Contact support
+          </a>
+          {attempts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowHistory((value) => !value)}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              {showHistory ? "Hide" : "Show"} {attempts.length} previous{" "}
+              {attempts.length === 1 ? "attempt" : "attempts"}
+            </button>
+          )}
           {!cardReady && (
             <span className="text-xs text-muted-foreground">
               Enter and save your Ghana Card number in the identity section
@@ -239,6 +311,50 @@ export function NiaVerificationPanel({
             </span>
           )}
         </div>
+      )}
+
+      {showHistory && attempts.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-border bg-background/60 p-3">
+          {attempts.map((attempt) => (
+            <div key={attempt.id} className="flex items-start gap-2 text-xs">
+              <span
+                className={cn(
+                  "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                  attempt.status === "VERIFIED"
+                    ? "border-emerald-300 text-emerald-600"
+                    : "border-border text-muted-foreground",
+                )}
+              >
+                {attempt.status === "VERIFIED" ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  <AlertCircle className="h-3 w-3" />
+                )}
+              </span>
+              <div>
+                <p className="font-medium text-foreground">
+                  {STATUS_COPY[attempt.status]}
+                </p>
+                <p className="text-muted-foreground">
+                  {formatAttemptTime(attempt.createdAt)}
+                  {attempt.failureCode ? ` · ${attempt.failureCode}` : ""}
+                </p>
+              </div>
+            </div>
+          ))}
+          <p className="text-[11px] text-muted-foreground">
+            Support can see these attempts — quote the date and time.
+          </p>
+        </div>
+      )}
+
+      {cameraOpen && (
+        <NiaCameraCapture
+          busy={busy}
+          error={error}
+          onClose={() => setCameraOpen(false)}
+          onCapture={(dataUrl) => void verify(dataUrl)}
+        />
       )}
     </div>
   );

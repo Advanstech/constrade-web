@@ -128,11 +128,37 @@ export function normalizeSignatureImage(file: File): Promise<File> {
 
 /** NIA refuses selfies above 1 MB and asks for a 640x480 crop. */
 export const NIA_MAX_SELFIE_BYTES = 1024 * 1024;
+export const NIA_FRAME_WIDTH = 640;
+export const NIA_FRAME_HEIGHT = 480;
 
-function base64Bytes(dataUrl: string): number {
+/** Byte size of a base64 data URL, without allocating a decoded copy. */
+export function dataUrlBytes(dataUrl: string): number {
   const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
   const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
   return Math.floor((base64.length * 3) / 4) - padding;
+}
+
+/**
+ * Encodes an already 640x480 canvas for NIA: PNG first, JPEG if that exceeds
+ * the 1 MB ceiling. Used by the live camera, where the frame never exists as a
+ * File.
+ */
+export function canvasToNiaDataUrl(canvas: HTMLCanvasElement): {
+  dataUrl: string;
+  bytes: number;
+} {
+  let dataUrl = canvas.toDataURL("image/png");
+  let bytes = dataUrlBytes(dataUrl);
+  if (bytes > NIA_MAX_SELFIE_BYTES) {
+    dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    bytes = dataUrlBytes(dataUrl);
+  }
+  if (bytes > NIA_MAX_SELFIE_BYTES) {
+    throw new Error(
+      "The selfie is still above 1 MB after resizing. Move to better lighting and retake it.",
+    );
+  }
+  return { dataUrl, bytes };
 }
 
 /**
@@ -146,8 +172,8 @@ export async function prepareNiaSelfie(
   file: File,
 ): Promise<{ dataUrl: string; bytes: number }> {
   const image = await loadImage(file);
-  const targetWidth = 640;
-  const targetHeight = 480;
+  const targetWidth = NIA_FRAME_WIDTH;
+  const targetHeight = NIA_FRAME_HEIGHT;
 
   const canvas = document.createElement("canvas");
   canvas.width = targetWidth;
@@ -173,10 +199,10 @@ export async function prepareNiaSelfie(
   );
 
   let dataUrl = canvas.toDataURL("image/png");
-  let bytes = base64Bytes(dataUrl);
+  let bytes = dataUrlBytes(dataUrl);
   if (bytes > NIA_MAX_SELFIE_BYTES) {
     dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    bytes = base64Bytes(dataUrl);
+    bytes = dataUrlBytes(dataUrl);
   }
   if (bytes > NIA_MAX_SELFIE_BYTES) {
     throw new Error(

@@ -510,6 +510,7 @@ export default function AdminMarketDataPage() {
       const summary = (res.summary ?? {}) as Record<string, unknown>;
       const updated = Number(summary.updated ?? 0);
       const frozen = Array.isArray(summary.frozen) ? summary.frozen.length : 0;
+      const paused = Array.isArray(summary.paused) ? summary.paused.length : 0;
       const unmatched = Array.isArray(summary.unmatched) ? summary.unmatched.length : 0;
       const failed = res.status === "FAILED";
       toast({
@@ -525,6 +526,7 @@ export default function AdminMarketDataPage() {
           : [
               `${updated} quote${updated === 1 ? "" : "s"} refreshed.`,
               frozen ? `${frozen} pinned instrument${frozen === 1 ? "" : "s"} left untouched.` : "",
+              paused ? `${paused} paused instrument${paused === 1 ? "" : "s"} left untouched.` : "",
               unmatched
                 ? `${unmatched} published tenor${unmatched === 1 ? " has" : "s have"} no matching instrument.`
                 : "",
@@ -1167,7 +1169,7 @@ export default function AdminMarketDataPage() {
                       className="text-[10px] font-normal"
                       title={
                         s.message ??
-                        `${s.updated} updated, ${s.unchanged} unchanged, ${s.frozen.length} pinned, ${s.unmatched.length} unmatched`
+                        `${s.updated} updated, ${s.unchanged} unchanged, ${s.frozen.length} pinned, ${s.paused?.length ?? 0} paused, ${s.unmatched.length} unmatched`
                       }
                     >
                       {s.source}:{" "}
