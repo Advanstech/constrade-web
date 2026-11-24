@@ -55,23 +55,23 @@ function formatGhanaPostGps(rawInput: string): string {
   return formatted;
 }
 
-/** Helper to auto-format Ghana Card (GHA-XXXXXXXXX-X) */
+/**
+ * Helper to auto-format Ghana Card (GHA-XXXXXXXXX-X).
+ *
+ * The prefix and both dashes are rebuilt on every keystroke, so the investor
+ * only ever types digits (or pastes the PIN in any shape) and the value that
+ * reaches the API is already in the canonical shape NIA expects. Returns an
+ * empty string when there are no digits, otherwise the field could never be
+ * cleared: a bare "GHA-" is worth nothing to anyone.
+ */
 function formatGhanaCardNumber(rawInput: string): string {
-  let raw = rawInput.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (!raw.startsWith("GHA") && raw.length <= 3) {
-    const prefix = "GHA".slice(0, Math.max(raw.length, 0));
-    if (raw !== prefix.slice(0, raw.length)) {
-      raw = "GHA" + raw.replace(/[A-Z]/g, "");
-    }
-  }
-  const digits = raw.startsWith("GHA") ? raw.slice(3) : raw.replace(/[A-Z]/g, "");
-  let formatted = "GHA-";
-  if (digits.length <= 9) {
-    formatted += digits;
-  } else {
-    formatted += digits.slice(0, 9) + "-" + digits.slice(9, 10);
-  }
-  return formatted;
+  const raw = rawInput.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const digits = (raw.startsWith("GHA") ? raw.slice(3) : raw)
+    .replace(/[^0-9]/g, "")
+    .slice(0, 10);
+  if (digits.length === 0) return "";
+  if (digits.length <= 9) return `GHA-${digits}`;
+  return `GHA-${digits.slice(0, 9)}-${digits.slice(9)}`;
 }
 
 /** Investment objectives textarea that reveals suggestion chips only on focus. */

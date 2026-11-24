@@ -42,6 +42,8 @@ const STATUS_COPY: Record<NiaVerificationStatusValue, string> = {
 const FAILURE_GUIDANCE: Record<string, string> = {
   CARD_INVALID:
     "Check the Ghana Card number in the identity section — it looks like GHA-123456789-0.",
+  CARD_MISSING:
+    "Add your Ghana Card number in the identity section first, then come back to the selfie.",
   CARD_MISMATCH:
     "That number does not match the Ghana Card on your KYC file. Correct it in the identity section, then retake the selfie.",
   IMAGE_INVALID:
