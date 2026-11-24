@@ -407,12 +407,12 @@ export function NiaCameraCapture({
                 className="h-full w-full object-cover"
               />
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="aspect-[4/5] w-[62%] rounded-[50%] border-[3px] border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
+                <div className="h-[72%] aspect-[4/5] rounded-[50%] border-[3px] border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
               </div>
               <p className="absolute inset-x-4 top-3 text-center text-xs font-semibold text-white/90">
                 {rearCamera
-                  ? "Ask someone to take the photo — centre the face in the oval"
-                  : "Centre your face inside the oval"}
+                  ? "Ask someone to take the photo — head inside the oval"
+                  : "Head inside the oval — chin low, hairline high"}
               </p>
               <p className="absolute inset-x-4 bottom-3 text-center text-[11px] leading-relaxed text-white/70">
                 Good light on your face · no hat, mask or sunglasses · look
@@ -432,7 +432,7 @@ export function NiaCameraCapture({
               onPointerCancel={onPointerUp}
             >
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="aspect-[4/5] w-[62%] rounded-[50%] border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
+                <div className="h-[72%] aspect-[4/5] rounded-[50%] border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
               </div>
               <p className="pointer-events-none absolute inset-x-3 top-2 text-center text-[11px] font-semibold text-white/90">
                 This frame is exactly what NIA will compare

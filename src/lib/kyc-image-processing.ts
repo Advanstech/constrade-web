@@ -183,6 +183,15 @@ export const NIA_FRAME_ASPECT = NIA_FRAME_WIDTH / NIA_FRAME_HEIGHT;
 /** How far above the middle a portrait frame starts, as on mobile. */
 const NIA_PORTRAIT_CROP_BIAS = 0.35;
 
+/**
+ * How much of the largest window the untouched editor starts on.
+ *
+ * NIA answers a full-frame selfie with "11 — Face too small, retake picture",
+ * so the default is a head-and-shoulders crop instead of the whole photo. The
+ * investor can still zoom back out to this window, never wider.
+ */
+const NIA_DEFAULT_CROP_SCALE = 0.78;
+
 /** The photo being framed: pixels plus their size, in source px. */
 export interface NiaSource {
   canvas: HTMLCanvasElement;
@@ -209,9 +218,14 @@ export function initialNiaCrop(width: number, height: number): NiaCrop {
     cropHeight = height;
     cropWidth = cropHeight * NIA_FRAME_ASPECT;
   }
+  // Start tighter than the largest window (see NIA_DEFAULT_CROP_SCALE).
+  cropWidth *= NIA_DEFAULT_CROP_SCALE;
+  cropHeight *= NIA_DEFAULT_CROP_SCALE;
+  const slackX = width - cropWidth;
+  const slackY = height - cropHeight;
   return {
-    x: (width - cropWidth) / 2,
-    y: (height - cropHeight) * NIA_PORTRAIT_CROP_BIAS,
+    x: slackX / 2,
+    y: slackY * NIA_PORTRAIT_CROP_BIAS,
     width: cropWidth,
     height: cropHeight,
   };

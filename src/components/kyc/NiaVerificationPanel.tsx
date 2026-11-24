@@ -48,6 +48,8 @@ const FAILURE_GUIDANCE: Record<string, string> = {
     "Add your Ghana Card number in the identity section first, then come back to the selfie.",
   CARD_MISMATCH:
     "That number does not match the Ghana Card on your KYC file. Correct it in the identity section, then retake the selfie.",
+  FACE_NOT_DETECTED:
+    "Your face was too small in the frame. Move closer, or zoom in until your head fills the frame from chin to hairline, then retake.",
   IMAGE_INVALID:
     "The photo could not be read. Retake it in good light, without filters.",
   IMAGE_TOO_LARGE:
@@ -269,7 +271,7 @@ export function NiaVerificationPanel({
       {!verified && !blocked && (
         <p className="text-xs text-muted-foreground">
           The camera shows the exact 35×45 mm passport frame that is sent to NIA.
-          Face the light and keep your whole face inside the oval.
+          Put your head inside the oval — chin low, hairline high.
         </p>
       )}
 
