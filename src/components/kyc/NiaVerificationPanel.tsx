@@ -51,7 +51,7 @@ const FAILURE_GUIDANCE: Record<string, string> = {
   IMAGE_INVALID:
     "The photo could not be read. Retake it in good light, without filters.",
   IMAGE_TOO_LARGE:
-    "The photo was too large to send. Retake it so it can be cropped to 640×480.",
+    "The photo was too large to send. Retake it so it can be cropped to a 35×45 mm passport frame.",
   NOT_CONFIGURED:
     "Face verification is not switched on for this environment yet. Contact support and we will complete your check manually.",
   GATEWAY_TIMEOUT:
@@ -91,8 +91,9 @@ function formatAttemptTime(iso: string) {
 /**
  * Ghana Card face check with NIA.
  *
- * The selfie is taken on a live 640x480 canvas (see NiaCameraCapture) and only
- * the comparison result is kept by the API. Failures are explained by cause,
+ * The selfie is taken on a live passport-frame canvas (see NiaCameraCapture) and
+ * only the comparison result is kept by the API. Failures are explained by
+ * cause,
  * every attempt is listed so support can pick up the conversation, and there is
  * a direct support route instead of a dead "try again" button.
  */
@@ -267,8 +268,8 @@ export function NiaVerificationPanel({
 
       {!verified && !blocked && (
         <p className="text-xs text-muted-foreground">
-          The camera shows the exact 640×480 frame that is sent to NIA. Face the
-          light and keep your whole face inside the oval.
+          The camera shows the exact 35×45 mm passport frame that is sent to NIA.
+          Face the light and keep your whole face inside the oval.
         </p>
       )}
 

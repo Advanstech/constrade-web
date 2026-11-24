@@ -126,10 +126,14 @@ export function normalizeSignatureImage(file: File): Promise<File> {
   });
 }
 
-/** NIA refuses selfies above 1 MB and asks for a 640x480 crop. */
+/**
+ * The frame NIA compares, shaped like an international passport photo: 35 x 45
+ * mm, so 7:9 portrait. Encoded at 700x900 — the same ratio at roughly 500 dpi,
+ * above the 640x480 the gateway asks for. NIA refuses selfies above 1 MB.
+ */
 export const NIA_MAX_SELFIE_BYTES = 1024 * 1024;
-export const NIA_FRAME_WIDTH = 640;
-export const NIA_FRAME_HEIGHT = 480;
+export const NIA_FRAME_WIDTH = 700;
+export const NIA_FRAME_HEIGHT = 900;
 
 /** Byte size of a base64 data URL, without allocating a decoded copy. */
 export function dataUrlBytes(dataUrl: string): number {
@@ -139,7 +143,7 @@ export function dataUrlBytes(dataUrl: string): number {
 }
 
 /**
- * Encodes an already 640x480 canvas for NIA: PNG first, JPEG if that exceeds
+ * Encodes an already 700x900 canvas for NIA: PNG first, JPEG if that exceeds
  * the 1 MB ceiling. Used by the live camera, where the frame never exists as a
  * File.
  */
@@ -163,8 +167,8 @@ export function canvasToNiaDataUrl(canvas: HTMLCanvasElement): {
 
 /**
  * Prepares a live selfie for the NIA face check without asking the investor:
- * the widest 4:3 crop, scaled to 640x480. The camera screen calls the crop
- * helpers below directly instead, so the investor frames the shot.
+ * the widest passport-ratio crop, scaled to 700x900. The camera screen calls
+ * the crop helpers below directly instead, so the investor frames the shot.
  */
 export async function prepareNiaSelfie(
   file: File,
@@ -173,7 +177,7 @@ export async function prepareNiaSelfie(
   return niaCropToDataUrl(source, initialNiaCrop(source.width, source.height));
 }
 
-/** NIA compares 4:3 frames, so every crop is 4:3. */
+/** NIA compares a face filling the frame, so every crop is 35:45 (7:9). */
 export const NIA_FRAME_ASPECT = NIA_FRAME_WIDTH / NIA_FRAME_HEIGHT;
 
 /** How far above the middle a portrait frame starts, as on mobile. */
@@ -194,9 +198,9 @@ export interface NiaCrop {
 }
 
 /**
- * The widest 4:3 crop the source allows, nudged up for a portrait photo: a
- * selfie puts the face above the middle, and a centred crop took the forehead
- * off before this existed.
+ * The widest passport-ratio crop the source allows, nudged up for a portrait
+ * photo: a selfie puts the face above the middle, and a centred crop took the
+ * forehead off before this existed.
  */
 export function initialNiaCrop(width: number, height: number): NiaCrop {
   let cropWidth = width;
@@ -213,7 +217,7 @@ export function initialNiaCrop(width: number, height: number): NiaCrop {
   };
 }
 
-/** Forces a dragged or zoomed crop back to 4:3 and inside the source. */
+/** Forces a dragged or zoomed crop back to 35:45 and inside the source. */
 export function clampNiaCrop(
   crop: NiaCrop,
   width: number,
@@ -235,7 +239,7 @@ export function clampNiaCrop(
 
 /**
  * Copies any drawable frame (video, image) into an offscreen canvas, capped at
- * 1600 px on the long edge: enough detail to crop a sharp 640x480 from, small
+ * 1600 px on the long edge: enough detail to crop a sharp 700x900 from, small
  * enough to keep in memory while dragging.
  */
 export function niaSourceFromDrawable(

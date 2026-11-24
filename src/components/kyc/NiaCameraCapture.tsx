@@ -40,7 +40,7 @@ import {
 type Phase = "starting" | "live" | "adjust" | "review" | "blocked";
 
 interface NiaCameraCaptureProps {
-  /** Called with the 640x480 PNG/JPEG data URL that should be submitted. */
+  /** Called with the 700x900 (35:45) PNG/JPEG data URL that should be submitted. */
   onCapture: (dataUrl: string) => void;
   onClose: () => void;
   /** Set while the API is checking the captured frame. */
@@ -172,9 +172,9 @@ export function NiaCameraCapture({
       setSource(next);
       setCrop(initial);
       setZoom(1);
-      // Stop at roughly 320 px of crop width: below that the 640 px frame is
+      // Stop at roughly 350 px of crop width: below that the 700 px frame is
       // upscaled and the comparison loses detail.
-      setZoomMax(Math.min(4, Math.max(1, initial.width / 320)));
+      setZoomMax(Math.min(4, Math.max(1, initial.width / 350)));
       setShot(null);
       setPhase("adjust");
       stopStream();
@@ -190,7 +190,7 @@ export function NiaCameraCapture({
     }
     setCameraError(null);
     try {
-      // The full sensor frame, not the 4:3 preview: the editor needs the
+      // The full sensor frame, not the cropped preview: the editor needs the
       // surrounding pixels so the investor can zoom back out.
       openAdjuster(niaSourceFromVideo(video));
     } catch (err) {
@@ -266,10 +266,15 @@ export function NiaCameraCapture({
     drag.current = null;
   };
 
-  const confirmCrop = () => {
+  const confirmCrop = async () => {
     if (!source || !crop) return;
     setProcessing(true);
     setCameraError(null);
+    // Two frames so the spinner and the overlay paint before the encode blocks
+    // the main thread — without them Continue looked dead for a moment.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
     try {
       setShot(niaCropToDataUrl(source, crop));
       setPhase("review");
@@ -374,13 +379,23 @@ export function NiaCameraCapture({
           </div>
         </div>
 
-        {/* 4:3 in every step that shows a frame: the preview, the editor and the
-            review are all the frame NIA receives. */}
+        {/* One portrait window for every step that shows a frame: the live
+            preview, the editor and the review are all the 35:45 (700x900)
+            passport photo NIA receives. Height-driven so a short laptop window
+            still fits the buttons. */}
         <div
           className={cn(
-            "relative mx-4 overflow-hidden rounded-xl bg-black",
-            phase === "blocked" ? "aspect-[4/5]" : "aspect-[4/3]",
+            "relative mx-auto overflow-hidden rounded-xl bg-black",
+            phase === "blocked" && "w-[calc(100%-2rem)] aspect-[4/5]",
           )}
+          style={
+            phase === "blocked"
+              ? undefined
+              : {
+                  height: "min(54vh, 500px)",
+                  width: `calc(min(54vh, 500px) * ${NIA_FRAME_ASPECT})`,
+                }
+          }
         >
           {phase === "live" && (
             <>
@@ -392,7 +407,7 @@ export function NiaCameraCapture({
                 className="h-full w-full object-cover"
               />
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="aspect-[4/5] w-[55%] rounded-[50%] border-[3px] border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
+                <div className="aspect-[4/5] w-[62%] rounded-[50%] border-[3px] border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
               </div>
               <p className="absolute inset-x-4 top-3 text-center text-xs font-semibold text-white/90">
                 {rearCamera
@@ -417,13 +432,22 @@ export function NiaCameraCapture({
               onPointerCancel={onPointerUp}
             >
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="aspect-[4/5] w-[55%] rounded-[50%] border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
+                <div className="aspect-[4/5] w-[62%] rounded-[50%] border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
               </div>
               <p className="pointer-events-none absolute inset-x-3 top-2 text-center text-[11px] font-semibold text-white/90">
                 This frame is exactly what NIA will compare
               </p>
               <p className="pointer-events-none absolute inset-x-3 bottom-2 text-center text-[11px] text-white/70">
                 Drag to move · slide to zoom
+              </p>
+            </div>
+          )}
+
+          {phase === "adjust" && processing && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/60 text-white/85">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <p className="text-xs font-semibold">
+                Preparing your passport-size crop…
               </p>
             </div>
           )}
