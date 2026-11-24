@@ -28,6 +28,7 @@ import {
   NIA_FRAME_ASPECT,
   NIA_FRAME_HEIGHT,
   NIA_FRAME_WIDTH,
+  NIA_SMALL_SOURCE_WIDTH,
   clampNiaCrop,
   initialNiaCrop,
   niaCropToDataUrl,
@@ -90,9 +91,12 @@ export function NiaCameraCapture({
 
   const [phase, setPhase] = useState<Phase>("starting");
   const [facing, setFacing] = useState<"user" | "environment">("user");
-  const [shot, setShot] = useState<{ dataUrl: string; bytes: number } | null>(
-    null,
-  );
+  const [shot, setShot] = useState<{
+    dataUrl: string;
+    bytes: number;
+    /** The crop came from a region too small to stay sharp at 700x900. */
+    smallSource: boolean;
+  } | null>(null);
 
   /// The captured photo being framed, and the region of it that is sent.
   const [source, setSource] = useState<NiaSource | null>(null);
@@ -276,7 +280,13 @@ export function NiaCameraCapture({
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );
     try {
-      setShot(niaCropToDataUrl(source, crop));
+      const next = niaCropToDataUrl(source, crop);
+      setShot({
+        ...next,
+        smallSource:
+          clampNiaCrop(crop, source.width, source.height).width <
+          NIA_SMALL_SOURCE_WIDTH,
+      });
       setPhase("review");
     } catch (err) {
       setCameraError(
@@ -537,6 +547,13 @@ export function NiaCameraCapture({
             />
             <ZoomIn className="h-4 w-4 shrink-0" />
           </div>
+        )}
+
+        {phase === "review" && shot?.smallSource && (
+          <p className="mx-4 mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            This crop came from a small part of the photo, so it is upscaled. If
+            NIA cannot match it, retake it closer with the live camera.
+          </p>
         )}
 
         {(cameraError || error) && phase !== "blocked" && (

@@ -135,6 +135,12 @@ export const NIA_MAX_SELFIE_BYTES = 1024 * 1024;
 export const NIA_FRAME_WIDTH = 700;
 export const NIA_FRAME_HEIGHT = 900;
 
+/**
+ * Below this crop width the 700 px frame is upscaled from a small region, so the
+ * comparison has less detail than NIA would like (same threshold as mobile).
+ */
+export const NIA_SMALL_SOURCE_WIDTH = 560;
+
 /** Byte size of a base64 data URL, without allocating a decoded copy. */
 export function dataUrlBytes(dataUrl: string): number {
   const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
