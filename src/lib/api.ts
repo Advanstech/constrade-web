@@ -402,6 +402,7 @@ function toKycProgress(raw: any): KycProgress {
     completionPercentage: Number(raw.completionPercentage ?? Math.round((completedSteps / totalSteps) * 100)),
     totalSteps,
     status: raw.kycStatus === "APPROVED" ? "approved" : raw.kycStep === "ALL_STEPS_COMPLETE" ? "submitted" : "in_progress",
+    kycApprovedAt: raw.kycApprovedAt ?? null,
     data: {
       draft: raw.kycDraft ?? null,
       documents: raw.documents ?? [],

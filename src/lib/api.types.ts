@@ -183,6 +183,8 @@ export interface KycProgress {
   completionPercentage: number;
   totalSteps: number;
   status: "in_progress" | "submitted" | "approved";
+  /** When compliance approved the file; null until then. */
+  kycApprovedAt?: string | null;
   data: Record<string, unknown>;
 }
 

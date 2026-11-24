@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { VerifiedStamp } from "@/components/ui/verified-stamp";
 import { useAuth } from "@/auth/AuthProvider";
 import { onboardingApi } from "@/lib/api";
 import type { KycProgress } from "@/lib/api.types";
@@ -107,6 +108,14 @@ const ProfilePage = () => {
                     Trading is restricted until your account opening &amp; KYC is complete.
                   </p>
                 </>
+              )}
+              {kycApproved && (
+                <div className="mt-3">
+                  <VerifiedStamp
+                    label="Account verified"
+                    date={kyc?.kycApprovedAt ?? null}
+                  />
+                </div>
               )}
             </div>
           </div>

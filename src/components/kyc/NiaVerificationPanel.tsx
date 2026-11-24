@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { VerifiedStamp } from "@/components/ui/verified-stamp";
 import { cn } from "@/lib/utils";
 import { niaApi } from "@/lib/api";
 import type { NiaStatus, NiaVerificationStatusValue } from "@/lib/api.types";
@@ -262,10 +263,13 @@ export function NiaVerificationPanel({
       </div>
 
       {verified && (
-        <p className="flex items-center gap-2 text-sm text-emerald-700">
-          <CheckCircle2 className="h-4 w-4" />
-          Verified{status?.verifiedAt ? ` on ${status.verifiedAt.slice(0, 10)}` : ""}.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="flex items-center gap-2 text-sm text-emerald-700">
+            <CheckCircle2 className="h-4 w-4" />
+            NIA matched this selfie to your Ghana Card.
+          </p>
+          <VerifiedStamp label="NIA verified" date={status?.verifiedAt} />
+        </div>
       )}
 
       {!verified && !blocked && (
