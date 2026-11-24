@@ -942,6 +942,15 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
 
   return (
     <div className="space-y-8">
+      {/* Selfie check leads the step: it is the one action on the identity step
+          that cannot be done anywhere else, and below the identity block nobody
+          found it. */}
+      <NiaVerificationPanel
+        pinNumber={d.identityDocs?.[0]?.number ?? ""}
+        documentType={d.identityDocs?.[0]?.type ?? "Ghana Card"}
+        source="WEB"
+      />
+
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">Standard Passport Picture</p>
         <Field label="Upload a standard passport picture">
@@ -1042,14 +1051,6 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
           );
         })}
       </div>
-
-      {/* Selfie check — required before trading for Ghana Card files. Always
-          rendered so a passport file explains itself instead of showing nothing. */}
-      <NiaVerificationPanel
-        pinNumber={d.identityDocs?.[0]?.number ?? ""}
-        documentType={d.identityDocs?.[0]?.type ?? "Ghana Card"}
-        source="WEB"
-      />
 
       {/* SEC Section K: FATCA & CRS Self-Certification */}
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-5">

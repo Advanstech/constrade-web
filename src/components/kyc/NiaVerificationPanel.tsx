@@ -330,9 +330,11 @@ export function NiaVerificationPanel({
             ) : (
               <>
                 <Camera className="mr-2 h-4 w-4" />
-                {currentStatus === "UNVERIFIED"
-                  ? "Take selfie & verify"
-                  : "Retry with a new selfie"}
+                {!cardReady
+                  ? "Add your Ghana Card number below"
+                  : currentStatus === "UNVERIFIED"
+                    ? "Take selfie & verify"
+                    : "Retry with a new selfie"}
               </>
             )}
           </Button>
@@ -355,8 +357,8 @@ export function NiaVerificationPanel({
           )}
           {!cardReady && (
             <span className="text-xs text-muted-foreground">
-              Enter and save your Ghana Card number in the identity section
-              first.
+              Add your Ghana Card number in Section E just below, then come back
+              to the selfie.
             </span>
           )}
         </div>
