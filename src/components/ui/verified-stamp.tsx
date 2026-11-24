@@ -49,7 +49,7 @@ export function VerifiedStamp({ label, date, className }: VerifiedStampProps) {
         className,
       )}
     >
-      <span className="flex flex-col items-center rounded-full border border-emerald-700/40 px-4 py-1.5 dark:border-emerald-300/40">
+      <span className="flex flex-col items-center rounded-full border border-emerald-700/40 px-4 py-2 dark:border-emerald-300/40">
         <span
           aria-hidden
           className="text-[10px] font-extrabold uppercase leading-none tracking-[0.17em]"
