@@ -162,52 +162,139 @@ export function canvasToNiaDataUrl(canvas: HTMLCanvasElement): {
 }
 
 /**
- * Prepares a live selfie for the NIA face check: centre-crops to 4:3, scales
- * to 640x480 and returns a base64 data URL within NIA's 1 MB ceiling.
- *
- * PNG is preferred because that is what NIA documents; if the crop exceeds
- * 1 MB the same pixels are re-encoded as JPEG.
+ * Prepares a live selfie for the NIA face check without asking the investor:
+ * the widest 4:3 crop, scaled to 640x480. The camera screen calls the crop
+ * helpers below directly instead, so the investor frames the shot.
  */
 export async function prepareNiaSelfie(
   file: File,
 ): Promise<{ dataUrl: string; bytes: number }> {
-  const image = await loadImage(file);
-  const targetWidth = NIA_FRAME_WIDTH;
-  const targetHeight = NIA_FRAME_HEIGHT;
+  const source = await niaSourceFromFile(file);
+  return niaCropToDataUrl(source, initialNiaCrop(source.width, source.height));
+}
 
+/** NIA compares 4:3 frames, so every crop is 4:3. */
+export const NIA_FRAME_ASPECT = NIA_FRAME_WIDTH / NIA_FRAME_HEIGHT;
+
+/** How far above the middle a portrait frame starts, as on mobile. */
+const NIA_PORTRAIT_CROP_BIAS = 0.35;
+
+/** The photo being framed: pixels plus their size, in source px. */
+export interface NiaSource {
+  canvas: HTMLCanvasElement;
+  width: number;
+  height: number;
+}
+
+export interface NiaCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The widest 4:3 crop the source allows, nudged up for a portrait photo: a
+ * selfie puts the face above the middle, and a centred crop took the forehead
+ * off before this existed.
+ */
+export function initialNiaCrop(width: number, height: number): NiaCrop {
+  let cropWidth = width;
+  let cropHeight = cropWidth / NIA_FRAME_ASPECT;
+  if (cropHeight > height) {
+    cropHeight = height;
+    cropWidth = cropHeight * NIA_FRAME_ASPECT;
+  }
+  return {
+    x: (width - cropWidth) / 2,
+    y: (height - cropHeight) * NIA_PORTRAIT_CROP_BIAS,
+    width: cropWidth,
+    height: cropHeight,
+  };
+}
+
+/** Forces a dragged or zoomed crop back to 4:3 and inside the source. */
+export function clampNiaCrop(
+  crop: NiaCrop,
+  width: number,
+  height: number,
+): NiaCrop {
+  let w = Math.min(Math.max(crop.width, 32), width);
+  let h = w / NIA_FRAME_ASPECT;
+  if (h > height) {
+    h = height;
+    w = h * NIA_FRAME_ASPECT;
+  }
+  return {
+    x: Math.min(Math.max(crop.x, 0), width - w),
+    y: Math.min(Math.max(crop.y, 0), height - h),
+    width: w,
+    height: h,
+  };
+}
+
+/**
+ * Copies any drawable frame (video, image) into an offscreen canvas, capped at
+ * 1600 px on the long edge: enough detail to crop a sharp 640x480 from, small
+ * enough to keep in memory while dragging.
+ */
+export function niaSourceFromDrawable(
+  drawable: CanvasImageSource,
+  width: number,
+  height: number,
+): NiaSource {
+  const scale = Math.min(1, 1600 / Math.max(width, height));
   const canvas = document.createElement("canvas");
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     throw new Error("Image processing is not supported in this browser.");
   }
+  ctx.drawImage(drawable, 0, 0, canvas.width, canvas.height);
+  return { canvas, width: canvas.width, height: canvas.height };
+}
 
-  // Cover-crop so the face fills the 4:3 frame without letterboxing.
-  const scale = Math.max(
-    targetWidth / image.naturalWidth,
-    targetHeight / image.naturalHeight,
-  );
-  const drawWidth = image.naturalWidth * scale;
-  const drawHeight = image.naturalHeight * scale;
-  ctx.drawImage(
+export function niaSourceFromVideo(video: HTMLVideoElement): NiaSource {
+  return niaSourceFromDrawable(video, video.videoWidth, video.videoHeight);
+}
+
+export async function niaSourceFromFile(file: File): Promise<NiaSource> {
+  const image = await loadImage(file);
+  return niaSourceFromDrawable(
     image,
-    (targetWidth - drawWidth) / 2,
-    (targetHeight - drawHeight) / 2,
-    drawWidth,
-    drawHeight,
+    image.naturalWidth,
+    image.naturalHeight,
   );
+}
 
-  let dataUrl = canvas.toDataURL("image/png");
-  let bytes = dataUrlBytes(dataUrl);
-  if (bytes > NIA_MAX_SELFIE_BYTES) {
-    dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    bytes = dataUrlBytes(dataUrl);
+/**
+ * Encodes exactly the region the investor framed: no second crop, so what the
+ * editor shows is what NIA compares.
+ */
+export function niaCropToDataUrl(
+  source: NiaSource,
+  crop: NiaCrop,
+): { dataUrl: string; bytes: number } {
+  const safe = clampNiaCrop(crop, source.width, source.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = NIA_FRAME_WIDTH;
+  canvas.height = NIA_FRAME_HEIGHT;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Image processing is not supported in this browser.");
   }
-  if (bytes > NIA_MAX_SELFIE_BYTES) {
-    throw new Error(
-      "The selfie is still above 1 MB after resizing. Move to better lighting and retake it.",
-    );
-  }
-  return { dataUrl, bytes };
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(
+    source.canvas,
+    safe.x,
+    safe.y,
+    safe.width,
+    safe.height,
+    0,
+    0,
+    NIA_FRAME_WIDTH,
+    NIA_FRAME_HEIGHT,
+  );
+  return canvasToNiaDataUrl(canvas);
 }

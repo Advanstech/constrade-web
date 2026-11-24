@@ -1,24 +1,43 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   Camera,
+  Check,
+  Crop,
   Image as ImageIcon,
   Loader2,
   RefreshCw,
   Smartphone,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import {
+  NIA_FRAME_ASPECT,
   NIA_FRAME_HEIGHT,
   NIA_FRAME_WIDTH,
-  canvasToNiaDataUrl,
-  prepareNiaSelfie,
+  clampNiaCrop,
+  initialNiaCrop,
+  niaCropToDataUrl,
+  niaSourceFromFile,
+  niaSourceFromVideo,
+  type NiaCrop,
+  type NiaSource,
 } from "@/lib/kyc-image-processing";
 
-type Phase = "starting" | "live" | "review" | "blocked";
+type Phase = "starting" | "live" | "adjust" | "review" | "blocked";
 
 interface NiaCameraCaptureProps {
   /** Called with the 640x480 PNG/JPEG data URL that should be submitted. */
@@ -48,14 +67,14 @@ function describeCameraError(error: unknown): string {
 }
 
 /**
- * Live camera canvas for the NIA face check.
+ * Live camera, crop, review for the NIA face check.
  *
- * The previous flow opened the OS file picker with `capture="user"` — on
- * desktop that silently does nothing, so the face check never produced an NIA
- * response. This draws the front camera into a 640x480 canvas (the exact frame
- * that is sent) with an oval guide, and falls back to the phone camera or a
- * photo when getUserMedia is unavailable, refused or blocked on an insecure
- * origin.
+ * The frame that reaches NIA used to be a blind centre crop of the video, and on
+ * a phone that cut the face off at the forehead. The camera now captures the
+ * full sensor frame, then the investor drags and zooms it behind a 4:3 window
+ * that is exactly what NIA receives. The rear camera is offered for someone
+ * else taking the photo. Falls back to the phone camera or a photo when
+ * getUserMedia is unavailable, refused or blocked on an insecure origin.
  */
 export function NiaCameraCapture({
   onCapture,
@@ -64,16 +83,25 @@ export function NiaCameraCapture({
   error,
 }: NiaCameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
 
   const [phase, setPhase] = useState<Phase>("starting");
   const [facing, setFacing] = useState<"user" | "environment">("user");
   const [shot, setShot] = useState<{ dataUrl: string; bytes: number } | null>(
     null,
   );
+
+  /// The captured photo being framed, and the region of it that is sent.
+  const [source, setSource] = useState<NiaSource | null>(null);
+  const [crop, setCrop] = useState<NiaCrop | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [zoomMax, setZoomMax] = useState(4);
+  const baseCropWidth = useRef(1);
+  const drag = useRef<{ x: number; y: number; crop: NiaCrop } | null>(null);
+
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -136,41 +164,37 @@ export function NiaCameraCapture({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Hands the captured photo to the crop editor and releases the camera. */
+  const openAdjuster = useCallback(
+    (next: NiaSource) => {
+      const initial = initialNiaCrop(next.width, next.height);
+      baseCropWidth.current = initial.width;
+      setSource(next);
+      setCrop(initial);
+      setZoom(1);
+      // Stop at roughly 320 px of crop width: below that the 640 px frame is
+      // upscaled and the comparison loses detail.
+      setZoomMax(Math.min(4, Math.max(1, initial.width / 320)));
+      setShot(null);
+      setPhase("adjust");
+      stopStream();
+    },
+    [stopStream],
+  );
+
   const capture = () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) {
       setCameraError("The camera has not produced a frame yet. Try again.");
       return;
     }
-    setProcessing(true);
+    setCameraError(null);
     try {
-      const canvas = canvasRef.current ?? document.createElement("canvas");
-      canvas.width = NIA_FRAME_WIDTH;
-      canvas.height = NIA_FRAME_HEIGHT;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("This browser cannot process the photo.");
-      // Cover-crop: the face fills the 4:3 frame without letterboxing, exactly
-      // like the mobile canvas.
-      const scale = Math.max(
-        NIA_FRAME_WIDTH / video.videoWidth,
-        NIA_FRAME_HEIGHT / video.videoHeight,
-      );
-      const drawWidth = video.videoWidth * scale;
-      const drawHeight = video.videoHeight * scale;
-      ctx.drawImage(
-        video,
-        (NIA_FRAME_WIDTH - drawWidth) / 2,
-        (NIA_FRAME_HEIGHT - drawHeight) / 2,
-        drawWidth,
-        drawHeight,
-      );
-      setShot(canvasToNiaDataUrl(canvas));
-      setPhase("review");
-      stopStream();
+      // The full sensor frame, not the 4:3 preview: the editor needs the
+      // surrounding pixels so the investor can zoom back out.
+      openAdjuster(niaSourceFromVideo(video));
     } catch (err) {
       setCameraError(describeCameraError(err));
-    } finally {
-      setProcessing(false);
     }
   };
 
@@ -178,10 +202,7 @@ export function NiaCameraCapture({
     setProcessing(true);
     setCameraError(null);
     try {
-      const result = await prepareNiaSelfie(file);
-      setShot(result);
-      setPhase("review");
-      stopStream();
+      openAdjuster(await niaSourceFromFile(file));
     } catch (err) {
       setCameraError(
         err instanceof Error ? err.message : "That photo could not be used.",
@@ -191,15 +212,126 @@ export function NiaCameraCapture({
     }
   };
 
+  const applyZoom = (value: number) => {
+    if (!source || !crop) return;
+    const clamped = Math.min(Math.max(value, 1), zoomMax);
+    const wanted = Math.min(
+      baseCropWidth.current,
+      Math.max(32, baseCropWidth.current / clamped),
+    );
+    const height = wanted / NIA_FRAME_ASPECT;
+    setZoom(clamped);
+    setCrop(
+      clampNiaCrop(
+        {
+          x: crop.x + (crop.width - wanted) / 2,
+          y: crop.y + (crop.height - height) / 2,
+          width: wanted,
+          height,
+        },
+        source.width,
+        source.height,
+      ),
+    );
+  };
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!crop) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    drag.current = { x: event.clientX, y: event.clientY, crop };
+  };
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = drag.current;
+    if (!start || !source) return;
+    const viewWidth = frameRef.current?.getBoundingClientRect().width ?? 0;
+    if (viewWidth <= 0) return;
+    // The window shows `viewWidth` px for `start.crop.width` source px, so
+    // dragging the photo right moves the crop window left.
+    const scale = start.crop.width / viewWidth;
+    setCrop(
+      clampNiaCrop(
+        {
+          ...start.crop,
+          x: start.crop.x - (event.clientX - start.x) * scale,
+          y: start.crop.y - (event.clientY - start.y) * scale,
+        },
+        source.width,
+        source.height,
+      ),
+    );
+  };
+
+  const onPointerUp = () => {
+    drag.current = null;
+  };
+
+  const confirmCrop = () => {
+    if (!source || !crop) return;
+    setProcessing(true);
+    setCameraError(null);
+    try {
+      setShot(niaCropToDataUrl(source, crop));
+      setPhase("review");
+    } catch (err) {
+      setCameraError(
+        err instanceof Error ? err.message : "That crop could not be prepared.",
+      );
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const retake = () => {
     setShot(null);
+    setSource(null);
+    setCrop(null);
+    setZoom(1);
+    drag.current = null;
     void startCamera(facing);
+  };
+
+  const adjustAgain = () => {
+    if (!source) return;
+    setShot(null);
+    setPhase("adjust");
   };
 
   const close = () => {
     stopStream();
     onClose();
   };
+
+  /** One JPEG of the photo for the preview; the sent frame is re-drawn from the
+   * canvas so the preview's own encoding never reaches NIA. */
+  const sourceUrl = useMemo(
+    () => source?.canvas.toDataURL("image/jpeg", 0.92) ?? null,
+    [source],
+  );
+
+  /**
+   * `background-size`/`background-position` show exactly `crop` of the photo: a
+   * percentage position aligns the same fraction of the image and of the box,
+   * so `crop.x / (width - crop.width)` pans to the right pixel without measuring
+   * the element.
+   */
+  const adjustBackground = useMemo((): CSSProperties | undefined => {
+    if (!source || !crop || !sourceUrl) return undefined;
+    const spanX = source.width - crop.width;
+    const spanY = source.height - crop.height;
+    return {
+      backgroundImage: `url(${sourceUrl})`,
+      backgroundSize: `${(source.width / crop.width) * 100}% ${
+        (source.height / crop.height) * 100
+      }%`,
+      backgroundPosition: `${
+        spanX > 0 ? (crop.x / spanX) * 100 : 0
+      }% ${spanY > 0 ? (crop.y / spanY) * 100 : 0}%`,
+      backgroundRepeat: "no-repeat",
+    };
+  }, [source, crop, sourceUrl]);
+
+  const rearCamera = facing === "environment";
 
   return (
     <div
@@ -219,12 +351,14 @@ export function NiaCameraCapture({
               <button
                 type="button"
                 onClick={() => {
-                  const next = facing === "user" ? "environment" : "user";
+                  const next = rearCamera ? "user" : "environment";
                   setFacing(next);
                   void startCamera(next);
                 }}
                 className="rounded-md p-2 text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-                title="Switch camera"
+                title={
+                  rearCamera ? "Use the front camera" : "Use the rear camera"
+                }
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
@@ -240,7 +374,14 @@ export function NiaCameraCapture({
           </div>
         </div>
 
-        <div className="relative mx-4 aspect-[3/4] overflow-hidden rounded-xl bg-black">
+        {/* 4:3 in every step that shows a frame: the preview, the editor and the
+            review are all the frame NIA receives. */}
+        <div
+          className={cn(
+            "relative mx-4 overflow-hidden rounded-xl bg-black",
+            phase === "blocked" ? "aspect-[4/5]" : "aspect-[4/3]",
+          )}
+        >
           {phase === "live" && (
             <>
               <video
@@ -250,18 +391,41 @@ export function NiaCameraCapture({
                 autoPlay
                 className="h-full w-full object-cover"
               />
-              {/* The oval mirrors the 4:3 centre crop the API sends to NIA. */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="aspect-[4/5] w-[68%] rounded-[50%] border-[3px] border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
+                <div className="aspect-[4/5] w-[55%] rounded-[50%] border-[3px] border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
               </div>
               <p className="absolute inset-x-4 top-3 text-center text-xs font-semibold text-white/90">
-                Centre your face inside the oval
+                {rearCamera
+                  ? "Ask someone to take the photo — centre the face in the oval"
+                  : "Centre your face inside the oval"}
               </p>
               <p className="absolute inset-x-4 bottom-3 text-center text-[11px] leading-relaxed text-white/70">
                 Good light on your face · no hat, mask or sunglasses · look
                 straight at the camera
               </p>
             </>
+          )}
+
+          {phase === "adjust" && source && crop && (
+            <div
+              ref={frameRef}
+              className="relative h-full w-full cursor-move touch-none select-none"
+              style={adjustBackground}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+            >
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="aspect-[4/5] w-[55%] rounded-[50%] border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
+              </div>
+              <p className="pointer-events-none absolute inset-x-3 top-2 text-center text-[11px] font-semibold text-white/90">
+                This frame is exactly what NIA will compare
+              </p>
+              <p className="pointer-events-none absolute inset-x-3 bottom-2 text-center text-[11px] text-white/70">
+                Drag to move · slide to zoom
+              </p>
+            </div>
           )}
 
           {phase === "starting" && (
@@ -332,9 +496,24 @@ export function NiaCameraCapture({
               </div>
             </div>
           )}
-
-          <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
         </div>
+
+        {phase === "adjust" && (
+          <div className="mx-4 mt-3 flex items-center gap-3 text-white/70">
+            <ZoomOut className="h-4 w-4 shrink-0" />
+            <Slider
+              value={[zoom]}
+              min={1}
+              max={zoomMax}
+              step={0.01}
+              onValueChange={([value]) => applyZoom(value)}
+              disabled={zoomMax <= 1.001}
+              aria-label="Zoom"
+              className="[&>span]:bg-white/20 [&>span>span:first-child]:bg-brand-bronze [&_[role=slider]]:border-white [&_[role=slider]]:bg-white"
+            />
+            <ZoomIn className="h-4 w-4 shrink-0" />
+          </div>
+        )}
 
         {(cameraError || error) && phase !== "blocked" && (
           <p className="mx-4 mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
@@ -349,11 +528,11 @@ export function NiaCameraCapture({
                 type="button"
                 variant="outline"
                 className="flex-1 border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
-                onClick={retake}
+                onClick={adjustAgain}
                 disabled={busy}
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retake
+                <Crop className="mr-2 h-4 w-4" />
+                Adjust
               </Button>
               <Button
                 type="button"
@@ -368,6 +547,34 @@ export function NiaCameraCapture({
                   </>
                 ) : (
                   "Use this photo"
+                )}
+              </Button>
+            </>
+          ) : phase === "adjust" ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                onClick={retake}
+                disabled={processing}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retake
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 bg-brand-bronze text-white hover:bg-brand-bronze-dark"
+                onClick={confirmCrop}
+                disabled={processing || !crop}
+              >
+                {processing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Continue
+                  </>
                 )}
               </Button>
             </>

@@ -1043,13 +1043,13 @@ function Step4({ form, patchStep }: { form: KycFormData; patchStep: any }) {
         })}
       </div>
 
-      {/* NIA Ghana Card face verification — required before trading. */}
-      {(d.identityDocs?.[0]?.type ?? "Ghana Card") === "Ghana Card" && (
-        <NiaVerificationPanel
-          pinNumber={d.identityDocs?.[0]?.number ?? ""}
-          source="WEB"
-        />
-      )}
+      {/* Selfie check — required before trading for Ghana Card files. Always
+          rendered so a passport file explains itself instead of showing nothing. */}
+      <NiaVerificationPanel
+        pinNumber={d.identityDocs?.[0]?.number ?? ""}
+        documentType={d.identityDocs?.[0]?.type ?? "Ghana Card"}
+        source="WEB"
+      />
 
       {/* SEC Section K: FATCA & CRS Self-Certification */}
       <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-5">

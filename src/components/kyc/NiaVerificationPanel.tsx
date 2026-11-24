@@ -20,6 +20,8 @@ import { NiaCameraCapture } from "./NiaCameraCapture";
 interface NiaVerificationPanelProps {
   /** Ghana Card number from the identity step; empty disables verification. */
   pinNumber: string;
+  /** Identity document chosen above — decides whether a selfie is needed. */
+  documentType?: string;
   source?: "WEB" | "PORTAL";
   onVerified?: () => void;
   className?: string;
@@ -96,6 +98,7 @@ function formatAttemptTime(iso: string) {
  */
 export function NiaVerificationPanel({
   pinNumber,
+  documentType,
   source = "WEB",
   onVerified,
   className,
@@ -124,7 +127,13 @@ export function NiaVerificationPanel({
   const currentStatus: NiaVerificationStatusValue =
     status?.status ?? "UNVERIFIED";
   const verified = currentStatus === "VERIFIED";
-  const blocked = status?.applies === false || currentStatus === "WATCHLIST";
+  const passportFile = /passport/i.test(documentType ?? "");
+  // Only the document chosen on this form takes the selfie away. When the API
+  // disagrees it is because the saved KYC file still says passport — the note
+  // below says so, but the selfie stays available instead of vanishing.
+  const notApplicable = passportFile;
+  const savedFileDisagrees = !passportFile && status?.applies === false;
+  const blocked = notApplicable || currentStatus === "WATCHLIST";
   const cardReady = pinNumber.replace(/[^0-9]/g, "").length >= 10;
   const attempts = status?.recentAttempts ?? [];
 
@@ -174,7 +183,35 @@ export function NiaVerificationPanel({
     }
   };
 
-  if (status?.applies === false) return null;
+  if (notApplicable) {
+    return (
+      <div
+        className={cn(
+          "flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-5",
+          className,
+        )}
+      >
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+          <Camera className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">
+              Selfie check — Ghana Card face verification (NIA)
+            </p>
+            <span className="rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Not required
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Your KYC file is built on an International Passport, so there is no
+            Ghana Card for NIA to compare a selfie with. Choose Ghana Card in
+            Section E above if you want to verify with your card instead.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -203,7 +240,7 @@ export function NiaVerificationPanel({
           </span>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-bronze">
-              Ghana Card face verification (NIA)
+              Selfie check — Ghana Card face verification (NIA)
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Your live selfie is compared with the photo NIA holds for your
@@ -232,6 +269,16 @@ export function NiaVerificationPanel({
         <p className="text-xs text-muted-foreground">
           The camera shows the exact 640×480 frame that is sent to NIA. Face the
           light and keep your whole face inside the oval.
+        </p>
+      )}
+
+      {savedFileDisagrees && (
+        <p className="flex items-start gap-2 text-xs text-amber-700">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {status?.message ?
+            `${status.message} ` : "The saved KYC file is recorded against a passport, so this check is not part of your account yet. "}
+          Save this step with Ghana Card selected to switch it on — you can still
+          verify now.
         </p>
       )}
 

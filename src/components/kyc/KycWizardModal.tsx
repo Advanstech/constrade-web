@@ -1127,15 +1127,26 @@ export function KycWizardModal({
                         : "border border-border/40 bg-muted/20 text-muted-foreground/60 cursor-not-allowed",
                     )}
                   >
+                    {/* The number stays visible on every chip — a tick alone
+                        left people unable to tell which chip was step 5. */}
                     <span
                       className={cn(
-                        "flex h-4 w-4 items-center justify-center rounded-full text-[10px] transition-colors",
-                        completed ? "bg-brand-bronze text-white" : active ? "bg-white/20 text-white" : "bg-muted-foreground/20 text-muted-foreground",
+                        "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors",
+                        active
+                          ? "bg-white text-brand-bronze"
+                          : completed
+                          ? "bg-brand-bronze/20 text-brand-bronze"
+                          : reachable
+                          ? "bg-muted-foreground/20 text-foreground"
+                          : "bg-muted-foreground/10 text-muted-foreground/60",
                       )}
                     >
-                      {completed ? <Check className="h-3 w-3" /> : num}
+                      {num}
                     </span>
                     <span className="hidden sm:inline">{label}</span>
+                    {completed && !active && (
+                      <Check className="h-3 w-3 shrink-0" aria-hidden />
+                    )}
                   </button>
                 );
               })}
